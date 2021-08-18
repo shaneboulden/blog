@@ -16,13 +16,13 @@ Recently I've been contributing to an open source project called [Compliance as 
 
 The project produces some incredible artifacts. For example, a NIST-certified scanner (`oscap`), which can scan systems against a set of controls. The project also produces Security Content Automation Procotol (SCAP) content for these various standards, which can be consumed by the scanner. And Ansible playbooks to remediate systems against a baseline.
 
-This content isn't produced by a single organisation - it's contributed by an open source community, with a shared problem ("compliance") and who needed a common way of describing and remediating systems.
+This content isn't produced by a single organisation - it's contributed by an open source community, with a shared problem ("compliance") and who need a common way of describing and remediating systems.
 
 ## Compliance as Code and risk mitigation
 
 It took me some time to realise that the project supported a lot more than just "compliance". Really, it's supporting "proactive security", or risk management and mitigation for ICT systems. The only difference here seems to be that the risk register and mitigation strategies haven't been created internally, but by an external organisation. It's also likely that systems aren't permitted to operate - or touch production data - until sufficient risk treatments have been put in place. That makes sense, and I'm sure many organisations wouldn't permit a system to operate until sufficient risk mitigations are in place.
 
-Risk management - vice 'compliance' - is certainly the approach used by NIST and the Australian Cyber Security Centre (ACSC) to implement cybersecurity controls. The [NIST Cybersecurity Framework](https://www.nist.gov/cyberframework) references "compliance" 11 times, and "risk" 270. It even states 'this voluntary framework consists of standards, guidelines, and best practices to manage cybersecurity risk'. Similarly, the ACSC's [Information Security Manual](https://www.cyber.gov.au/acsc/view-all-content/ism) references "compliance" 5 times, and "risk" 196 times. It also states '[The ISM] outlines a cybersecurity framework that organisations can apply, using their risk management framework, to protect their systems and data from cyber threats'.
+Risk management - vice 'compliance' - is certainly the approach used by NIST and the Australian Cyber Security Centre (ACSC) to implement cybersecurity controls. The [NIST Cybersecurity Framework](https://www.nist.gov/cyberframework) references "compliance" 11 times, and "risk" 270. It even states 'this voluntary framework consists of standards, guidelines, and best practices to manage **cybersecurity risk**'. Similarly, the ACSC's [Information Security Manual](https://www.cyber.gov.au/acsc/view-all-content/ism) references "compliance" 5 times, and "risk" 196 times. It also states '[The ISM] outlines a cybersecurity framework that organisations can apply, using their **risk management** framework, to protect their systems and data from cyber threats'.
 
 ## Risk management as Code
 
