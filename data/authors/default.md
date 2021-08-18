@@ -1,6 +1,6 @@
 ---
 name: Shane Boulden
-avatar: /static/images/avatar.png
+avatar: /static/images/shane-avatar.png
 occupation: Solution Architect at Red Hat
 company: Georgia Institute of Technology
 email: dev@stb.id.au
