@@ -1,0 +1,24 @@
+
+  <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+      <title>deploy.yml</title>
+      <link>https://stb.id.au/blog</link>
+      <description></description>
+      <language>en-us</language>
+      <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
+      <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
+      <lastBuildDate>Wed, 18 Aug 2021 00:00:00 GMT</lastBuildDate>
+      <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
+      
+  <item>
+    <guid>https://stb.id.au/blog/compliance-mislabelled</guid>
+    <title>Compliance is mislabelled</title>
+    <link>https://stb.id.au/blog/compliance-mislabelled</link>
+    <description>Compliance evokes images of checking boxes. The real purpose of compliance is risk migitation, and it probably just needs a better name</description>
+    <pubDate>Wed, 18 Aug 2021 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>compliance</category><category>risk</category><category>security</category>
+  </item>
+
+    </channel>
+  </rss>
