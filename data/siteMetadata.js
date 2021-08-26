@@ -2,7 +2,7 @@ const siteMetadata = {
   title: 'Shane Boulden',
   author: 'Shane Boulden',
   headerTitle: 'Shane Boulden',
-  description: '',
+  description: 'Building applications, securing infrastructure and applications, and everything in-between.',
   language: 'en-us',
   siteUrl: 'https://stb.id.au',
   siteRepo: 'https://github.com/shaneboulden/blog',
