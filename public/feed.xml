@@ -1,20 +1,30 @@
 
   <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
-      <title>deploy.yml</title>
+      <title>Shane Boulden</title>
       <link>https://stb.id.au/blog</link>
-      <description></description>
+      <description>Building applications, securing infrastructure and applications, and everything in-between.</description>
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Wed, 18 Aug 2021 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Sun, 29 Aug 2021 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
   <item>
-    <guid>https://stb.id.au/blog/compliance-mislabelled</guid>
+    <guid>https://stb.id.au/blog/misp-on-rhel</guid>
+    <title>Open source threat intelligence and SELinux</title>
+    <link>https://stb.id.au/blog/misp-on-rhel</link>
+    <description>How do you protect your threat intelligence sharing platform from compromise? Read on to learn how SELinux and podman can support a containerised MISP deployment.</description>
+    <pubDate>Sun, 29 Aug 2021 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>open</category><category>source</category><category>threat</category><category>intelligence</category><category>selinux</category><category>containers</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/compliance-is-mislabelled</guid>
     <title>Compliance is mislabelled</title>
-    <link>https://stb.id.au/blog/compliance-mislabelled</link>
-    <description>Compliance evokes images of checking boxes. The real purpose of compliance is risk migitation, and it probably just needs a better name</description>
+    <link>https://stb.id.au/blog/compliance-is-mislabelled</link>
+    <description>Compliance evokes images of checking boxes. The real purpose of IT system compliance is risk migitation, and it probably just needs a better name</description>
     <pubDate>Wed, 18 Aug 2021 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>compliance</category><category>risk</category><category>security</category>
