@@ -57,7 +57,7 @@ cat /etc/cni/net.d/87-podman-bridge.conflist
    ]
 }
 ```
-Start `dnsmasq` and the Podman socket, and verify the `dnsname plugin is active
+Start `dnsmasq` and the Podman socket, and verify the `dnsname` plugin is active:
 ```
 systemctl start {dnsmasq,podman.socket}
 podman network ls
@@ -103,7 +103,7 @@ type=AVC msg=audit(1630132075.918:2462): avc:  denied  { setattr } for  pid=5208
 type=AVC msg=audit(1630132075.918:2463): avc:  denied  { setattr } for  pid=5208 comm="rsync" name="tools" dev="dm-0" ino=50918545 scontext=system_u:system_r:container_t:s0:c116,c220 tcontext=system_u:object_r:admin_home_t:s0 tclass=dir permissive=0
 ```
 ## Creating SELinux policy with Udica
-At this point our application starts, but can't access all the files and ports it needs. We need to create SELinux policies for the containers so SELinux will allow access to the files and ports they need - and only the files and ports they need!
+At this point our application starts, but can't access all the files and ports it needs. We need to create policies for the containers so SELinux will allow access to the files and ports they need - and only the files and ports they need!
 
 Udica is a tool for creating SELinux policies from container specs. It determines which ports and files a container needs, and creates SELinux policies allowing access. Udica is available in the Red Hat Enterprise Linux 8 AppStream repos:
 ```
@@ -118,7 +118,7 @@ CONTAINER ID  IMAGE                                          COMMAND            
 
 podman inspect 81739f877c42 > misp-mail.json
 ```
-Once we have a json spec for the container, we can create a Udica policy:
+Once we have a json spec for the container, we can create an SELinux policy with Udica:
 ```
 udica -j misp-mail.json misp-mail
 ```
@@ -126,9 +126,9 @@ You'll now see some output from Udica indicating you can load the policy. Let's 
 ```
 semodule -i misp-mail.cil /usr/share/udica/templates/{base_container.cil,net_container.cil}
 ```
-Ok! Now repeat this same process for each of the other containers; inspect the container with podman, create a policy with Udica, and load it. 
+Ok! Now repeat this same process for each of the other containers: inspect the container with podman, create a policy with Udica, and load it. 
 
-You'll also need to update each container spec with `label=type:your-process-label.process`. Now is also a good time to remove the port definitions we used in development to create the SELinux policies. You can find a templated compose file here:
+You'll also need to update each service in the `docker-compose.yml` file with SELinux labels, which look like `label=type:your-process-label.process`. Now is also a good time to remove the port definitions we used in development to create the SELinux policies. You can find a templated compose file here:
 ```
 curl https://gist.githubusercontent.com/shaneboulden/43909547297482e39268ef42212797f0/raw/37d2d48e42b58e22324ecf07171eb97f45c0a55a/misp-docker-compose.yml -o docker-compose.yml
 ```
@@ -150,7 +150,7 @@ Let's take another look at the audit log:
 ausearch -m avc -ts recent
 type=AVC msg=audit(1630213249.039:2914): avc:  denied  { name_connect } for  pid=19132 comm="mysql" dest=3306 scontext=system_u:system_r:misp-docker.process:s0:c296,c415 tcontext=system_u:object_r:mysqld_port_t:s0 tclass=tcp_socket permissive=0
 ```
-It looks like there's still some issues connecting to the database. Udica did its best to create an SELinux policy, and we just need to give it a helping hand. Let's append this denial to the `misp-docker` policy:
+It looks like SELinux is still preventing the application connecting to the database. Udica did its best to create an SELinux policy, and we just need to give it a helping hand. Let's append this denial to the `misp-docker` policy:
 ```
 cat avc
 type=AVC msg=audit(1630213249.039:2914): avc:  denied  { name_connect } for  pid=19132 comm="mysql" dest=3306 scontext=system_u:system_r:misp-docker.process:s0:c296,c415 tcontext=system_u:object_r:mysqld_port_t:s0 tclass=tcp_socket permissive=0
@@ -163,10 +163,13 @@ CONTAINER ID  IMAGE                                          COMMAND            
 podman inspect 3bc4ab0a365d | udica --append-rules avc misp-docker
 
 semodule -i misp-docker.cil /usr/share/udica/templates/{base_container.cil,net_container.cil}
-
+```
+If you restart the container services you should now be able to see the application connect to the database:
+```
 docker-compose down
 docker-compose up
 ```
+
 ## A little more tweaking
 
 We're making progress. The database connects, but there's still a few issues with permissions for the remaining services
@@ -178,9 +181,9 @@ misp_1          | Path: /var/www/MISP/app/
 misp_1          | ---------------------------------------------------------------
 misp_1          | Error: Permission denied
 ```
-Looking at the audit logs shows a familiar situation
+Looking at the audit logs shows a familiar situation:
 ```
-ausearch -m -ts recent
+ausearch -m avc -ts recent
 
 type=AVC msg=audit(1630213508.657:3152): avc:  denied  { name_connect } for  pid=21088 comm="php" dest=6666 scontext=system_u:system_r:misp-docker.process:s0:c22,c509 tcontext=system_u:object_r:unreserved_port_t:s0 tclass=tcp_socket permissive=0
 ```
