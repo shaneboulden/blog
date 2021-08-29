@@ -5,7 +5,7 @@ occupation: Solution Architect at Red Hat
 company: Georgia Institute of Technology
 email: dev@stb.id.au
 twitter: https://twitter.com/shaneboulden
-linkedin: https://www.linkedin.com/shaneboulden
+linkedin: https://www.linkedin.com/in/shaneboulden
 github: https://github.com/shaneboulden
 ---
 
