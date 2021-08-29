@@ -19,7 +19,7 @@ SELinux alone has mitigated several high-priority vulnerabilities impacting cont
 
 ## Getting started
 
-I'll be using Red Hat Enterprise Linux for this post. You can get a copy at [Red Hat Developers](https://developers.redhat.com/) if you don't have a copy handy.
+I'll be using Red Hat Enterprise Linux 8 for this post, and you can get a copy at [Red Hat Developers](https://developers.redhat.com/rhel8).
 
 Once you have a Red Hat Enterprise Linux instance up, subscribe it (you don't need to do this on AWS with pay-as-you-go instances) and make sure all the packages are updated.
 ```
