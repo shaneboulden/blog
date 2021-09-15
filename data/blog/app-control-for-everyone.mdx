@@ -1,0 +1,104 @@
+---
+title: Application control for everyone
+date: '2021-09-15'
+tags: ['application', 'control', 'risk','security','linux']
+draft: false
+summary: 'Application control seems to be one of those elusive security controls that organisations spend years chasing. How can we validate which processes are authorised to run on a system, and then enforce this?'
+---
+
+The Australian Cyber Security Centre (ACSC) recognises application control is a critical strategy to mitigate the execution of malware, and it's one of the ["Essential Eight"](https://www.cyber.gov.au/acsc/view-all-content/essential-eight) cyber security strategies.
+
+In this article I'm looking at application control for a hybrid cloud operating model. Whether you're deploying applications to on-premises metal servers, or containers on Kubernetes, or Linux servers in a public cloud, being able to support application control is - for me - a critical security control that you should be able to apply everywhere.
+
+<div style={{ backgroundColor: '#f5f5f5', padding: '2px', borderRadius: '.25rem' }}>
+<p style={{ padding: '6px'}}>Open source technology is better because of the inclusive and diverse communities that support it. You may have heard this concept referred to as *application whitelisting*, but I'm using *application control* here to align with other [open source projects](https://www.redhat.com/en/blog/making-open-source-more-inclusive-eradicating-problematic-language).</p>
+</div>
+
+## Application control for Linux
+
+We can support application control on Red Hat-based systems with the File Access Policy Daemon (`fapolicyd`).
+
+`fapolicyd` was originally created by [Steve Grubb](https://github.com/stevegrubb), an engineer at Red Hat. It uses the kernel's fanotify interface to determine file access rights.
+
+An important concept for `fapolicyd` is the "reputation source". Why do we trust certain applications, and not others? And where is this derived from? By default, `fapolicyd` uses the RPM database as a reputation source. If an application has been installed via RPM, then it's assumed to be a trusted application.
+
+<div style={{ backgroundColor: '#f5f5f5', padding: '2px 4px', borderRadius: '.25rem' }}>
+Given `fapolicyd` uses RPM as a source of trust, it's important to control and verify the integrity of software updates. This means things like:
+
+- Ensuring GPG keys are installed, and GPG checks are enabled for all repositories
+- Ensuring that GPG checks are also used for local packages
+- Verifying the integrity of permissions, ownership and hashes of files installed with RPM
+
+I won't cover it here, but in a later article I'll look at how you can use the [OpenSCAP](https://open-scap.org/) ecosystem to perform these checks, and how they've been codified through the [Compliance as Code](https://github.com/ComplianceAsCode/content/) project
+</div>
+
+Let's have a look at `fapolicyd` on Red Hat Enterprise Linux (you can get a copy at [developers.redhat.com](https://developers.redhat.com) The package is available with Red Hat Enterprise Linux 8.2+, and can be installed through the AppStream repositories.
+```
+$ sudo dnf install fapolicyd fapolicyd-cli
+$ sudo systemctl start fapolicyd
+```
+If an application is installed through RPM, it's fine to use:
+```
+sudo dnf install wget
+wget https://example.com
+```
+Ok, all looks good. Now let's see what happens when a random binary is dropped onto the system. Let's copy `/bin/ls` into a non-standard location and see what happens:
+```
+$ sudo cp /bin/ls /tmp
+```
+Now try and run `ls`:
+```
+$ ls
+bash: /tmp/ls: Operation not permitted
+```
+Ok! It looks like `fapolicyd` is working correctly. Applications installed through RPM are fine, but binaries dropped onto the system can't execute (for a normal user).
+
+We can use the `fapolicyd-cli` to allow these applications to execute:
+```
+sudo fapolicyd-cli --add file /tmp/ls
+```
+You can check that the CLI has added `/tmp/ls` and its hash to the list of permitted executables, separate to the RPM database:
+```
+$ sudo cat /etc/fapolicyd/fapolicyd.trust 
+# This file contains a list of trusted files
+#
+#  FULL PATH        SIZE                             SHA256
+# /home/user/my-ls 157984 61a9960bf7d255a85811f4afcac51067b8f2e4c75e21cf4f2af95319d4ed1b87
+/tmp/ls 143368 b97ce5f98f000af846d298a103daca75eddd5a2681a728d83a3dc0392e649707
+```
+All we need to do now is notify `fapolicyd` of the changes and run the command:
+```
+$ sudo fapolicyd-cli --update
+$ /tmp/ls
+```
+
+## Application control for containers and Kubernetes
+
+Application control for containers and Kubernetes gets a bit more interesting. Usually in enterprises we find containers running on Kubernetes/OpenShift, meaning they could be evicted from any particular host and re-deployed to another. So, it doesn't make a lot of sense to try and use a host-based solution, like `fapolicyd`. Making this functionality available from an external platform, that stores policies for which processes are permitted at a Kubernetes-deployment level, is a far better solution.
+
+This is exactly the workflow for application control with [Red Hat Advanced Cluster Security for Kubernetes](https://www.redhat.com/en/resources/advanced-cluster-security-for-kubernetes-datasheet). Advanced Cluster Security for Kubernetes discovers processes running in pods, and then allows security operators to "lock" that baseline. When an anomalous process is discovered, the Advanced Cluster Security platform kills that pod.
+
+Usually I'd have to find which processes are usually allowed within my container, and then specifically allow these. Advanced Cluster Security makes this easier by discovering which processes are usually running within containers deployed to Kubernetes, and then allows us to specifically allow them.
+
+You can find the **Process Discovery** tab in the **Risk** section of the Advanced Cluster Security user interface.
+
+<Image alt="Process Discovery" src="/static/images/acs-control.png" width={960} height={495}/>
+
+Once there, you can select the "lock", and lock the process baseline. When an anomalous process is now detected, the pod will be killed, and recreated in-line with the ReplicaSet configuration.
+
+<Image alt="Process Discovery" src="/static/images/acs-lock.png" width={701} height={411}/>
+
+Another consideration for containers is that we can control the source registries. If I can lock-down the sources of container images for my Kubernetes cluster to only a single, trusted registry, I've mitigated a lot of issues that can come with untrusted container images.
+
+OpenShift supports this through two configuration options - `allowedRegistries` and `allowedRegistriesForImport`. The difference is subtle, but important:
+- `allowedRegistriesForImport` limits the container image registries from which normal users may import images. It only affects the image API (so for example, `oc import-image` and ImageStreams).
+- `allowedRegistries` determines how the container runtime (CRI-O) should treat individual registries when accessing images for builds and pods.
+
+
+Both these options need to be configured to effectively limit the registries used for a cluster. You can edit these options via `oc edit image.config.openshift.io/cluster`, and they're also included as checks with the OpenShift [Essential Eight baseline](https://docs.openshift.com/container-platform/4.8/security/compliance_operator/compliance-operator-understanding.html#compliance_profiles_understanding-compliance).
+
+## Wrapping up
+
+Application control isn't just a nice to have - it's a critical security strategy which provides the ability to deny access rights to untrusted applications and processes. In this article I've looked at application control across both containers running on Kubernetes/OpenShift, and Linux systems (which could be running anywhere). In a later article, I'll look at how you can integrate application control with file integrity mechanism, like the Linux [Integrity Measurement Architecture](https://www.redhat.com/en/blog/how-use-linux-kernels-integrity-measurement-architecture). 
+
+Until next time!
