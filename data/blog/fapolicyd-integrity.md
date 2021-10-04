@@ -13,7 +13,7 @@ I'm using Red Hat Enterprise Linux in this article - you can get access at [deve
 
 ## The file integrity dilemma
 
-Previously I looked at `fapolicyd` for application control on Red Hat Enterprise Linux, providing the ability to control which processes can execute on a system. By default `fapolicyd` doesn't enforce any integrity checking, which can introduce some interesting challenges for security and operations teams.
+Previously we looked at `fapolicyd` for application control on Red Hat Enterprise Linux, providing the ability to control which processes can execute on a system. By default `fapolicyd` doesn't enforce any integrity checking, which can introduce some interesting challenges for security and operations teams.
 
 Here's what I mean.
 
@@ -24,14 +24,15 @@ $ sudo systemctl start fapolicyd
 ```
 Now let's drop an application onto the system from a potentially questionable source:
 ```
-$ sudo curl -L https://github.com/Code-Hex/Neo-cowsay/releases/download/v1.0.3/cowsay_1.0.3_Linux_x86_64.tar.gz | tar -xz -C /usr/local/bin/
+$ sudo -i
+# curl -L https://github.com/Code-Hex/Neo-cowsay/releases/download/v1.0.3/cowsay_1.0.3_Linux_x86_64.tar.gz | tar -xz -C /usr/local/bin/
 ```
-Change to a regular user account and try and execute it:
+Switch to a regular user account and try and execute it:
 ```
-$ /usr/local/bin/cowsay "Did this work?"
+$ /usr/local/bin/cowsay "Mooo"
 -bash: /usr/local/bin/cowsay: Operation not permitted
 ```
-Ordinarily this would display a friendly cow saying "Did this work?". But `fapolicyd` is doing its job and not permitting this application to execute!
+Ordinarily this would display a friendly cow saying "Mooo". But `fapolicyd` is doing its job and not permitting this application to execute!
 
 What if I move this file into a trusted location?
 ```
@@ -40,10 +41,10 @@ cp: overwrite '/bin/more'? y
 ```
 Change to a regular user and run the file:
 ```
-$ more "Did this work?"
- ________________
-< Did this work? >
- ----------------
+$ more "Mooo"
+ ______
+< Mooo >
+ ------
         \   ^__^
          \  (oo)\_______
             (__)\       )\/\
@@ -67,7 +68,7 @@ The Linux kernel already provides mechanisms to collect and verify the state of 
 
 IMA can be used by `fapolicyd` to support file integrity checks, though it is complex to configure and maintain.
 
-In this article we'll compare SHA-256 checksums to ensure file integrity, as this is simple to setup and configure.
+In this article we'll configure`fapolicyd` to compare SHA-256 checksums to ensure file integrity, as this is simple to setup and configure.
 
 ## Configuring integrity checks with the File Access Policy Daemon
 Let's make some changes to the `fapolicyd` configuration to support integrity checking. Open `/etc/fapolicyd/fapolicyd.conf` and update `integrity = none` to `integrity = sha256`.
@@ -75,7 +76,7 @@ Let's make some changes to the `fapolicyd` configuration to support integrity ch
 $ sudo cat /etc/fapolicyd/fapolicyd.conf | grep integrity
 integrity = sha256
 ```
-Let's get our system back in order by reinstalling `/bin/more`:
+Let's get our system back in order by re-installing `/bin/more`:
 ```
 $ sudo yum reinstall -y /bin/more
 ```
@@ -84,9 +85,9 @@ Finally, restart `fapolicyd`:
 $ sudo systemctl restart fapolicyd
 ```
 ## Testing everything out
-Let's try the same routine as before. Try and execute the suspicious binary out of `/usr/local/bin`:
+Let's try the same routine as before. Try and execute the suspicious binary out of `/usr/local/bin/`:
 ```
-user1~$ /usr/local/bin/cowsay
+$ /usr/local/bin/cowsay
 -bash: /usr/local/bin/cowsay: Operation not permitted
 ```
 It fails - all good so far! Now let's move it to `/bin/more`:
@@ -96,7 +97,7 @@ cp: overwrite '/bin/more'? y
 ```
 Let's try to execute the file as a normal user:
 ```
-$ more "Did this work?"
+$ more "Mooo"
 -bash: /usr/bin/more: Operation not permitted
 ```
 Success! Even though we tried to swap out the system's `more` binary with something more malicious, `fapolicyd` detected the file had been changed and prevented the application executing. 
