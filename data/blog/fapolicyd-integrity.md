@@ -103,7 +103,7 @@ $ more "Mooo"
 Success! Even though we tried to swap out the system's `more` binary with something more malicious, `fapolicyd` detected the file had been changed and prevented the application executing. 
 
 ## Next steps
-In this article we looked at applying integrity checks for application control, providing additional assurances that the code we want to execute is *actually* the code that executes. We specifically looked at comparing SHA-256 hashes today to ensure integrity, and you may also want to experiment with the Linux kernel's Integrity Measurement Architecture (IMA) subsystem as an alternate method of supporting integrity.
+In this article we looked at applying integrity checks for application control processes, providing additional assurances that the code we want to execute is *actually* the code that executes. We specifically looked at configuring the File Access Policyd daemon (`fapolicyd`) on Red Hat Enterprise Linux to compare SHA-256 hashes. You may also want to experiment with the Linux kernel's Integrity Measurement Architecture (IMA) subsystem as an alternate method of supporting file integrity with `fapolicyd`.
 
 What we haven't considered is - what would integrity checks look like for containers on Kubernetes? I'll look at this in a future article, and some approaches to Kubernetes workload integrity.
 
