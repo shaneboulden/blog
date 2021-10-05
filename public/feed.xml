@@ -7,9 +7,19 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Wed, 15 Sep 2021 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Mon, 04 Oct 2021 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/fapolicyd-integrity</guid>
+    <title>Application control and integrity checks</title>
+    <link>https://stb.id.au/blog/fapolicyd-integrity</link>
+    <description>Injecting integrity checks to application control processes is a winning security combination. Application control allows you to specify that only certain processes can execute on a system - but how do you know they are the right processes? How can you ensure that the code that you want to execute is the code that actually executes?</description>
+    <pubDate>Wed, 06 Oct 2021 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>application</category><category>control</category><category>integrity</category><category>risk</category><category>security</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/app-control-for-everyone</guid>
     <title>Application control for everyone</title>

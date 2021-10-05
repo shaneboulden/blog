@@ -1,8 +1,8 @@
 ---
 title: Application control and integrity checks
-date: '2021-10-04'
+date: '2021-10-06'
 tags: ['application', 'control', 'integrity','risk','security']
-draft: true
+draft: false
 summary: 'Injecting integrity checks to application control processes is a winning security combination. Application control allows you to specify that only certain processes can execute on a system - but how do you know they are the right processes? How can you ensure that the code that you want to execute is the code that actually executes?'
 ---
 Application control is recognised as one of the most effective strategies for system security, and preventing the execution of malicious code. Application control is also one of the Australian Cyber Security Centre (ACSC) [Essential Eight](https://www.cyber.gov.au/acsc/view-all-content/essential-eight) strategies and recommended across all classifications for organisations aligning with the Australian [Information Security Manual (ISM)](https://www.cyber.gov.au/acsc/view-all-content/ism).
