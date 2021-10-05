@@ -32,30 +32,30 @@ Given `fapolicyd` uses RPM as a source of trust, it's important to control and v
 I won't cover it here, but in a later article I'll look at how you can use the [OpenSCAP](https://open-scap.org/) ecosystem to perform these checks, and how they've been codified through the [Compliance as Code](https://github.com/ComplianceAsCode/content/) project
 </div>
 
-Let's have a look at `fapolicyd` on Red Hat Enterprise Linux (you can get a copy at [developers.redhat.com](https://developers.redhat.com) The package is available with Red Hat Enterprise Linux 8.2+, and can be installed through the AppStream repositories.
+Let's have a look at `fapolicyd` on Red Hat Enterprise Linux, and you can get a copy at [developers.redhat.com](https://developers.redhat.com). The `fapolicyd` package is available with Red Hat Enterprise Linux 8.2+, and can be installed through the AppStream repositories.
 ```
 $ sudo dnf install fapolicyd fapolicyd-cli
 $ sudo systemctl start fapolicyd
 ```
-If an application is installed through RPM, it's fine to use:
+If an application is installed through RPM then it's fine to use:
 ```
-sudo dnf install wget
-wget https://example.com
+$ sudo dnf install wget
+$ wget https://example.com
 ```
 Ok, all looks good. Now let's see what happens when a random binary is dropped onto the system. Let's copy `/bin/ls` into a non-standard location and see what happens:
 ```
 $ sudo cp /bin/ls /tmp
 ```
-Now try and run `ls`:
+Now try and run `/tmp/ls`:
 ```
-$ ls
+$ /tmp/ls
 bash: /tmp/ls: Operation not permitted
 ```
 Ok! It looks like `fapolicyd` is working correctly. Applications installed through RPM are fine, but binaries dropped onto the system can't execute (for a normal user).
 
 We can use the `fapolicyd-cli` to allow these applications to execute:
 ```
-sudo fapolicyd-cli --add file /tmp/ls
+$ sudo fapolicyd-cli --add file /tmp/ls
 ```
 You can check that the CLI has added `/tmp/ls` and its hash to the list of permitted executables, separate to the RPM database:
 ```
