@@ -27,7 +27,7 @@ A "Kubernetes-native" workflow to prevent vulnerable code executing on the platf
 
 One of the benefits of taking a kubernetes-native approach to security is that it minimises the operational overhead of managing applications. Let me describe this with an example.
 
-One way of approaching [/blog/app-control-for-everyone.mdx](application control) for a running container would be to detect suspicious process execution and then take some action *inside* the running container to block execution. We could potentially create an agent that is deployed within all running containers that detects and blocks suspicious processes.
+One way of approaching [application control](/blog/app-control-for-everyone) for a running container would be to detect suspicious process execution and then take some action *inside* the running container to block execution. We could potentially create an agent that is deployed within all running containers that detects and blocks suspicious processes.
 
 This approach detracts from one of the main benefits of deploying applications to containers - easier workload management. With this approach, we still need to consider the internal state of the container when troubleshooting, and whether the agent is preventing the application from executing correctly. We need to troubleshoot *inside* the container if we detect an issue with the application, as it's difficult to replicate this externally, and suddenly we're back to managing the workload as a ['pet'](https://www.redhat.com/en/blog/container-tidbits-does-pets-vs-cattle-analogy-still-apply) again.
 
