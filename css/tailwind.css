@@ -27,6 +27,20 @@
   content: attr(line);
 }
 
+/* Some of these fonts don't exist 
+ * https://www.coltborg.com/style-a-blockquote-using-tailwind-css/
+.stylistic-quote-mark {
+  font-size: 5rem;
+  right: 100%;
+  @apply mr-2 hidden font-dank-mono text-neutral-500 absolute top-0 leading-none;
+}
+
+@screen sm {
+  .stylistic-quote-mark {
+    @apply block;
+  }
+}*/
+
 html {
   scroll-behavior: smooth;
 }
