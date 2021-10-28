@@ -7,9 +7,19 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Mon, 04 Oct 2021 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Sun, 17 Oct 2021 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/kubernetes-native-security-surprise</guid>
+    <title>Kubernetes-native security and least surprise</title>
+    <link>https://stb.id.au/blog/kubernetes-native-security-surprise</link>
+    <description>What does it mean to be &quot;Kubernetes-native&quot;? And what does Kubernetes-native security look like?</description>
+    <pubDate>Sun, 17 Oct 2021 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>kubernetes</category><category>native</category><category>risk</category><category>security</category><category>least</category><category>surprise</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/fapolicyd-integrity</guid>
     <title>Application control and integrity checks</title>
