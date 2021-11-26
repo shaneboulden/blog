@@ -2,17 +2,18 @@
 title: Automating application control
 date: '2021-11-26'
 tags: ['application', 'control', 'risk','security','linux','automation']
-draft: true
-summary: 'Automation allows organisations to scale security workflows across hybrid cloud environments. In this article, I'll take a closer look at automating application control, and how you can use Ansible roles to create reusable automation content.'
+draft: false
+summary: 'Automation allows organisations to scale security workflows across hybrid cloud environments. In this article I take a closer look at automating application control, and how you can use Ansible roles to create reusable automation content.'
 ---
-Implementing application control represents a significant uplift in managing the risk profile for systems - assuming you have teams that can support it. The Ponemon Institute report from 2020 indicated that 41% of organisations experienced a loss of skilled cyber security people, as well as an increase in the complexity of attacks. So, security teams need to do more with less - respond to and defend against increasingly complex attacks, as well as support internal security initiatives, like DevSecOps adoption. This is where automation can assist - automating security workflows allows teams to focus on higher-value activities.
 
-This is the first article in a series, and looks at setting up an Ansible environment to automate security workflows. In future articles, we'll expand on this concept to look at GitOps workflows and other ways to manage security workflows in hybrid cloud environments.
+Implementing application control represents a significant uplift in managing the risk profile for systems - assuming you have teams that can support it. The [IBM Security Cyber Resilient Organisation Report for 2020](https://www.ibm.com/security/digital-assets/soar/cyber-resilient-organization-report/) found that 41% of organisations experienced a loss of skilled cyber security expertise, as well as an increase in the complexity of attacks. This means security teams need to do more with less - respond to and defend against increasingly complex attacks, with less security resources. Balancing these competing pressures is difficult, and getting it wrong means organisations may expose vulnerabilities which could lead to a significant breach.
+
+Automation supports organisations to mitigate these risks by making consistent and repeatable changes, mimising human error, and allowing them to focus on higher-value activities, like risk management and response planning. This is the first article in a series and looks at setting up an Ansible environment to automate security workflows. In future articles, we'll expand on this concept to look at GitOps workflows and other ways to manage security workflows in hybrid cloud environments.
 
 ## Application control and Ansible
 In this article I'll look at using Ansible to automate `fapolicyd` on Red Hat Enterprise Linux. Ansible is an agentless automation framework, enabling you to create human-readable automation workflows across systems. It has a very active open source community, and is established in many organisations supporting automation.
 
-I've covered `fapolicyd` and application control in a few articles previously. Specifically, how you can support [application control across Red Hat Enterprise Linux and Kubernetes/OpenShift](/blog/app-control-for-everyone), and how you can [add integrity checks to application control processes](/blog/fapolicyd-integrity).
+I've covered `fapolicyd` and [application control](https://www.cyber.gov.au/acsc/view-all-content/publications/implementing-application-control) in a few articles previously. Specifically, how you can support application control across [Red Hat Enterprise Linux and Kubernetes/OpenShift](/blog/app-control-for-everyone), and how you can [add integrity checks](/blog/fapolicyd-integrity) to application control processes.
 
 ## Reusable automation for security workflows
 
@@ -173,6 +174,7 @@ File Report
 Success! We've now automated the deployment of a a simple application control daemon on Red Hat Enterprise Linux, using reusable automation logic from the Ansible community.
 
 ## Closing out
+
 In this article we laid the groundwork to support automating application control. We created an Ansible control node and used a role to automate `fapolicyd` setup and configuration on a target server.
 
 In the next couple of articles we'll look at some other workflows for managing application control, like GitOps flows, or using host variables to store application state on a per-node basis. We'll also look at how to audit changes to application control state across multiple hosts.

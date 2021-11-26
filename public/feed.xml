@@ -7,9 +7,29 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Thu, 28 Oct 2021 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Fri, 26 Nov 2021 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/automating-app-control</guid>
+    <title>Automating application control</title>
+    <link>https://stb.id.au/blog/automating-app-control</link>
+    <description>Automation allows organisations to scale security workflows across hybrid cloud environments. In this article I take a closer look at automating application control, and how you can use Ansible roles to create reusable automation content.</description>
+    <pubDate>Fri, 26 Nov 2021 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>application</category><category>control</category><category>risk</category><category>security</category><category>linux</category><category>automation</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/knowledge-balance</guid>
+    <title>Maintaining a knowledge balance</title>
+    <link>https://stb.id.au/blog/knowledge-balance</link>
+    <description>What&#39;s the difference between institutional and industry knowledge, and what can you do to bring these into balance?</description>
+    <pubDate>Thu, 28 Oct 2021 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>institutional</category><category>industry</category><category>knowledge</category><category>balance</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/kubernetes-native-security-surprise</guid>
     <title>Kubernetes-native security and least surprise</title>
@@ -18,15 +38,6 @@
     <pubDate>Sun, 17 Oct 2021 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>kubernetes</category><category>native</category><category>risk</category><category>security</category><category>least</category><category>surprise</category>
-  </item>
-  <item>
-    <guid>https://stb.id.au/blog/knowledge-balance</guid>
-    <title>Maintaining a knowledge balance</title>
-    <link>https://stb.id.au/blog/knowledge-balance</link>
-    <description>What is the difference between institutional and industry knowledge, and what can you do to bring these into balance?</description>
-    <pubDate>Thu, 28 Oct 2021 00:00:00 GMT</pubDate>
-    <author>dev@stb.id.au (Shane Boulden)</author>
-    <category>institutional</category><category>industry</category><category>knowledge</category><category>balance</category>
   </item>
 
   <item>
