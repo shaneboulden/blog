@@ -1,0 +1,82 @@
+---
+title: Scanning Quay.io private repositories for CVEs
+date: '2022-01-26'
+tags: ['kubernetes', 'registries', 'security','devsecops','containers']
+draft: false
+authors: ['default','stan']
+summary: 'A quick guide on how to integrate a Kubernetes-native security platform with quay.io private repositories'
+---
+This week I'm joined by Stan (hello everyone!), and we wanted to share a solution we worked through recently. Specifically, we wanted to integrate a Kubernetes-native security platform - Red Hat Advanced Cluster Security for Kubernetes - with a public container registry, [quay.io](https://quay.io).
+
+The problem was that we needed a way to scan images held in private repositories on [quay.io](https://quay.io) for vulnerabilities. In this article we'll cover how to create the required OAuth tokens for this integration, and how to test out the integration by performing a CVE scan against private quay.io repositories.
+
+### Creating the OAuth tokens in quay.io
+
+To scan private repositories Red Hat Advanced Cluster Security for Kubernetes (ACS) needs access to an OAuth token with the right privileges on the repository. OAuth tokens are available in quay.io, though you need an organisation to see the tab to create these.
+
+Firstly, select `Applications` from the top tab on quay.io. If you don't have an organisation, you'll only see these three tabs - Repositories, Robots, and Settings.
+
+![Quay screenshot showing available menu](/static/images/quay-acs/quay-menu.png)
+
+If you have created an organisation, you will now have additional menu items - Teams and Membership, Default Permissions, Usage Logs, and Applications. Select `Applications`, and you'll see a entry to create an OAuth application. 
+
+![Quay screenshot showing OAuth apps](/static/images/quay-acs/quay-apps.png)
+
+Select `Create New Application` and give the app a name. Select the application name link and you'll be presented with a pretty standard OAuth application form.
+
+![Quay OAuth app form](/static/images/quay-acs/quay-app-options.png)
+
+You can ignore all of these fields except for the `Name`. Once you've provided that,we really just want the fourth menu on the left - `Generate Token`. Check the option next to `View all visible repositories`, and then `Generate Access Token`.
+
+![Quay OAuth token generation](/static/images/quay-acs/token.png)
+
+On the next Screen select `Authorize application`, and you'll be provided the OAuth token.
+
+![Quay OAuth app authorisation screenshot](/static/images/quay-acs/authorize-app.png)
+
+## Configure Red Hat Advanced Cluster Security for Kubernetes
+
+Open ACS and select `Integrations`, and the `Red Hat Quay.io` link. Select `New Integration`, and then enter the required data into the form fields:
+
+- Name: create a new name
+- Type: Registry+Scanner
+- Endpoint: quay.io
+- Token: Oauth token from above
+
+![ACS registry integration](/static/images/quay-acs/acs-config.png)
+
+That's it! Private container image repositories held within this quay.io organisation are now available to ACS, and can be scanned and integrated with centrally-managed policies.
+
+You can try out this integration with `roxctl`:
+```
+roxctl --insecure-skip-tls-verify=true -e "my-acs-cluster:443" image check --image=quay.io/private-repo/my-private-image:latest
+
+✗ Image quay.io/private-repo/my-private-image:latest failed policy '90-Day Image Age' 
+- Description:
+    ↳ Alert on deployments with images that haven't been updated in 90 days
+- Rationale:
+    ↳ Base images are updated frequently with bug fixes and vulnerability patches.
+      Image age exceeding 90 days may indicate a higher risk of vulnerabilities
+      existing in the image.
+- Remediation:
+    ↳ Rebuild your image, push a new minor version (with a new immutable tag), and
+      update your service to use it.
+- Violations:
+    - Image was created at 2019-04-05 06:03:24 (UTC)
+
+✗ Image quay.io/private-repo/my-private-image:latest failed policy 'Fixable Severity at least Important' (policy enforcement caused failure)
+- Description:
+    ↳ Alert on deployments with fixable vulnerabilities with a Severity Rating at
+      least Important
+- Rationale:
+    ↳ Known vulnerabilities make it easier for adversaries to exploit your
+      application. You can fix these high-severity vulnerabilities by updating to a
+      newer version of the affected component(s).
+- Remediation:
+    ↳ Use your package manager to update to a fixed version in future builds or speak
+      with your security team to mitigate the vulnerabilities.
+- Violations:
+    - Fixable CVE-2018-20843 (CVSS 7.5) (severity Important) found in component 'expat' (version 2.2.6-r0), resolved by version 2.2.7-r0
+    - Fixable CVE-2019-14697 (CVSS 9.8) (severity Critical) found in component 'musl' (version 1.1.20-r4), resolved by version 1.1.20-r5
+    - Fixable CVE-2019-15903 (CVSS 7.5) (severity Important) found in component 'expat' (version 2.2.6-r0), resolved by version 2.2.7-r1
+```

@@ -1,15 +1,25 @@
 
   <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
-      <title>Shane Boulden</title>
+      <title>Never trust, always verify</title>
       <link>https://stb.id.au/blog</link>
       <description>Building applications, securing infrastructure and applications, and everything in-between.</description>
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Fri, 26 Nov 2021 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Wed, 26 Jan 2022 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/quay-and-acs</guid>
+    <title>Scanning Quay.io private repositories for CVEs</title>
+    <link>https://stb.id.au/blog/quay-and-acs</link>
+    <description>A quick guide on how to integrate a Kubernetes-native security platform with quay.io private repositories</description>
+    <pubDate>Wed, 26 Jan 2022 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>kubernetes</category><category>registries</category><category>security</category><category>devsecops</category><category>containers</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/automating-app-control</guid>
     <title>Automating application control</title>
