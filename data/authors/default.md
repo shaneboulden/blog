@@ -5,8 +5,8 @@ occupation: Solution Architect at Red Hat
 company: Georgia Institute of Technology
 email: dev@stb.id.au
 twitter: https://twitter.com/shaneboulden
-linkedin: https://www.linkedin.com/in/shaneboulden
 github: https://github.com/shaneboulden
+linkedin: https://www.linkedin.com/in/shaneboulden
 ---
 
 Shane Boulden is a Solution Architect at Red Hat. He spends his time codifying security policies and supporting organisations to better manage their risk posture, building things on OpenShift, and automating with Ansible.

@@ -3,7 +3,7 @@ name: Stan Kozlov
 avatar: /static/images/stan-avatar.png
 occupation: Solution Architect
 company: Red Hat
-twitter: https://twitter.com/
+github: https://github.com/mancubus77
 linkedin: https://www.linkedin.com/staskozlov
 ---
 
