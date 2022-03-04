@@ -1,7 +1,7 @@
 const siteMetadata = {
-  title: 'Never trust, always verify',
+  title: 'Sec3d',
   author: 'Shane Boulden',
-  headerTitle: 'Never trust, always verify',
+  headerTitle: 'Sec3d',
   description: 'Building applications, securing infrastructure and applications, and everything in-between.',
   language: 'en-us',
   siteUrl: 'https://stb.id.au',
