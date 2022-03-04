@@ -1,15 +1,25 @@
 
   <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
-      <title>Never trust, always verify</title>
+      <title>Sec3d</title>
       <link>https://stb.id.au/blog</link>
       <description>Building applications, securing infrastructure and applications, and everything in-between.</description>
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Wed, 26 Jan 2022 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Sun, 04 Mar 2022 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/internal-registry-acs</guid>
+    <title>Scanning the OpenShift Internal Registry</title>
+    <link>https://stb.id.au/blog/internal-registry-acs</link>
+    <description>Did you know that you can scan the internal OpenShift registry for security issues? Read on to find out how.</description>
+    <pubDate>Sun, 04 Mar 2022 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>kubernetes</category><category>openshift</category><category>risk</category><category>security</category><category>CVE</category><category>registry</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/quay-and-acs</guid>
     <title>Scanning Quay.io private repositories for CVEs</title>
