@@ -82,11 +82,15 @@ Usually I'd have to find which processes are usually allowed within my container
 
 You can find the **Process Discovery** tab in the **Risk** section of the Advanced Cluster Security user interface.
 
-<Image alt="Process Discovery" src="/static/images/acs-control.png" width={960} height={495}/>
+<Zoom>
+  <Image alt="Process Discovery" src="/static/images/acs-control.png" width={960} height={495}/>
+</Zoom>
 
 Once there, you can select the "lock", and lock the process baseline. When an anomalous process is now detected, the pod will be killed, and recreated in-line with the ReplicaSet configuration.
 
-<Image alt="Process Discovery" src="/static/images/acs-lock.png" width={701} height={411}/>
+<Zoom>
+  <Image alt="Process Discovery" src="/static/images/acs-lock.png" width={701} height={411}/>
+</Zoom>
 
 Another consideration for containers is that we can control the source registries. If I can lock-down the sources of container images for my Kubernetes cluster to only a single, trusted registry, I've mitigated a lot of issues that can come with untrusted container images.
 

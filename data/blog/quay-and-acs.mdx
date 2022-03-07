@@ -6,6 +6,7 @@ draft: false
 authors: ['default','stan']
 summary: 'A quick guide on how to integrate a Kubernetes-native security platform with quay.io private repositories'
 ---
+
 This week I'm joined by Stan (hello everyone!), and we wanted to share a solution we worked through recently. Specifically, we wanted to integrate a Kubernetes-native security platform - Red Hat Advanced Cluster Security for Kubernetes - with a public container registry, [quay.io](https://quay.io).
 
 The problem was that we needed a way to scan images held in private repositories on [quay.io](https://quay.io) for vulnerabilities. In this article we'll cover how to create the required OAuth tokens for this integration, and how to test out the integration by performing a CVE scan against private quay.io repositories.
@@ -16,23 +17,33 @@ To scan private repositories Red Hat Advanced Cluster Security for Kubernetes (A
 
 Firstly, select `Applications` from the top tab on quay.io. If you don't have an organisation, you'll only see these three tabs - Repositories, Robots, and Settings.
 
+<Zoom>
 ![Quay screenshot showing available menu](/static/images/quay-acs/quay-menu.png)
+</Zoom>
 
 If you have created an organisation, you will now have additional menu items - Teams and Membership, Default Permissions, Usage Logs, and Applications. Select `Applications`, and you'll see an entry to create an OAuth application. 
 
+<Zoom>
 ![Quay screenshot showing OAuth apps](/static/images/quay-acs/quay-apps.png)
+</Zoom>
 
 Select `Create New Application` and give the app a name. Select the application name link and you'll be presented with a pretty standard OAuth application form.
 
+<Zoom>
 ![Quay OAuth app form](/static/images/quay-acs/quay-app-options.png)
+</Zoom>
 
 You can ignore all of these fields except for the `Name`. Once you've provided that,we really just want the fourth menu on the left - `Generate Token`. Check the option next to `View all visible repositories`, and then `Generate Access Token`.
 
+<Zoom>
 ![Quay OAuth token generation](/static/images/quay-acs/token.png)
+</Zoom>
 
 On the next Screen select `Authorize application`, and you'll be provided the OAuth token.
 
+<Zoom>
 ![Quay OAuth app authorisation screenshot](/static/images/quay-acs/authorize-app.png)
+</Zoom>
 
 ## Configure Red Hat Advanced Cluster Security for Kubernetes
 
@@ -43,7 +54,9 @@ Open ACS and select `Integrations`, and the `Red Hat Quay.io` link. Select `New 
 - Endpoint: quay.io
 - Token: Oauth token from above
 
+<Zoom>
 ![ACS registry integration](/static/images/quay-acs/acs-config.png)
+</Zoom>
 
 That's it! Private container image repositories held within this quay.io organisation are now available to ACS, and can be scanned and integrated with centrally-managed policies.
 

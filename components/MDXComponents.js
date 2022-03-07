@@ -7,12 +7,16 @@ import TOCInline from './TOCInline'
 import Pre from './Pre'
 import Quote from './Quote'
 
+import Zoom from 'react-medium-image-zoom'
+import 'react-medium-image-zoom/dist/styles.css'
+
 export const MDXComponents = {
   Image,
   TOCInline,
   a: CustomLink,
   pre: Pre,
   Quote,
+  Zoom,
   wrapper: ({ components, layout, ...rest }) => {
     const Layout = require(`../layouts/${layout}`).default
     return <Layout {...rest} />
