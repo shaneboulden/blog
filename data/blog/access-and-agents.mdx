@@ -1,0 +1,52 @@
+---
+title: Access & Agents
+date: '2022-03-19'
+tags: ['kubernetes', 'security','devsecops','containers','access','agents']
+draft: false
+authors: ['default']
+summary: "Many organisations take the same approach to securing virtual machines, which I call 'Access & Agents'. While effective for virtual machines and other legacy infrastructure, this approach doesn't translate across to containers and Kubernetes, and this article looks at why."
+---
+
+I find that security and operations teams tend to take the same approach to virtual machines and legacy infrastructure, which I call "Access & Agents". This article looks at what constitutes the "Access & Agents" model, and why it can't simply be transposed to containers and Kubernetes environments.
+
+## Access & Agents
+
+"Access & Agents" is a common approach to securing virtual machines, and other legacy infrastructure. It basically involves two mechanisms:
+
+- **Provisioning access to the host.** Access to a host is typically required to perform remediation, or other interventions to support the security of a host. For example, remediating a host back to a baseline (like CIS), or accessing the host in the event of an incident, and investigate suspicious behaviour.
+
+- **Provisioning agents to the host.** These agents typically report the current state of the host, such as any common vulnerabilities and exposures (CVEs), or potentially anomalous or suspicious behaviour. Some of these agents might take actions too - for example, blocking a certain process that is deemed suspicious, or blocking an anomalous traffic flow.
+
+<Zoom>
+![Access & Agents](/static/images/access-agents.png)
+</Zoom>
+
+This approach is very effective for environments based on virtual machines. Access mechanisms and agents can simply be included in the standard operating environment (SOE) build, and agents can be configured to report to a central platform when deployed. This allows visibility into the state of the virtual machine, and access when required.
+
+## Why Containers and Kubernetes is different
+
+The same practices used to secure virtual machines - “access and agents” - can’t be applied to containers.
+
+Containers are designed to support consistency, and remove the "it works in my development environment" issue. What works in development should work exactly the same in production, with configuration abstracted away from the container. For this reason, providing direct access to containers (eg; via SSH, or RDP) is considered an anti-pattern; we don’t want files inside a container being changed externally, as this destroys consistency. 
+
+In addition, containers provide portability - we should be able to deploy the same container into any environment, be it public cloud or on-premises data centre, and it should operate the same. Deploying agents inside containers restricts them to a certain environment, destroying portability. For this reason, deploying agents inside a container is also considered an anti-pattern.
+
+## Evolving the security model
+
+If we can't deploy agents inside a container, and we can't provision access to support incident response, what can we do?
+
+Securing containers requires an evolution of the security model - adopting a “cloud-native” or “container-native” model, where security is integrated at every stage of development, deployment and runtime. This approach retains the consistency and portability of containers and Kubernetes, while mitigating and managing risk, and ensures that threats can be detected, and incident response can be performed in a “container-native” way.  This approach also allows for scale - “container native” security practices and processes applied to a single cluster can easily be applied to multiple clusters, wherever they are deployed.
+
+For example, instead of deploying an agent to report vulnerabilities present inside a container at runtime, we can do that during development. We can pull apart the layers of the container image and introspect each layer for vulnerabilities, whether this is in the base operating system, or the application. Because we're not patching this container once deployed (we'd simply deploy a new container image), and we've removed access, we know these vulnerabilities won't change once the container is deployed.
+
+<Zoom>
+![Cloud-native security](/static/images/cloud-native-security.png)
+</Zoom>
+
+A "cloud-native" or "container-native" approach to security practices and processes is designed to consider the operating benefits of containers, and minimise operational risk to workloads. Security controls that mitigate “container escape” techniques - such as Security-Enhanced Linux (SELinux) - are integrated into the platform operating system. Further, the native Kubernetes APIs are used to enforce security policies and respond to incidents - for example, using Kubernetes admission controllers to ensure vulnerable workloads are not accepted to the platform, or using automated API interactions to stop a running, vulnerable workload.
+
+## Wrapping up
+
+This has been a very brief introduction to some of the differences between securing virtual machines, and securing containers and container platforms. These environments need different approaches; what works for virtual machines and other legacy infrastructure ("Access & Agents"), doesn't work for containers, as it destroys a lot of the benefits of deploying container applications to platforms like Kubernetes.
+
+In later articles, I'll compare some of these approaches. How does vulnerability scanning compare across containers and virtual machines, or how do we support configuration scanning and remediation? Look out for these deeper dives!

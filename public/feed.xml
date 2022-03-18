@@ -7,15 +7,25 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Sun, 04 Mar 2022 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Sat, 19 Mar 2022 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/access-and-agents</guid>
+    <title>Access &amp; Agents</title>
+    <link>https://stb.id.au/blog/access-and-agents</link>
+    <description>Many organisations take the same approach to securing virtual machines, which I call &#39;Access &amp; Agents&#39;. While effective for virtual machines and other legacy infrastructure, this approach doesn&#39;t translate across to containers and Kubernetes, and this article looks at why.</description>
+    <pubDate>Sat, 19 Mar 2022 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>kubernetes</category><category>security</category><category>devsecops</category><category>containers</category><category>access</category><category>agents</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/internal-registry-acs</guid>
     <title>Scanning the OpenShift Internal Registry</title>
     <link>https://stb.id.au/blog/internal-registry-acs</link>
     <description>Did you know that you can scan the internal OpenShift registry for security issues? Read on to find out how.</description>
-    <pubDate>Sun, 04 Mar 2022 00:00:00 GMT</pubDate>
+    <pubDate>Fri, 04 Mar 2022 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>kubernetes</category><category>openshift</category><category>risk</category><category>security</category><category>CVE</category><category>registry</category>
   </item>
