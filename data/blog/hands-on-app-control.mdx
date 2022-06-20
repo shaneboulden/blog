@@ -1,0 +1,30 @@
+---
+title: Hands-on with Application Control for Linux
+date: '2022-06-21'
+tags: ['linux', 'application','control','fapolicyd','threat','risk']
+draft: false
+authors: ['default']
+summary: "Application control is a critical security control, allowing you to specifically authorise applications, processes and shared libraries. This blog introduces some ofthe resources you can use to learn more about application control, and get hands-on."
+---
+
+## Hands-on with Application Control for Linux
+
+Application control is a critical system security control. It's recognised by the [Australian Cyber Security Centre (ACSC)](https://www.cyber.gov.au/acsc/view-all-content/publications/implementing-application-control) as 'one of the most effective mitigation strategies in ensuring the security of systems', and is one of the ['Essential Eight'](https://www.cyber.gov.au/acsc/view-all-content/essential-eight) baseline cybersecurity strategies.
+
+I've written several articles now on application control, and they're linked here for convenience:
+
+- [Application control for everyone](/blog/app-control-for-everyone) - a look at how application control is supported across different platforms, like Linux and Kubernetes, and an introduction to the File Access Policy Daemon (fapolicyd).
+
+- [Application control and integrity checks](/blog/fapolicyd-integrity) - a look at the file integrity controls supported by fapolicyd, and how you can configure one of these.
+
+- [Automating application control](/blog/automating-app-control) - a look at using Ansible to automate application control state across many systems.
+
+One of the most frequent questions I get is - "How can I get started?"
+
+## File Access Policy lab
+
+To make it easier for everyone to get started with application control, I've collaborated with a couple of others at [Red Hat](https://www.redhat.com) to create a hands-on lab. You can find the first release here: https://play.instruqt.com/rhel/tracks/file-access-policy
+
+The lab takes you through installing the File Access Policy Daemon (fapolicyd) on a Linux system, configuring authorised, trusted applications, and performing some basic integrity checking for trusted applications. It's delivered through Instruqt, a platform for delivering virtual hands-on labs, and allows you to provision your own environment for the lab.
+
+I hope you find the lab helpful. I'll be making some changes over the coming months, and please feel free to leave me any feedback here.
