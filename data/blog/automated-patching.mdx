@@ -1,0 +1,65 @@
+---
+title: Automated security patching with Ansible
+date: '2022-06-30'
+tags: ['ansible', 'automation', 'patching','security','risk','management']
+draft: true
+summary: 'RSA Conference 2022 again highlighted that many data breaches are due to unpatched systems. In this article I look at some of the technologies available to help organisations maintain patches across their hybrid cloud environments'
+---
+RSA Conference 2022 was held a couple of weeks ago now, with a lot of interesting content. Forgepoint Capital - a VC firm in the San Francisco Bay area - presented some interesting research collected from CISOs for organisations with 50 to 10k+ employees. 
+
+One point from this report that stood out for me was that "most breaches are due to unpatched systems, misconfiguration, poor passwords, and other easily avoidable issues". I don't think that unpatched systems is news to anyone, yet it certainly highlights that this critical cyber hygiene practice is still the reason for many breaches in 2022. This is certainly backed by research over the years also; the Australian Cyber Security Centre (ACSC) annual cyber threat report for 2020-2021 found that threat actors were able to turn a vulnerability into an exploit in a matter of hours, and immediately pivot to target unpatched systems. 
+
+If applying patches is so important, why do organisations get caught out? I think there's a few reasons for this:
+
+- **Observability**: Particularly in a large organisation, it can be difficult to centrally observe systems and detect common vulnerabilities and exposures (CVEs). This is particularly relevant as organisations are now operating hybrid cloud infrastructure models, and observability needs to be supported across cloud, on-premises and edge systems.
+
+- **Manual patching practices**: Patching is a complex, manual process inside many organisations. It may involve performing a number of "pre-flight" checks before the patch is even applied, like system health checks, backups, and testing and verification in a QA environment. Once a patch is applied in production, testing and verification needs to again be performed, and the system needs to be monitored to determine whether a roll-back may be needed.
+
+There's a number of technologies now available to organisations to help address these issues.
+
+### Red Hat Insights
+
+Red Hat Insights is a managed service that helps to provide visibility across hybrid cloud infrastructure. Insights can detect compliance issues, exposed vulnerabilities, and is currently introducing services to support malware signature analysis.
+
+The best part is - Insights is included with every Red Hat Enterprise Linux subscription, including the [free no-cost developer subscriptions](https://access.redhat.com/discussions/6664471)!
+
+You can see a few images here of Red Hat Insights, showing how CVEs can be identified and prioritised.
+
+### Ansible and automated patching workflows
+
+I've covered [Ansible](https://www.ansible.com) in a [previous article](/blog/automating-app-control). Essentially, it's an open source automation framework, and is ideally suited to automating some of the manual patching practices outlined above. An Ansible workflow to automate patching could look at:
+
+- Performing an automated system health check, and creating an incident report in Service Now if the health check fails
+- Automating backups/snapshots of the system to be patched
+- Applying patches to systems in a repeatable, consistent way
+- Performing automated verification testing, and creating incident reports in Service Now if these fail
+- Automating system roll-back in the event that an issue is detected
+
+Here's an example of an Ansible task that could be used to backup a system before applying patches, from the [AWS Ansible docs](https://docs.ansible.com/ansible/latest/collections/amazon/aws/ec2_snapshot_module.html):
+```
+# Snapshot of volume mounted on device_name attached to instance_id
+- amazon.aws.ec2_snapshot:
+    instance_id: i-12345678
+    device_name: /dev/sdb1
+    description: snapshot of /data from DB123 taken 2013/11/28 12:18:32
+```
+Here's another example of applying all outstanding security patches to a Red Hat Enterprise Linux system:
+```
+# Apply only security-related updates to this system
+- yum:
+    name: '*'
+    security: yes
+    state: latest
+```
+
+### Ansible and Insights for automated security patching workflows
+
+Insights gives us observability into unpatched systems, and Ansible gives us an automated framework to patch them. The question now is - how do we bring these two technologies together into a single workflow, which makes it easier to detect issues and automatically apply patches and remediations?
+
+I've created a demonstration here of one way you could look to integrate Insights and Ansible together into an automated "detect and remediate" security patching workflow. Let me know what you think!
+
+<YoutubeEmbed embedId="O1NQ9qpZXTw" />
+
+### Next steps
+
+
