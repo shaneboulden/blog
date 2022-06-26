@@ -6,6 +6,7 @@ import CustomLink from './Link'
 import TOCInline from './TOCInline'
 import Pre from './Pre'
 import Quote from './Quote'
+import YoutubeEmbed from './YoutubeEmbed'
 
 import Zoom from 'react-medium-image-zoom'
 import 'react-medium-image-zoom/dist/styles.css'
@@ -16,6 +17,7 @@ export const MDXComponents = {
   a: CustomLink,
   pre: Pre,
   Quote,
+  YoutubeEmbed,
   Zoom,
   wrapper: ({ components, layout, ...rest }) => {
     const Layout = require(`../layouts/${layout}`).default
