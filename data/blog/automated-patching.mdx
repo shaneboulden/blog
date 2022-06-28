@@ -1,13 +1,13 @@
 ---
 title: Automated security patching with Ansible
-date: '2022-06-30'
+date: '2022-06-29'
 tags: ['ansible', 'automation', 'patching','security','risk','management']
-draft: true
-summary: 'RSA Conference 2022 again highlighted that many data breaches are due to unpatched systems. In this article I look at some of the technologies available to help organisations maintain patches across their hybrid cloud environments'
+draft: false
+summary: 'RSA Conference 2022 again highlighted that many data breaches are due to unpatched systems. In this article I look at some of the technologies available to help organisations updates are applied across their hybrid cloud environments'
 ---
-RSA Conference 2022 was held a couple of weeks ago now, with a lot of interesting content. Forgepoint Capital - a VC firm in the San Francisco Bay area - presented some interesting research collected from CISOs for organisations with 50 to 10k+ employees. 
+[RSA Conference 2022](https://www.rsaconference.com/usa was held a couple of weeks ago now, and Forgepoint Capital - a VC firm in the San Francisco Bay area - presented some interesting research collected from CISOs for organisations with 50 to 10k+ employees. 
 
-One point from this report that stood out for me was that "most breaches are due to unpatched systems, misconfiguration, poor passwords, and other easily avoidable issues". I don't think that unpatched systems is news to anyone, yet it certainly highlights that this critical cyber hygiene practice is still the reason for many breaches in 2022. This is certainly backed by research over the years also; the Australian Cyber Security Centre (ACSC) annual cyber threat report for 2020-2021 found that threat actors were able to turn a vulnerability into an exploit in a matter of hours, and immediately pivot to target unpatched systems. 
+One point from [the data](https://www.darkreading.com/cloud/quickly-evolving-landscape-cisos-shift-2022-priorities) that stood out for me was that "most breaches are due to unpatched systems, misconfiguration, poor passwords, and other easily avoidable issues". I don't think that unpatched systems is news to anyone, yet it certainly highlights that this critical cyber hygiene practice is still the reason for many breaches in 2022. This is backed by research over the years also; the Australian Cyber Security Centre (ACSC) [annual cyber threat report for 2020-2021](https://www.cyber.gov.au/acsc/view-all-content/reports-and-statistics/acsc-annual-cyber-threat-report-2020-21) found that threat actors were able to turn a vulnerability into an exploit in a matter of hours, and immediately pivot to target unpatched systems.
 
 If applying patches is so important, why do organisations get caught out? I think there's a few reasons for this:
 
@@ -24,6 +24,22 @@ Red Hat Insights is a managed service that helps to provide visibility across hy
 The best part is - Insights is included with every Red Hat Enterprise Linux subscription, including the [free no-cost developer subscriptions](https://access.redhat.com/discussions/6664471)!
 
 You can see a few images here of Red Hat Insights, showing how CVEs can be identified and prioritised.
+
+<Zoom>
+![Insights CVEs](/static/images/ansible-insights/insights-cves1.png)
+</Zoom>
+
+<Zoom>
+![Insights CVEs](/static/images/ansible-insights/insights-cves2.png)
+</Zoom>
+
+<Zoom>
+![Insights CVEs](/static/images/ansible-insights/insights-cves3.png)
+</Zoom>
+
+<Zoom>
+![Insights CVEs](/static/images/ansible-insights/insights-cves4.png)
+</Zoom>
 
 ### Ansible and automated patching workflows
 
@@ -62,4 +78,8 @@ I've created a demonstration here of one way you could look to integrate Insight
 
 ### Next steps
 
+In this article we explored some technologies to help organisations stay up-to-date, and prevent vulnerable applications being exploited and leading to access for a threat actor. 
 
+If you want to explore the capabilities that Red Hat Insights provides, you can find the console [here](https://console.redhat.com/). If you're new to Ansible, you can find some self-paced labs [here](https://www.ansible.com/products/ansible-training) to explore the platform and capabilities. 
+
+Happy automating!
