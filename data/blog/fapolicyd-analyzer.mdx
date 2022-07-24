@@ -38,14 +38,14 @@ permissive = 1
 syslog_format = rule,dec,perm,uid,gid,pid,exe,:,path,ftype,trust
 ...
 ```
-Restart systemd
+Restart `fapolicyd`
 ```
 sudo systemctl restart fapolicyd
 ```
 
 ## Installing fapolicy-analyzer
 
-For this write-up I'm going to install the latest version of `fapolicy-analyzer` on Fedora 36. Firstly, we need some dependencies:
+For this write-up I'm going to install the latest version of `fapolicy-analyzer` from source on Fedora 36. Firstly, we need some dependencies:
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 dnf install -y python-devel # python 3.9.+ is the default
@@ -70,7 +70,7 @@ When you first start `fapolicy-analyzer` you'll be shown this screen.
 
 This allows us to see the existing trusted applications in the system trust database (backed by the RPM database), and explore the file-backed ancillary trust database. 
 
-Let's try profiling an application. I've created a new user on the system and pulled down a binary `cowsay` we can run locally. If you navigate to 'Tools -> Profile Executable' you can specify these parameters:
+Let's try profiling an application. I've created a new user on the system and pulled down a binary `cowsay` we can run locally. If you navigate to 'Tool -> Profile Executable' you can specify these parameters:
 
 <Zoom>
   ![cowsay app profile](/static/images/fapolicy-analyzer/fapolicy-cowsay-profile.png)
@@ -101,7 +101,7 @@ Ok - that was a relatively simple application. What about something more complex
   ![ansible app results](/static/images/fapolicy-analyzer/fapolicy-ansible-results.png)
 </Zoom>
 
-This example is a little more interesting. In addition to the `/usr/local/bin/ansible` binary, we have a number of shared libraries the application attempted to access. This is certainly useful for understanding how complex applications access system components, and helping create exceptions.
+This example is a little more interesting. In addition to the `/usr/local/bin/ansible` binary, we have a number of shared libraries and other files that the application attempted to access. This is certainly useful for understanding how complex applications access system components, and helping create exceptions.
 
 For now, let's simply add the `ansible` binary to the ancillary trust database.
 
