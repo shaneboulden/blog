@@ -1,0 +1,136 @@
+---
+title: Up and running with the File Access Policy Analyzer
+date: '2022-07-24'
+tags: ['application', 'control', 'integrity','risk','security']
+draft: false
+summary: "A quick look at the File Access Policy Analyzer, an open source tool simplifying application control implementation"
+---
+It's time for YAACA - Yet Another Application Control Article! Yes, once again I'm writing on the topic of application control. You can see some previous articles here:
+
+- [Hands on with application control](/blog/hands-on-app-control) - an overview of labs available to get hands-on with Linux application control frameworks and tools.
+
+- [Application control for everyone](/blog/app-control-for-everyone) - a look at how application control is supported across different platforms, like Linux and Kubernetes, and an introduction to the File Access Policy Daemon (fapolicyd).
+
+- [Application control and integrity checks](/blog/fapolicyd-integrity) - a practical look at file integrity controls supported by fapolicyd, and how you can configure one of these.
+
+- [Automating application control](/blog/automating-app-control) - automating application control state across many systems, using Ansible
+
+Application control is important, though can be difficult to implement. I've spoken with several organisations recently who have invested significant time and money on application control programs. In this article, I'll take a look at an open source tool that can make application control easier to implement - the File Access Policy Analyzer.
+
+The File Access Policy Analyzer, or fapolicy-analyzer, is a set of tools to help with the configuration and maintenance of [fapolicyd](https://github.com/linux-application-whitelisting/fapolicyd). It can help to better understand why policies are failing, and create fapolicyd exceptions and rules files.
+
+The File Access Policy Analyzer needs a graphical environment, so if you haven't already, let's install Gnome
+```
+sudo dnf install @GNOME
+```
+You can then access the graphical environment
+```
+sudo systemctl isolate graphical.target
+```
+
+### Configuring fapolicyd
+Before we can run the fapolicy-analyzer, we should ensure that fapolicyd is enabled and configured in permissive mode.
+
+Edit `/etc/fapolicyd/fapolicyd.conf` and make the following changes:
+```
+permissive = 1
+...
+syslog_format = rule,dec,perm,uid,gid,pid,exe,:,path,ftype,trust
+...
+```
+Restart systemd
+```
+sudo systemctl restart fapolicyd
+```
+
+## Installing fapolicy-analyzer
+
+For this write-up I'm going to install the latest version of `fapolicy-analyzer` on Fedora 36. Firstly, we need some dependencies:
+```
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+dnf install -y python-devel # python 3.9.+ is the default
+dnf install -y cairo cairo-devel python3-wheel gcc zlib-devel bzip2 bzip2-devel \
+  readline-devel sqlite sqlite-devel openssl-devel tk-devel git python3-cairo-devel \
+  cairo-gobject-devel gobject-introspection-devel dbus-devel gtksourceview3 Xvfb
+pip install pipenv --user
+```
+Now we can clone, build and run the latest source:
+```
+git clone https://github.com/ctc-oss/fapolicy-analyzer.git
+cd fapolicy-analyzer
+make run
+```
+
+### Profiling an executable
+When you first start `fapolicy-analyzer` you'll be shown this screen.
+
+<Zoom>
+  ![fapolicy startup](/static/images/fapolicy-analyzer/fapolicy-startup.png)
+</Zoom>
+
+This allows us to see the existing trusted applications in the system trust database (backed by the RPM database), and explore the file-backed ancillary trust database. 
+
+Let's try profiling an application. I've created a new user on the system and pulled down a binary `cowsay` we can run locally. If you navigate to 'Tools -> Profile Executable' you can specify these parameters:
+
+<Zoom>
+  ![cowsay app profile](/static/images/fapolicy-analyzer/fapolicy-cowsay-profile.png)
+</Zoom>
+
+Once the analysis completes, you'll be able to see the results. Here, we can see that the `cowsay` binary is not trusted by the system database. 
+<Zoom>
+  ![cowsay app results](/static/images/fapolicy-analyzer/fapolicy-cowsay-results.png)
+</Zoom>
+
+We can select 'Trust' to add the binary to the ancillary trust database - we'll see later how to apply these changes.
+
+<Zoom>
+  ![cowsay app trust](/static/images/fapolicy-analyzer/fapolicy-cowsay-trust.png)
+</Zoom>
+
+<Zoom>
+  ![cowsay app trust](/static/images/fapolicy-analyzer/fapolicy-cowsay-trustdb.png)
+</Zoom>
+
+
+Ok - that was a relatively simple application. What about something more complex? For this example, I've pulled down the `ansible` binary. We can perform the same app profiling, and see the trusted/untrusted components.
+
+<Zoom>
+  ![ansible app profile](/static/images/fapolicy-analyzer/fapolicy-ansible-profile.png)
+</Zoom>
+<Zoom>
+  ![ansible app results](/static/images/fapolicy-analyzer/fapolicy-ansible-results.png)
+</Zoom>
+
+This example is a little more interesting. In addition to the `/usr/local/bin/ansible` binary, we have a number of shared libraries the application attempted to access. This is certainly useful for understanding how complex applications access system components, and helping create exceptions.
+
+For now, let's simply add the `ansible` binary to the ancillary trust database.
+
+<Zoom>
+  ![ansible app trust](/static/images/fapolicy-analyzer/fapolicy-ansible-trust.png)
+</Zoom>
+
+### Making changes
+
+Navigate back to 'Tool -> Administer Trust Databases'. In the top left-hand corner is a button to deploy the latest changesets. Press this button to deploy the updates to the ancillary trust database. You'll see a screen highlighting the changes to be made:
+
+<Zoom>
+  ![trust db changes](/static/images/fapolicy-analyzer/trustdb-changes.png)
+</Zoom>
+
+Once you select 'Ok', the changes will be written to the ancillary trust database on the host:
+```
+# cat /etc/fapolicyd/fapolicyd.trust 
+/usr/local/bin/cowsay 2772992 fc564f72acb1e84a64131d687ef5106dadcf410d03126638aca46e498d020ca6
+/usr/local/bin/ansible 5936 3a296b73554feba5f98d3d0550915e7633416ea650e90c17cb19b07beefe2622
+```
+You could then take this file, and template it across many systems using [Ansible](/blog/automating-app-control).
+
+## Wrap up
+
+This was a very quick overview of the File Access Policy Analyzer open source tool that can make application control implementation simpler and easier.
+
+You could implement the `fapolicy-analyzer` as part of a DevSecOps approach to application control management.
+
+- Using the `fapolicy-analyzer` during application development to identify a trusted application baseline
+- Packaging updates to the `fapolicyd` ancillary baseline along with application releases
+- Automating updated `fapolicyd` baselines across many hosts using Ansible
