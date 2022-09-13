@@ -7,14 +7,25 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Sun, 24 Jul 2022 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Wed, 14 Sep 2022 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
+      
+  <item>
+    <guid>https://stb.id.au/blog/gartner-swag-wheel</guid>
+    <title>The Gartner Swag Wheel</title>
+    <link>https://stb.id.au/blog/gartner-swag-wheel</link>
+    <description>What do you do when you need to give away swag, but don&#39;t have a wheel? You build one on OpenShift!</description>
+    <pubDate>Wed, 14 Sep 2022 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>gartner</category><category>swag</category><category>openshift</category><category>react</category><category>patternfly</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/fapolicyd-analyzer</guid>
-    <title>Up and Running with the File Access Policy Analyzer</title>
+    <title>Up and running with the File Access Policy Analyzer</title>
     <link>https://stb.id.au/blog/fapolicyd-analyzer</link>
     <description>A quick look at the File Access Policy Analyzer, an open source tool simplifying application control implementation</description>
-    <pubDate>Mon, 24 Jul 2022 00:00:00 GMT</pubDate>
+    <pubDate>Sun, 24 Jul 2022 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>application</category><category>control</category><category>integrity</category><category>risk</category><category>security</category>
   </item>
@@ -23,10 +34,11 @@
     <guid>https://stb.id.au/blog/automated-patching</guid>
     <title>Automated security patching with Ansible</title>
     <link>https://stb.id.au/blog/automated-patching</link>
-    <description>RSA Conference 2022 again highlighted that many data breaches are due to unpatched systems. In this article I look at some of the technologies available to help organisations updates are applied across their hybrid cloud environments</description>
+    <description>RSA Conference 2022 again highlighted that many data breaches are due to unpatched systems. In this article I look at some of the technologies available to help organisations ensure that updates are applied across their hybrid cloud environments</description>
     <pubDate>Wed, 29 Jun 2022 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>ansible</category><category>automation</category><category>patching</category><category>security</category><category>risk</category><category>management</category>
+  </item>
 
   <item>
     <guid>https://stb.id.au/blog/hands-on-app-control</guid>

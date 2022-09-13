@@ -1,0 +1,111 @@
+---
+title: The Gartner Swag Wheel
+date: '2022-09-14'
+tags: ['gartner', 'swag', 'openshift','react','patternfly']
+draft: false
+summary: "What do you do when you need to give away swag, but don't have a wheel? You build one on OpenShift!"
+---
+This week I've been at the Gartner IT Symposium/Xpo, held 12-14 September on the Gold Coast, Australia. It's been a fantastic week, as you can see from the photos!
+
+Swag, or "plunder", often refers to the fun gifts you can pick up at events like this. We had a bunch of swag we wanted to give away, but due to work, health and safety regulations, weren't permitted a physical "wheel of fortune"-style wheel to give away swag. Fortunately we had an OpenShift cluster available - so we built one!
+
+### Creating the swag wheel app
+
+I've been creating a lot of applications in React recently, and fortunately there's an existing package available [react-wheel-of-prizes](https://www.npmjs.com/package/react-wheel-of-prizes). The `react-wheel-of-prizes` allows the colours and segments to be customised, and we could simply embed these changes inside a [Patternfly](https://www.patternfly.org/v4/) app.
+
+```
+  const segments = [
+    'Wireless mouse',
+    'Water bottle',
+    'Socks',
+    'Power bank',
+    'Bouncy ball',
+    'Note pad'
+  ]
+  const segColors = [
+    '#EE0000',
+    '#D40000',
+    '#000000',
+    '#6A6E73',
+    '#EE0000',
+    '#000000',
+  ]
+
+  const swagContent = (
+    <React.Fragment>
+      <WheelComponent
+        segments={segments}
+        segColors={segColors}
+        onFinished={(winner) => onFinished(winner)}
+        primaryColor='black'
+        contrastColor='white'
+        buttonText='Spin'
+        isOnlyOnce={false}
+        size={290}
+        upDuration={100}
+        downDuration={1000}
+        fontFamily='Arial'
+      />·
+    </React.Fragment>
+  );
+
+  return (
+  <PageSection>
+    <Grid>
+      <GridItem span={4}></GridItem>
+      <GridItem span={8}>{swagContent}</GridItem>
+    </Grid>
+  </PageSection>
+  );
+```
+You can see the final results below, and the code hosted on GitHub [here](https://github.com/shaneboulden/swag-wheel)
+
+<Zoom>
+  ![Swag Wheel](/static/images/swag-wheel.png)
+</Zoom>
+
+### Creating a container
+
+Once we had the Patternfly/React application created, we could simply package this inside a container. I've used a Red Hat Universal Base Image (UBI) for this app. The UBI is a freely accessible and redistributable container base image, derived from Red Hat Enterprise Linux.
+
+```
+FROM registry.redhat.io/ubi8
+COPY dist/ /var/www/html/
+
+RUN yum update --disableplugin=subscription-manager -y && rm -rf /var/cache/yum
+RUN yum install --disableplugin=subscription-manager httpd -y && rm -rf /var/cache/yum
+
+COPY conf/httpd.conf /etc/httpd/conf/httpd.conf
+
+RUN chgrp -R 0 /var/log/httpd /var/run/httpd /etc/httpd /var/www/html \
+  && chmod -R g=u /var/log/httpd /var/run/httpd /etc/httpd /var/www/html 
+
+EXPOSE 8080
+USER 1001
+CMD ["-D","FOREGROUND"]
+ENTRYPOINT ["/usr/sbin/httpd"]
+```
+Once created, we could then simply push the image to [quay.io](https://quay.io), and then deploy to OpenShift.
+
+### Deploying to OpenShift
+
+I didn't have much time at the conference to build and manage the app, I just needed to get it up and running. `oc new-app` provided me everything I needed to run the app - it created a Kubernetes service and deployment, and set up an OpenShift image stream. This command also creates the annotations needed to trigger new builds when images are updated.
+
+### Updating the swag wheel
+
+We performed seven upgrades of the app over the three days, which you can see reflected in the Quay image tag history:
+
+<Zoom>
+  ![Swag Wheel History](/static/images/swag-wheel-history.png)
+</Zoom>
+
+The process we used to upgrade the app is:
+
+- Build the app (`npm run-script build`)
+- Package the container (`podman build -t quay.io/smileyfritz/swag-wheel:v1.7 .`)
+- Push the container (`podman push quay.io/smileyfritz/swag-wheel:v1.7`)
+- Tag the OpenShift image stream (`oc tag quay.io/smileyfritz/swag-wheel:v1.7`)
+- Import the new image (`oc import-image swag-wheel:v1.7`)
+- Update the OpenShift deployment image triggers
+
+This allowed me to develop locally on my laptop at the event, and then push changes to OpenShift knowing that the app would work, and everyone could win that swag!
