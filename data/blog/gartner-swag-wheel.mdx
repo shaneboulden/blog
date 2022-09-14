@@ -108,7 +108,7 @@ The process we used to upgrade the app is:
 - Build the app (`npm run-script build`)
 - Package the container (`podman build -t quay.io/smileyfritz/swag-wheel:v1.7 .`)
 - Push the container (`podman push quay.io/smileyfritz/swag-wheel:v1.7`)
-- Tag the OpenShift image stream (`oc tag quay.io/smileyfritz/swag-wheel:v1.7`)
+- Tag the OpenShift image stream (`oc tag quay.io/smileyfritz/swag-wheel:v1.7 swag-wheel:v1.7`)
 - Import the new image (`oc import-image swag-wheel:v1.7`)
 - Update the OpenShift deployment image triggers
 
