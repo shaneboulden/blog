@@ -1,7 +1,7 @@
 ---
 title: Automating application control
 date: '2021-11-26'
-tags: ['application', 'control', 'risk','security','linux','automation']
+tags: ['ansible','application', 'control', 'risk','security','linux','automation']
 draft: false
 summary: 'Automation allows organisations to scale security workflows across hybrid cloud environments. In this article I take a closer look at automating application control, and how you can use Ansible roles to create reusable automation content.'
 ---

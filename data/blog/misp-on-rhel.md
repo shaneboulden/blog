@@ -1,7 +1,7 @@
 ---
 title: Open source threat intelligence and SELinux
 date: '2021-08-29'
-tags: ['open', 'source', 'threat','intelligence','selinux','containers']
+tags: ['linux','open', 'source', 'threat','intelligence','selinux','containers']
 draft: false
 summary: 'How do you protect your threat intelligence sharing platform from compromise?
  Read on to learn how SELinux and podman can support a containerised MISP deployment.'

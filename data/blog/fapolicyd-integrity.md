@@ -1,7 +1,7 @@
 ---
 title: Application control and integrity checks
 date: '2021-10-06'
-tags: ['application', 'control', 'integrity','risk','security']
+tags: ['application', 'control', 'integrity','risk','security','linux']
 draft: false
 summary: 'Injecting integrity checks to application control processes is a winning security combination. Application control allows you to specify that only certain processes can execute on a system - but how do you know they are the right processes? How can you ensure that the code that you want to execute is the code that actually executes?'
 ---

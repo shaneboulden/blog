@@ -1,7 +1,7 @@
 ---
 title: Kubernetes-native security and least surprise
 date: '2021-10-17'
-tags: ['kubernetes', 'native', 'risk','security','least','surprise']
+tags: ['openshift','kubernetes', 'native', 'risk','security','least','surprise']
 draft: false
 summary: 'What does it mean to be "Kubernetes-native"? And what does Kubernetes-native security look like?'
 ---

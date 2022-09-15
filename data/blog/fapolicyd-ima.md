@@ -1,7 +1,7 @@
 ---
 title: Application control and integrity
 date: '2021-09-27'
-tags: ['application', 'control', 'integrity','risk','security']
+tags: ['application', 'control', 'integrity','risk','security','linux']
 draft: true
 summary: "Injecting integrity checking to application control is a winning security combination. This article explores the Linux kernel's Integrity Measurement Architecture (IMA), and integration with application control."
 ---
