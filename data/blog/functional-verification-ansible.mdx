@@ -23,7 +23,7 @@ On Red Hat Enterprise Linux, we can determine that application control is enforc
 
 ### Extending compliance checks with functional verification
 
-Functional verification extends these compliance checks by testing the configuration. In this example we've checked that `fapolicyd` is enabled and started, and the configuration looks ok. We can functionally verify this configuration by:
+Functional verification extends these compliance checks by testing the configuration. In this example we've checked that `fapolicyd` is enabled and started using [SCAP](https://csrc.nist.gov/projects/security-content-automation-protocol), and the configuration looks ok. We can **functionally** verify this configuration by:
 
 - Pulling down an untrusted file
 - Trying to execute the file
@@ -68,7 +68,7 @@ Let's break down this playbook:
 - We're running this across all hosts (`hosts: all`)
 - We don't need any admin privileges (`become: no`)
 - The playbook will collect a file from GitHub, place it into the user's home directory, and attempt to execute it.
-- If the file successfully executes, the playbook fails.
+- If the file successfully executes, the playbook fails (`failed_when: cowsay_cmd.rc == 0`).
 - If the file is blocked, the playbook succeeds.
 
 We can see this behaviour if we first stop fapolicyd on a system, and run the playbook:
@@ -128,7 +128,7 @@ Success! The playbook finished successfully - which means that the file was bloc
 
 In this article I've quickly looked at functional verification with Ansible, using the `failed_when` test to control failure. There's a couple of ways that you may want to extend this:
 
-- Reporting functional test failures into a SIEM
+- Reporting functional verification test failures into a SIEM
 - Performing functional verification tests in response to events. For example, performing tests whenever a change is made to production configuration, using a GitOps approach.
 - Building functional verification tests into Standard Operating Environment (SOE) builds.
 
