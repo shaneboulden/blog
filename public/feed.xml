@@ -12,7 +12,7 @@
       
   <item>
     <guid>https://stb.id.au/blog/functional-verification-ansible</guid>
-    <title>Functional Verification with Ansible</title>
+    <title>Functional Verification Testing with Ansible</title>
     <link>https://stb.id.au/blog/functional-verification-ansible</link>
     <description>Functional verification provides a way that we can attest to the configuration of a device or system, and verify compliance controls. This article looks at a functional verification approach using Ansible.</description>
     <pubDate>Fri, 30 Sep 2022 00:00:00 GMT</pubDate>
