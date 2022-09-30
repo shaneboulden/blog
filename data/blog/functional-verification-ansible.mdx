@@ -1,0 +1,135 @@
+---
+title: Functional Verification with Ansible
+date: '2022-09-30'
+tags: ['functional', 'verification', 'ansible','automation','security','compliance']
+draft: false
+summary: "Functional verification provides a way that we can attest to the configuration of a device or system, and verify compliance controls. This article looks at a functional verification approach using Ansible."
+---
+Over the last couple of weeks I've had conversations around 'functional verification'. Essentially functional verification extends IT system comppliance checks by functionally verifying whether the configuration is correct.
+
+Let's look at an example. One of our organisational security and compliance checks may be to enforce [application control](/blog/app-control-for-everyone), aligning with the Australian Cyber Security Centre (ACSC) "Essential Eight" risk mitigation strategies. If you're new to application control, I've created a few articles on this before:
+
+- [Hands on with application control](/blog/hands-on-app-control) - an overview of labs available to get hands-on with Linux application control frameworks and tools.
+
+- [Application control for everyone](/blog/app-control-for-everyone) - a look at how application control is supported across different platforms, like Linux and Kubernetes, and an introduction to the File Access Policy Daemon (fapolicyd).
+
+- [Application control and integrity checks](/blog/fapolicyd-integrity) - a practical look at file integrity controls supported by fapolicyd, and how you can configure one of these.
+
+- [Automating application control](/blog/automating-app-control) - automating application control state across many systems, using Ansible
+
+- [Up and running with the File Access Policy Analyzer](/blog/fapolicyd-analyzer) - using a graphical tool to profile applications, and apply application control baselines on Linux systems 
+
+On Red Hat Enterprise Linux, we can determine that application control is enforced by checking that the File Access Policy Daemon (`fapolicyd`) is happy. So, we may check whether the `fapolicyd` systemd service is enabled and started, and that the configuration is correct. We could also automate these checks using the Security Content Automation Protocol (SCAP) baseline available for the [Essential Eight](https://www.redhat.com/en/blog/implementing-acsc-essential-eight-baseline-security-automation-red-hat-enterprise-linux).
+
+### Extending compliance checks with functional verification
+
+Functional verification extends these compliance checks by testing the configuration. In this example we've checked that `fapolicyd` is enabled and started, and the configuration looks ok. We can functionally verify this configuration by:
+
+- Pulling down an untrusted file
+- Trying to execute the file
+
+If the file successfully executes, we have a problem. And fortunately, we've been able to determine this by functionally verifying the system configuration.
+
+It takes time to automate functional verification tests, and we probably wouldn't look to apply this for all compliance checks. But we may want to functionally verify some high priority controls, like application control.
+
+### Automating functional verification with Ansible
+
+Ansible lends itself well to functional verification. Not only does it let us easily describe the functional verification tests, but Ansible allows us to control the `failed_when` condition for a test.
+
+Often we can run a system utility or a script to functionally verify a control. But, the outcome of this test may indicate success, rather than failure. Being able to control when a test fails allows us to create fine-grained tests. Let's look at an example.
+
+This is an Ansible playbook that we can use to functionally verify a system.
+```
+- name: Application control functional verification
+  hosts: all
+  become: no
+  remote_user: user1
+
+  tasks:
+    - name: Collect a file to execute
+      ansible.builtin.get_url:
+        url: https://github.com/Code-Hex/Neo-cowsay/releases/download/v2.0.4/cowsay_2.0.4_Linux_x86_64.tar.gz
+        dest: /home/user1/cowsay.tar.gz
+
+    - name: Unarchive the tar-ball
+      ansible.builtin.unarchive:
+        src: cowsay.tar.gz
+        dest: /home/user1/
+
+    - name: Execute the binary
+      ansible.builtin.command: "/home/user1/cowsay 'moooooooo'"
+      register: cowsay_cmd
+      failed_when: cowsay_cmd.rc == 0
+
+    - debug: var=cowsay_cmd.rc
+```
+Let's break down this playbook:
+
+- We're running this across all hosts (`hosts: all`)
+- We don't need any admin privileges (`become: no`)
+- The playbook will collect a file from GitHub, place it into the user's home directory, and attempt to execute it.
+- If the file successfully executes, the playbook fails.
+- If the file is blocked, the playbook succeeds.
+
+We can see this behaviour if we first stop fapolicyd on a system, and run the playbook:
+
+```
+$ ansible-playbook -i inventory verification.yml
+
+PLAY [Application control functional verification] ***************************************************************************************
+
+TASK [Gathering Facts] *******************************************************************************************************************
+ok: [192.168.122.96]
+
+TASK [Collect a file to execute] *********************************************************************************************************
+ok: [192.168.122.96]
+
+TASK [Unarchive the tar-ball] ************************************************************************************************************
+ok: [192.168.122.96]
+
+TASK [Execute the binary] ****************************************************************************************************************
+fatal: [192.168.122.96]: FAILED! => {"changed": true, "cmd": ["/home/user1/cowsay", "moooooooo"], "delta": "0:00:00.002626", "end": "2022-09-30 00:38:27.541135", "failed_when_result": true, "msg": "", "rc": 0, "start": "2022-09-30 00:38:27.538509", "stderr": "", "stderr_lines": [], "stdout": " ___________ \n< moooooooo >\n ----------- \n        \\   ^__^\n         \\  (oo)\\_______\n            (__)\\       )\\/\\\n                ||----w |\n                ||     ||", "stdout_lines": [" ___________ ", "< moooooooo >", " ----------- ", "        \\   ^__^", "         \\  (oo)\\_______", "            (__)\\       )\\/\\", "                ||----w |", "                ||     ||"]}
+
+PLAY RECAP *******************************************************************************************************************************
+192.168.122.96             : ok=3    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0
+```
+
+The binary we pulled from GitHub was able to successfull execute (we can see parts of the `cowsay` cow in the output), so the playbook fails. Now what happens when we start `fapolicyd` and run the playbook:
+
+```
+$ ansible-playbook -i inventory verification.yml
+
+PLAY [Application control functional verification] ***************************************************************************************
+
+TASK [Gathering Facts] *******************************************************************************************************************
+ok: [192.168.122.96]
+
+TASK [Collect a file to execute] *********************************************************************************************************
+ok: [192.168.122.96]
+
+TASK [Unarchive the tar-ball] ************************************************************************************************************
+ok: [192.168.122.96]
+
+TASK [Execute the binary] ****************************************************************************************************************
+ok: [192.168.122.96]
+
+TASK [debug] *****************************************************************************************************************************
+ok: [192.168.122.96] => {
+    "cowsay_cmd.rc": "1"
+}
+
+PLAY RECAP *******************************************************************************************************************************
+192.168.122.96             : ok=5    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+```
+
+Success! The playbook finished successfully - which means that the file was blocked from executing, which we can see in the debug statement (`"cowsay_cmd.rc": "1"`).
+
+## Next steps
+
+In this article I've quickly looked at functional verification with Ansible, using the `failed_when` test to control failure. There's a couple of ways you may want to extend this:
+
+- Reporting functional test failures into a SIEM
+- Performing functional verification tests in response to events. For example, performing tests whenever a change is made to production configuration, using a GitOps approach.
+- Building functional verification tests into Standard Operating Environment (SOE) builds.
+
+Happy automating!
