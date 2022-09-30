@@ -5,7 +5,7 @@ tags: ['functional', 'verification', 'ansible','automation','security','complian
 draft: false
 summary: "Functional verification provides a way that we can attest to the configuration of a device or system, and verify compliance controls. This article looks at a functional verification approach using Ansible."
 ---
-Over the last couple of weeks I've had conversations around 'functional verification'. Essentially functional verification extends IT system comppliance checks by functionally verifying whether the configuration is correct.
+Over the last couple of weeks I've had conversations around 'functional verification'. Essentially functional verification extends IT system compliance checks by functionally verifying whether the configuration is correct.
 
 Let's look at an example. One of our organisational security and compliance checks may be to enforce [application control](/blog/app-control-for-everyone), aligning with the Australian Cyber Security Centre (ACSC) "Essential Eight" risk mitigation strategies. If you're new to application control, I've created a few articles on this before:
 
@@ -94,7 +94,7 @@ PLAY RECAP *********************************************************************
 192.168.122.96             : ok=3    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0
 ```
 
-The binary we pulled from GitHub was able to successfull execute (we can see parts of the `cowsay` cow in the output), so the playbook fails. Now what happens when we start `fapolicyd` and run the playbook:
+The binary we pulled from GitHub was able to successfully execute (we can see parts of the `cowsay` cow in the output), so the playbook fails. Now what happens when we start `fapolicyd` and run the playbook:
 
 ```
 $ ansible-playbook -i inventory verification.yml
@@ -122,11 +122,11 @@ PLAY RECAP *********************************************************************
 192.168.122.96             : ok=5    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 ```
 
-Success! The playbook finished successfully - which means that the file was blocked from executing, which we can see in the debug statement (`"cowsay_cmd.rc": "1"`).
+Success! The playbook finished successfully - which means that the file was blocked from executing, and we can see this in the debug statement (`"cowsay_cmd.rc": "1"`).
 
 ## Next steps
 
-In this article I've quickly looked at functional verification with Ansible, using the `failed_when` test to control failure. There's a couple of ways you may want to extend this:
+In this article I've quickly looked at functional verification with Ansible, using the `failed_when` test to control failure. There's a couple of ways that you may want to extend this:
 
 - Reporting functional test failures into a SIEM
 - Performing functional verification tests in response to events. For example, performing tests whenever a change is made to production configuration, using a GitOps approach.
