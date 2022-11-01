@@ -1,0 +1,157 @@
+---
+title: Improved Functional Verification Testing with Ansible
+date: '2022-11-02'
+tags: ['functional', 'verification', 'ansible','automation','security','compliance']
+draft: false
+summary: "Ansible provides a way to automate functional verification tests. This article looks at an improved approach to automating functional verification tests that I introduced in an earlier article."
+---
+A couple of months ago I published an article on [automating functional verification tests with Ansible.](/blog/functional-verification-ansible) I had several people reach out, and thought that there were some improvements I could make.
+
+If you ran the playbook in the original article you probably saw a message like this when it failed:
+```
+$ ansible-playbook -i inventory verification.yml
+
+PLAY [Application control functional verification] ***************************************************************************************
+
+TASK [Gathering Facts] *******************************************************************************************************************
+ok: [192.168.122.96]
+
+TASK [Collect a file to execute] *********************************************************************************************************
+ok: [192.168.122.96]
+
+TASK [Unarchive the tar-ball] ************************************************************************************************************
+ok: [192.168.122.96]
+
+TASK [Execute the binary] ****************************************************************************************************************
+fatal: [192.168.122.96]: FAILED! => {"changed": true, "cmd": ["/home/user1/cowsay", "moooooooo"], "delta": "0:00:00.002626", "end": "2022-09-30 00:38:27.541135", "failed_when_result": true, "msg": "", "rc": 0, "start": "2022-09-30 00:38:27.538509", "stderr": "", "stderr_lines": [], "stdout": " ___________ \n< moooooooo >\n ----------- \n        \\   ^__^\n         \\  (oo)\\_______\n            (__)\\       )\\/\\\n                ||----w |\n                ||     ||", "stdout_lines": [" ___________ ", "< moooooooo >", " ----------- ", "        \\   ^__^", "         \\  (oo)\\_______", "            (__)\\       )\\/\\", "                ||----w |", "                ||     ||"]}
+
+PLAY RECAP *******************************************************************************************************************************
+192.168.122.96             : ok=3    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0
+```
+There's a few issues with this workflow:
+- **The playbook failure is only recorded locally.** There's nothing recorded in other systems that this play has failed, and that we have a security and compliance issue that needs to be investigated.
+- **The files used to orchestrate the test are still on the server.** These should be cleaned up, as they are not needed outside the scope of the test.
+
+Fortunately we can use [Ansible blocks](https://docs.ansible.com/ansible/latest/user_guide/playbooks_blocks.html) to improve this workflow.
+
+## Ansible blocks
+
+Ansible blocks help us to handle task errors and failures, and provide a similar approach to "try-catch" statements in many programming languages.
+
+### Rescue blocks
+[Rescue blocks](https://docs.ansible.com/ansible/latest/user_guide/playbooks_blocks.html#handling-errors-with-blocks) can be used to run command in response to failures. For example, we could use a `rescue` block to identify when a verification test fails, and create an incident in a system of record (like ServiceNow). To make this easier, there's a certified [ServiceNow Ansible collection](https://www.ansible.com/integrations/it-service-management/servicenow) available for the Ansible Automation Platform.
+
+For our example, we'll simply log a debug message.
+```yaml {23-26} showLineNumbers
+- name: Improved functional verification tests
+  hosts: localhost
+  become: no
+  remote_user: user1
+
+  tasks:
+    - block:
+      - name: Collect a file to execute
+        ansible.builtin.get_url:
+          url: https://github.com/Code-Hex/Neo-cowsay/releases/download/v2.0.4/cowsay_2.0.4_Linux_x86_64.tar.gz
+          dest: /home/user1/cowsay.tar.gz
+
+      - name: Unarchive the tar-ball
+        ansible.builtin.unarchive:
+          src: cowsay.tar.gz
+          dest: /home/user1/
+
+      - name: Execute the binary
+        ansible.builtin.command: "/home/user1/cowsay 'moooooooo'"
+        register: cowsay_cmd
+        failed_when: cowsay_cmd.rc == 0
+
+      rescue:
+        - name: Catch any failures
+          ansible.builtin.debug:
+            msg: "The verification test failed! You should definitely investigate this."
+```
+Our playbook now catches failures and creates messages - and could easily be integrated with a platform like ServiceNow.
+
+### Always blocks
+[Always blocks](https://docs.ansible.com/ansible/latest/user_guide/playbooks_blocks.html#handling-errors-with-blocks) can be used to clean up after functional verification tests, and remove any content used to perform the test.
+
+We can add an `always` block to the end of our functional verification testing playbook to clean up the `cowsay` files used to orchestrate the test:
+```yaml {28-38} showLineNumbers
+- name: Even better functional verification tests
+  hosts: localhost
+  become: no
+  remote_user: user1
+
+  tasks:
+    - block:
+      - name: Collect a file to execute
+        ansible.builtin.get_url:
+          url: https://github.com/Code-Hex/Neo-cowsay/releases/download/v2.0.4/cowsay_2.0.4_Linux_x86_64.tar.gz
+          dest: /home/user1/cowsay.tar.gz
+
+      - name: Unarchive the tar-ball
+        ansible.builtin.unarchive:
+          src: cowsay.tar.gz
+          dest: /home/user1/
+
+      - name: Execute the binary
+        ansible.builtin.command: "/home/user1/cowsay 'moooooooo'"
+        register: cowsay_cmd
+        failed_when: cowsay_cmd.rc == 0
+
+      rescue:
+        - name: Catch any failures
+          ansible.builtin.debug:
+            msg: "The verification test failed! You should definitely investigate this."
+
+      always:
+        - name: Clean up testing files
+          ansible.builtin.file:
+            state: absent
+            dest: "{{ item }}"
+          loop:
+            - /home/user1/cowsay
+            - /home/user1/cowthink
+            - /home/user1/cowsay.tar.gz
+            - /home/user1/LICENSE
+            - /home/user1/doc
+```
+And finally, run our new playbook:
+```
+$ ansible-playbook -i inventory verification.yml
+PLAY [Even better functional verification tests] *******************************************************************************************************************************************************************************************
+
+TASK [Gathering Facts] ***********************************************************************************************************************************************************************************************************************
+ok: [localhost]
+
+TASK [Collect a file to execute] *************************************************************************************************************************************************************************************************************
+changed: [localhost]
+
+TASK [Unarchive the tar-ball] ****************************************************************************************************************************************************************************************************************
+changed: [localhost]
+
+TASK [Execute the binary] ********************************************************************************************************************************************************************************************************************
+fatal: [localhost]: FAILED! => {"changed": true, "cmd": ["/home/user1/cowsay", "moooooooo"], "delta": "0:00:00.002074", "end": "2022-11-01 00:53:56.435420", "failed_when_result": true, "msg": "", "rc": 0, "start": "2022-11-01 00:53:56.433346", "stderr": "", "stderr_lines": [], "stdout": " ___________ \n< moooooooo >\n ----------- \n        \\   ^__^\n         \\  (oo)\\_______\n            (__)\\       )\\/\\\n                ||----w |\n                ||     ||", "stdout_lines": [" ___________ ", "< moooooooo >", " ----------- ", "        \\   ^__^", "         \\  (oo)\\_______", "            (__)\\       )\\/\\", "                ||----w |", "                ||     ||"]}
+
+TASK [Catch any failures] ********************************************************************************************************************************************************************************************************************
+ok: [localhost] => {
+    "msg": "The verification test failed! You should definitely investigate this."
+}
+
+TASK [Clean up testing files] ****************************************************************************************************************************************************************************************************************
+changed: [localhost] => (item=/home/user1/cowsay)
+changed: [localhost] => (item=/home/user1/cowthink)
+changed: [localhost] => (item=/home/user1/cowsay.tar.gz)
+changed: [localhost] => (item=/home/user1/LICENSE)
+changed: [localhost] => (item=/home/user1/doc)
+
+PLAY RECAP ***********************************************************************************************************************************************************************************************************************************
+localhost                  : ok=5    changed=3    unreachable=0    failed=0    skipped=0    rescued=1    ignored=0 
+```
+Let's break down this improved playbook:
+- The playbook will collect a file from GitHub, place it into the user's home directory, and attempt to execute it.
+- If the file successfully executes, the playbook fails (`failed_when: cowsay_cmd.rc == 0`) and logs a message. We could also create an incident in [ServiceNow](https://www.ansible.com/integrations/it-service-management/servicenow).
+- If the file is blocked (by `fapolicyd`), the playbook succeeds.
+- At the end of the playbook, whether it succeeds or not, all of the testing files are removed.
+
+Let me know in the comments if you have any other ideas to improve these functional verification tests, and happy automating!
