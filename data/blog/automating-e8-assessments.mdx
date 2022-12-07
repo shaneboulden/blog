@@ -1,0 +1,110 @@
+---
+title: Automating the Essential Eight Assessment Guide
+date: '2022-12-08'
+tags: ['functional', 'verification', 'ansible','automation','windows','e8','security']
+draft: false
+summary: "Recently the Australian Cyber Security Centre released an Essential Eight assessment guide. This article looks at automating some of the tests in the guide with Ansible."
+---
+A couple of weeks ago the Australian Cyber Security Centre (ACSC) released an [assessment guide for the Essential Eight](https://www.cyber.gov.au/acsc/view-all-content/publications/essential-eight-assessment-process-guide). If you're not familiar with the [Essential Eight](https://www.cyber.gov.au/acsc/view-all-content/essential-eight) it's a collection of cybersecurity strategies to harden your infrastructure, and make it much harder for adversaries to compromise systems.
+
+The assessment guide includes small tests you can use to assess Essential Eight implementation, like this one:
+
+<Quote quote="To check if application control is implemented within the user profile directory, attempt to run a benign executable file inside the directory. The executables tested should cover .exe, .com, .dll, .ocx, .ps1, .bat, .vbs, .js, .msi, .mst, .msp, .chm, .hta, and .cpl. If any of the executables run within the user profile directory or operating system temporary folders, application control is ineffective." />
+
+If you're thinking - "Hang on. That sounds like the [functional verification approach](/blog/functional-verification-ansible) that you automated in the last blog" - then you'd be right!
+
+So can we take the same approach for Windows? The answer is a definitive **yes**!
+
+### Ansible + Windows
+
+Ansible supports Windows automation, and has several modules that we're going to use to automate functional verification tests:
+
+- [win_get_url](https://docs.ansible.com/ansible/latest/collections/ansible/windows/win_get_url_module.html) This module simply downloads files. We'll use this to pull down a benign binary and run it on our Windows 10 desktop.
+
+- [win_unzip](https://docs.ansible.com/ansible/latest/collections/community/windows/win_unzip_module.html) The benign binary we pull down will be in a zip, and we'll use this module to unarchive it.
+
+- [win_cmd](https://docs.ansible.com/ansible/latest/collections/ansible/windows/win_command_module.html) Like the name says, we'll use this module to run commands on the Windows 10 desktop.
+
+- [win_file](https://docs.ansible.com/ansible/latest/collections/ansible/windows/win_file_module.html) We'll use this module to clean up the files we download to perform the test.
+
+I've setup this Windows 10 desktop with the [OpenSSH Server feature for Windows](https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh_install_firstuse?tabs=gui). This is still in a beta and isn't ready for production, but it's great for testing out some of this automation over SSH. If you want to run this in production, the [WinRM](https://docs.ansible.com/ansible/latest/os_guide/windows_winrm.html) capability is supported.
+
+<Zoom>
+![Windows 10 OpenSSH Server](/static/images/win10_openssh.png)
+</Zoom>
+
+### Creating the Essential Eight verification playbook
+
+We have our Windows 10 desktop configured, and identified the Ansible modules we want to use. Here's the completed playbook, based on the previous one we created for Linux:
+```
+- name: Application control functional verification
+  hosts: win10
+  gather_facts: no
+  remote_user: admin
+
+  tasks:
+    - block:
+      - name: Collect a file to execute
+        ansible.builtin.win_get_url:
+          url: https://github.com/Code-Hex/Neo-cowsay/releases/download/v2.0.4/cowsay_2.0.4_Windows_x86_64.zip
+          dest: C:\Users\admin\cowsay.zip
+
+      - name: Unarchive the tar-ball
+        ansible.builtin.win_unzip:
+          src: cowsay.zip
+          dest: C:\Users\admin
+          remote_src: yes
+
+      - name: Execute the binary
+        ansible.builtin.win_command: '"C:\Users\admin\cowsay.exe" "mooooo"'
+        register: cowsay_cmd
+        failed_when: cowsay_cmd.rc == 0
+
+      rescue:
+        - name: Catch any failures
+          ansible.builtin.debug:
+            msg: "The verification test failed! You should definitely investigate this."  
+
+      always:
+        - name: Clean up testing files
+          ansible.builtin.win_file:
+            state: absent
+            dest: "{{ item }}"
+          loop:
+            - C:\Users\admin\cowsay.zip
+            - C:\Users\admin\cowsay.exe
+            - C:\Users\admin\LICENSE
+            - C:\Users\admin\doc
+```
+Similar to our [Linux example](/blog/functional-verification-ansible), we're using the Ansible `failed_when` syntax to indicate that this command has successfully executed, but that indicates failure for our test.
+
+Let's run it:
+```
+LAY [Application control functional verification] ******************************************************************************************************************************
+
+TASK [Collect a file to execute] ************************************************************************************************************************************************
+changed: [192.168.122.54]
+
+TASK [Unarchive the tar-ball] ***************************************************************************************************************************************************
+changed: [192.168.122.54]
+
+TASK [Execute the binary] *******************************************************************************************************************************************************
+fatal: [192.168.122.54]: FAILED! => {"changed": true, "cmd": "\"C:\\Users\\admin\\cowsay.exe\" \"mooooo\"", "delta": "0:00:00.219089", "end": "2022-12-07 21:22:52.653780", "failed_when_result": true, "rc": 0, "start": "2022-12-07 21:22:52.434690", "stderr": "", "stderr_lines": [], "stdout": " ________ \n< mooooo >\n -------- \n        \\   ^__^\n         \\  (oo)\\_______\n            (__)\\       )\\/\\\n                ||----w |\n                ||     ||\n", "stdout_lines": [" ________ ", "< mooooo >", " -------- ", "        \\   ^__^", "         \\  (oo)\\_______", "            (__)\\       )\\/\\", "                ||----w |", "                ||     ||"]}
+
+TASK [Catch any failures] *******************************************************************************************************************************************************
+ok: [192.168.122.54] => {
+    "msg": "The verification test failed! You should definitely investigate this."
+}
+
+TASK [Clean up testing files] ***************************************************************************************************************************************************
+changed: [192.168.122.54] => (item=C:\Users\admin\cowsay.zip)
+changed: [192.168.122.54] => (item=C:\Users\admin\cowsay.exe)
+changed: [192.168.122.54] => (item=C:\Users\admin\LICENSE)
+changed: [192.168.122.54] => (item=C:\Users\admin\doc)
+
+PLAY RECAP **********************************************************************************************************************************************************************
+192.168.122.54             : ok=4    changed=3    unreachable=0    failed=0    skipped=0    rescued=1    ignored=0
+```
+Success! The command successfully executed on our Windows 10 desktop - meaning this test failed, and displayed a message. We could also log tickets with ServiceNow, using the [Ansible collection for ServiceNow](https://www.ansible.com/integrations/it-service-management/servicenow).
+
+Happy automating!

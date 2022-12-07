@@ -7,9 +7,19 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Wed, 02 Nov 2022 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Thu, 08 Dec 2022 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/automating-e8-assessments</guid>
+    <title>Automating the Essential Eight Assessment Guide</title>
+    <link>https://stb.id.au/blog/automating-e8-assessments</link>
+    <description>Recently the Australian Cyber Security Centre released an Essential Eight assessment guide. This article looks at automating some of the tests in the guide with Ansible.</description>
+    <pubDate>Thu, 08 Dec 2022 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>functional</category><category>verification</category><category>ansible</category><category>automation</category><category>windows</category><category>e8</category><category>security</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/improved-functional-verification</guid>
     <title>Improved Functional Verification Testing with Ansible</title>
@@ -24,16 +34,6 @@
     <guid>https://stb.id.au/blog/functional-verification-ansible</guid>
     <title>Functional Verification Testing with Ansible</title>
     <link>https://stb.id.au/blog/functional-verification-ansible</link>
-    <description>Functional verification provides a way that we can attest to the configuration of a device or system, and verify compliance controls. This article looks at a functional verification approach using Ansible.</description>
-    <pubDate>Fri, 30 Sep 2022 00:00:00 GMT</pubDate>
-    <author>dev@stb.id.au (Shane Boulden)</author>
-    <category>functional</category><category>verification</category><category>ansible</category><category>automation</category><category>security</category><category>compliance</category>
-  </item>
-
-  <item>
-    <guid>https://stb.id.au/blog/signing-blobs</guid>
-    <title>Signing blobs</title>
-    <link>https://stb.id.au/blog/signing-blobs</link>
     <description>Functional verification provides a way that we can attest to the configuration of a device or system, and verify compliance controls. This article looks at a functional verification approach using Ansible.</description>
     <pubDate>Fri, 30 Sep 2022 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
