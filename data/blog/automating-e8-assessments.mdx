@@ -7,11 +7,11 @@ summary: "Recently the Australian Cyber Security Centre released an Essential Ei
 ---
 A couple of weeks ago the Australian Cyber Security Centre (ACSC) released an [assessment guide for the Essential Eight](https://www.cyber.gov.au/acsc/view-all-content/publications/essential-eight-assessment-process-guide). If you're not familiar with the [Essential Eight](https://www.cyber.gov.au/acsc/view-all-content/essential-eight) it's a collection of cybersecurity strategies to harden your infrastructure, and make it much harder for adversaries to compromise systems.
 
-The assessment guide includes small tests you can use to assess Essential Eight implementation, like this one:
+One of the Essential Eight strategies is [Application Control](https://www.cyber.gov.au/acsc/view-all-content/publications/implementing-application-control), and the assessment guide includes a small test you can use to assess implementation, like this one:
 
 <Quote quote="To check if application control is implemented within the user profile directory, attempt to run a benign executable file inside the directory. The executables tested should cover .exe, .com, .dll, .ocx, .ps1, .bat, .vbs, .js, .msi, .mst, .msp, .chm, .hta, and .cpl. If any of the executables run within the user profile directory or operating system temporary folders, application control is ineffective." />
 
-If you're thinking - "Hang on. That sounds like the [functional verification approach](/blog/functional-verification-ansible) that you automated in the last blog" - then you'd be right!
+If you're thinking - "Hang on. That sounds like the [functional verification approach](/blog/functional-verification-ansible) for application control that you automated in the last blog" - then you'd be right!
 
 So can we take the same approach for Windows? The answer is a definitive **yes**!
 
@@ -35,9 +35,9 @@ I've setup this Windows 10 desktop with the [OpenSSH Server feature for Windows]
 
 ### Creating the Essential Eight verification playbook
 
-We have our Windows 10 desktop configured, and identified the Ansible modules we want to use. Here's the completed playbook, based on the previous one we created for [Linux](https://github.com/shaneboulden/functional-verification-ansible):
+We have the Essential Eight strategy we want to test identified (application control); we have our Windows 10 desktop configured; and we've identified the Ansible modules we want to use for this automated test. Here's the completed playbook, based on the previous one we created for [Linux](https://github.com/shaneboulden/functional-verification-ansible):
 ```
-- name: Application control functional verification
+- name: Application control functional assessment
   hosts: win10
   gather_facts: no
   remote_user: admin
@@ -105,6 +105,6 @@ changed: [192.168.122.54] => (item=C:\Users\admin\doc)
 PLAY RECAP **********************************************************************************************************************************************************************
 192.168.122.54             : ok=4    changed=3    unreachable=0    failed=0    skipped=0    rescued=1    ignored=0
 ```
-Success! The command successfully executed on our Windows 10 desktop - meaning this test failed, and displayed a message. We could also log tickets with ServiceNow, using the [Ansible collection for ServiceNow](https://www.ansible.com/integrations/it-service-management/servicenow).
+Success! The command successfully executed on our Windows 10 desktop - meaning this application control test failed, and displayed a message. We could also log tickets with ServiceNow, using the [Ansible collection for ServiceNow](https://www.ansible.com/integrations/it-service-management/servicenow).
 
 Happy automating!
