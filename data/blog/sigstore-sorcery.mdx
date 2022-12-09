@@ -1,0 +1,78 @@
+---
+title: Sigstore - Signature Sorcery!
+date: '2022-12-10'
+tags: ['sigstore', 'signatures', 'containers','kubernetes','security']
+draft: true
+summary: "Sigstore is an open source project enabling anyone to sign and validate software releases, including container images. This article takes a closer look at Sigstore and some of the innovation happening around the project."
+---
+The first time that I tried out the Sigstore open source project, I was completely blown away. I had a container image that I wanted to sign, so I pulled down the `cosign` binary, generated a keypair, signed the container image, and pushed the signatures to [quay.io](https://quay.io).
+
+The best part was that all of this happened in about 10 minutes! I remember thinking - **"wow, that was easy."**
+
+The more I delved into the Sigstore project, the more I realised that this truly was signature sorcery. "Wait, there's also a transparency ledger which records signed metadata about my container image? And it's freely available??"
+
+## Sigstore background
+The Sigstore project was founded by [Luke Hinds](https://github.com/lukehinds), the Red Hat security engineering lead within the Office of the Chief Technology Officer. It's now an Open Source Security Foundation ([OpenSSF](https://openssf.org/)) project, with an incredibly active community that includes Google (Bob Callaway is a co-founder), ChainGuard (Dan Lorenc is also a co-founder!), GitHub, and many others.
+
+Sigstore has rapidly become the standard for signing, verifying and protecting software for its ability to automate digitally signing and checking software artifacts. It's seeing massive adoption - [all Kubernetes releases starting with 1.24](https://blog.sigstore.dev/kubernetes-signals-massive-adoption-of-sigstore-for-protecting-open-source-ecosystem-73a6757da73) will include cryptographically signed Sigstore certificates, giving users the ability to verify signatures and have greater confidence in the origin of each and every deployed Kubernetes binary, source code bundle and container image.
+
+There's a few components that comprise Sigstore and make it easy to get up and running with signing releases.
+
+### Cosign
+Cosign supports container signing, verification, and storage in an [Open Container Initiative](https://opencontainers.org/) registry. 
+
+### Rekor
+Rekor provides 
+Rekor has recently reached General Availability.
+
+### Fulcio
+
+Fulcio has also recently reached General Availability.
+
+## Up and running with Sigstore and OpenShift
+
+Ok - time to get hands on! If you have a handy OpenShift environment laying around, there's a couple of simple steps to get up and running with Sigstore and start signing containers:
+
+1. Install the **OpenShift Pipelines** operator. OpenShift Pipelines provides the [Tekton Chains](https://next.redhat.com/project/tekton-chains/) component in Technology Preview, which allows us to embed container signing inside Tekton pipelines.
+
+2. Configure Tekton Chains. You can find a quick guide [here](https://docs.openshift.com/container-platform/4.11/cicd/pipelines/using-tekton-chains-for-openshift-pipelines-supply-chain-security.html)
+
+3. Configure your Tekton pipeline to emit results. Specifically, Tekton Chains looks for the Tekton `IMAGE_DIGEST` and `IMAGE_URL` results to identify new container images that need to be signed. You can add these results to an existing pipeline using a Tekton task:
+
+```
+...
+results:
+  - name: IMAGE_DIGEST
+    description: Digest of the image just built.
+  - name: IMAGE_URL
+    description: Name of the image just built.
+...
+- name: digest-to-results
+    image: $(params.BUILDER_IMAGE)
+    script: cat $(workspaces.source.path)/image-digest | tee /tekton/results/IMAGE_DIGEST
+
+  - name: name-to-results
+    image: $(params.BUILDER_IMAGE)
+    script: echo $(params.IMAGE) | tee /tekton/results/IMAGE_URL
+```
+You can find the complete example at my GitHub [here](https://github.com/shaneboulden/chat-pipeline/blob/main/buildah-vol.yaml)
+
+That's really all there is. You don't need to explicitly add steps to your build pipeline to sign containers - the Tekton Chains controller will detect new releases from the `IMAGE_URL` and `IMAGE_DIGEST` results, and sign these containers with the key provided and store the signatures as OCI manifest objects alongside your container images in the registry.
+
+You can confirm this using something like [crane](https://github.com/google/go-containerregistry/blob/main/cmd/crane/doc/crane.md):
+```
+0.5
+sha256-f41cc30a1507e3eb3117e0e31be7604fe484c48caf335cd1cdfe1c1991ada077.att
+sha256-f41cc30a1507e3eb3117e0e31be7604fe484c48caf335cd1cdfe1c1991ada077.sig
+v0.6
+sha256-822be3ad91788b82d275ef8077132c09e4339c415823e286df79d23608a278fe.att
+sha256-822be3ad91788b82d275ef8077132c09e4339c415823e286df79d23608a278fe.sig
+latest
+sha256-c446564d0876f0af0eba11a93352711cf836b7bc082e50f9151d5d9e90817d75.att
+sha256-c446564d0876f0af0eba11a93352711cf836b7bc082e50f9151d5d9e90817d75.sig
+```
+`crane` simply dumps the contents of the repository. Here you we can see tags (`0.5`, `v0.6` and `latest`), as well as signatures and attestations created by Sigstore and Tekton Chains components stored within the container image repository.
+
+I've created a video here showing how to configure Tekton Chains and create a pipeline that signs container images, and also how Tekton Chains can use the public benefit Rekor instance to sign and store metadata about releases.
+
+<YoutubeEmbed embedId="5YQGd9B9Zss" />

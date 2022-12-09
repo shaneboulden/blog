@@ -1,0 +1,39 @@
+---
+title: Automating security platforms
+date: '2022-09-30'
+tags: ['automation', 'security', 'platforms','ansible','stackrox']
+draft: true
+summary: 'Automation allows organisations to scale security workflows across hybrid cloud environments. In this article I take a closer look at automating application control, and how you can use Ansible roles to create reusable automation content.'
+---
+
+Automation is essential to be able to scale security workflows. 
+
+In this article I'm going to be automating a cloud-native security platform, Red Hat Advanced Cluster Security for Kubernetes (ACS). 
+
+I've covered Ansible in a few previous articles, which you can find here:
+
+- [Automating application control](/blog/automating-app-control) - a hands-on guide to automating the File Access Policy Daemon (fapolicyd) with Ansible. The File Access Policy Daemon supports application control on Red Hat Enterprise Linux systems.
+
+- [Automated security patching with Ansible](/blog/automated-patching) - a look at integrating Ansible Automating with Red Hat Insights to detect and remediate critical system vulnerabilities.
+
+## What is Red Hat Advanced Cluster Security for Kubernetes
+
+## Vulnerability management
+
+## Automating vulnerability management with Ansible
+
+Fortunately, ACS exposes a RESTful API that we can use to automate security workflows. You can find the API documentation by selecting the 'question mark' icon, and then 'API'.
+
+#### Pic of API reference docs.
+
+The ACS API exposes an endpoint to manage vulnerabilitis, which you can find under the VulnerabilityManagementService. The API docs provide the syntax we need to use to invoke the service
+
+```
+Syntax for API calls
+```
+
+Ansible provides a URI module which we can use to invoke this API call. 
+
+#### Bringing it all together with Red Hat Ansible Automation Platform
+
+
