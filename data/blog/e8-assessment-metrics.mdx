@@ -10,16 +10,16 @@ In the [last article](/blog/automating-e8-assessments) I looked at automating so
 Specifically, in the last article I looked at automating application control assessments by pulling down a benign binary to a Windows desktop, and seeing if it executes. If it executes, the test fails; if it is blocked, the test passes. For this article I want to look at measuring this assessment activity. I want to provide insights into how often we're performing these Essential Eight verification tests against Windows servers / desktops, and how often these tests are passing or failing.
 
 ## Metrics collection
-Ansible already provides automation analytics through Automation Analytics, part of the Ansible Automation Platform. Automation analytics can be accessed via the [Red Hat Hybrid Cloud Console](https://console.redhat.com), and you can see a screen grab here of the Automation analytics dashboard.
+Ansible already provides automation metrics through Automation Analytics, part of the Ansible Automation Platform. Automation Analytics can be accessed via the [Red Hat Hybrid Cloud Console](https://console.redhat.com), and you can see a screen grab here of the Automation Analytics dashboard.
 
 <Zoom>
 ![Ansible Automation Analytics](/static/images/aa-dashboard.png)
 </Zoom>
 
 ## Exploring Automation Analytics
-Let's see if we can answer our Essential Eight assessment questions from the Automation analytics data - **how often are we assessing systems, and are they passing the tests?**
+Let's see if we can answer our Essential Eight assessment questions from the Automation Analytics data - **how often are we assessing systems, and are they passing the tests?**
 
-Inside Automation analytics there is a report available - "Job Template Run Rate". If we select this report we can start to see jobs broken down by how often they are run.
+Inside Automation Analytics there is a report available - `Job Template Run Rate`. If we select this report we can start to see Ansible jobs broken down by how often they are run.
 
 <Zoom>
 ![Job Template run rate report](/static/images/job-template-run-rate.png)
