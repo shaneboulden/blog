@@ -1,0 +1,53 @@
+---
+title: Measuring Essential Eight Assessment Activity
+date: '2022-12-20'
+tags: ['essential','eight','ansible','automation','windows','e8','security','metrics','assessment']
+draft: false
+summary: "In the last article I looked at automating some of the tests available for Windows servers and desktops in the ACSC Essential Eight assessment guide. This article looks at how we can measure assessment activity - how often are we assessing systems, and are they passing the tests?"
+---
+In the [last article](/blog/automating-e8-assessments) I looked at automating some of the tests available for Windows servers and desktops in the Australian Cyber Security Centre's (ACSC) [Essential Eight assessment guide](https://www.cyber.gov.au/acsc/view-all-content/publications/essential-eight-assessment-process-guide). This article looks at how we can measure assessment activity - how often are we assessing systems, and are they passing the tests?
+
+Specifically, in the last article I looked at automating application control assessments by pulling down a benign binary to a Windows desktop, and seeing if it executes. If it executes, the test fails; if it is blocked, the test passes. For this article I want to look at measuring this assessment activity. I want to provide insights into how often we're performing these Essential Eight verification tests against Windows servers / desktops, and how often these tests are passing and failing.
+
+## Metrics collection
+Ansible already provides automation analytics through Automation Analytics, part of the Ansible Automation Platform. Automation analytics can be accessed via the [Red Hat Hybrid Cloud Console](https://console.redhat.com), and you can see a screen grab here of the Automation analytics dashboard.
+
+<Zoom>
+![Ansible Automation Analytics](/static/images/aa-dashboard.png)
+</Zoom>
+
+## Ansible Automation Platform configuration
+You can configure 
+
+
+## Exploring Automation Analytics
+Let's see if we can answer our Essential Eight assessment questions from the Automation analytics data - "how often are we assessing systems, and are they passing the tests?"
+
+Inside Automation analytics there is a report available - "Job Template Run Rate"
+
+<Zoom>
+![]()
+</Zoom>
+
+If we select this report we can start to see jobs broken down by how often they are run.
+
+<Zoom>
+![]()
+</Zoom>
+
+Ok, we're starting to get some useful information. If we look only at our "Windows App Control test" job, we can see that it was run 10 times on Dec 20, and then another 5 times Dec 21.
+
+Let's look at the failed task count.
+
+<Zoom>
+![]()
+</Zoom>
+
+Ok - so of the 10 runs on Dec 20, 3 of them failed. And of the 5 runs Dec 21, 2 of them failed. This is useful information - we know that about 30-40% of the hosts that we're running this automation across do not have application control configured correctly.
+
+Conversely we can look at playbook success. 
+
+## Wrapping up
+In this article I looked at some of the ways we can start to measure [Essential Eight assessment](https://www.cyber.gov.au/acsc/view-all-content/publications/essential-eight-assessment-process-guide) activity, and building this into an [automated assessment workflow](/blog/automating-e8-assessments).
+
+
