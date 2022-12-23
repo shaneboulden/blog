@@ -1,13 +1,13 @@
 ---
 title: Measuring Essential Eight Assessment Activity
-date: '2022-12-20'
+date: '2022-12-23'
 tags: ['essential','eight','ansible','automation','windows','e8','security','metrics','assessment']
 draft: false
 summary: "In the last article I looked at automating some of the tests available for Windows servers and desktops in the ACSC Essential Eight assessment guide. This article looks at how we can measure assessment activity - how often are we assessing systems, and are they passing the tests?"
 ---
 In the [last article](/blog/automating-e8-assessments) I looked at automating some of the tests available for Windows servers and desktops in the Australian Cyber Security Centre's (ACSC) [Essential Eight assessment guide](https://www.cyber.gov.au/acsc/view-all-content/publications/essential-eight-assessment-process-guide). This article looks at how we can measure assessment activity - how often are we assessing systems, and are they passing the tests?
 
-Specifically, in the last article I looked at automating application control assessments by pulling down a benign binary to a Windows desktop, and seeing if it executes. If it executes, the test fails; if it is blocked, the test passes. For this article I want to look at measuring this assessment activity. I want to provide insights into how often we're performing these Essential Eight verification tests against Windows servers / desktops, and how often these tests are passing and failing.
+Specifically, in the last article I looked at automating application control assessments by pulling down a benign binary to a Windows desktop, and seeing if it executes. If it executes, the test fails; if it is blocked, the test passes. For this article I want to look at measuring this assessment activity. I want to provide insights into how often we're performing these Essential Eight verification tests against Windows servers / desktops, and how often these tests are passing or failing.
 
 ## Metrics collection
 Ansible already provides automation analytics through Automation Analytics, part of the Ansible Automation Platform. Automation analytics can be accessed via the [Red Hat Hybrid Cloud Console](https://console.redhat.com), and you can see a screen grab here of the Automation analytics dashboard.
@@ -16,38 +16,62 @@ Ansible already provides automation analytics through Automation Analytics, part
 ![Ansible Automation Analytics](/static/images/aa-dashboard.png)
 </Zoom>
 
-## Ansible Automation Platform configuration
-You can configure 
-
-
 ## Exploring Automation Analytics
-Let's see if we can answer our Essential Eight assessment questions from the Automation analytics data - "how often are we assessing systems, and are they passing the tests?"
+Let's see if we can answer our Essential Eight assessment questions from the Automation analytics data - **how often are we assessing systems, and are they passing the tests?**
 
-Inside Automation analytics there is a report available - "Job Template Run Rate"
-
-<Zoom>
-![]()
-</Zoom>
-
-If we select this report we can start to see jobs broken down by how often they are run.
+Inside Automation analytics there is a report available - "Job Template Run Rate". If we select this report we can start to see jobs broken down by how often they are run.
 
 <Zoom>
-![]()
+![Job Template run rate report](/static/images/job-template-run-rate.png)
 </Zoom>
-
-Ok, we're starting to get some useful information. If we look only at our "Windows App Control test" job, we can see that it was run 10 times on Dec 20, and then another 5 times Dec 21.
-
-Let's look at the failed task count.
 
 <Zoom>
-![]()
+![Job template run rate report - detailed](/static/images/job-template-detailed.png)
 </Zoom>
 
-Ok - so of the 10 runs on Dec 20, 3 of them failed. And of the 5 runs Dec 21, 2 of them failed. This is useful information - we know that about 30-40% of the hosts that we're running this automation across do not have application control configured correctly.
+From the filter options we can select `Template` and `Windows app control test`, and start to look at metrics over the last two weeks.
 
-Conversely we can look at playbook success. 
+<Zoom>
+![Job template run rate report - Windows app control test](/static/images/job-template-app-control.png)
+</Zoom>
+
+Ok, we're starting to get some useful information. If we look only at our "Windows App Control test" job, we can see that it was run 12 times on Dec 20, another 10 times Dec 21, and then 1 time Dec 22.
+
+We can start to understand more about automation in this environment from these metrics:
+- We are running application control assessments across the Windows desktops and servers in this environment - this is a great start
+- The test frequency is inconsistent. This could mean that the test is being triggered manually, and not being run on a schedule.
+
+This is great! We've been able to use these metrics to answer our first question - **how often are we assessing systems?**
+
+Let's explore these metrics a little further. There's another report available on the dashboard - "Templates explorer". This lets us look at template success/failure, and even look down to the level of tasks.
+
+<Zoom>
+![Templates explorer](/static/images/aa-dashboard-2.png)
+</Zoom>
+
+From the filter options we can again select `Template` and `Windows app control test`, and start to look at metrics over the last two weeks. At the outset this screen doesn't look too useful...
+
+<Zoom>
+![Templates explorer - detailed](/static/images/templates-explorer.png)
+</Zoom>
+
+At the bottom of this screen there is a small arrow next to our job template. Expanding this out reveals a wealth of information.
+
+<Zoom>
+![Templates explorer - failures](/static/images/templates-explorer-detailed.png)
+</Zoom>
+
+From this data we can see:
+- Our application control tests only pass approximately 50% of the time
+- The most failed tasks are `Collect a file to execute` (passed 50% of the time) and `Unarchive the tar-ball` (passed 64% of the time).
+
+This give us some more valuable information we can use to understand Essential Eight assessment in this environment. We can see that our issue may not actually be the host configuration - the issue is actually collecting and unpacking the files to execute on the system. This could be intermittent network connectivity, DNS issues, or other issues not related directly to the application control configuration for the hosts.
+
+While there's certainly more to investigate here, at a high-level we've answered the second question - **how often are we passing Essential Eight verification tests?**
 
 ## Wrapping up
 In this article I looked at some of the ways we can start to measure [Essential Eight assessment](https://www.cyber.gov.au/acsc/view-all-content/publications/essential-eight-assessment-process-guide) activity, and building this into an [automated assessment workflow](/blog/automating-e8-assessments).
 
+I showed how Ansible Automation Analytics can be used to assess how often Windows servers and desktops are being assessed against Essential Eight controls, and how often they're passing these tests. Further, we showed that the failures possibly weren't directly linked to host configuration - it could have been issues with our environment leading to test failure. While there's certainly further investigation here, this provided us a quick way to verify how often Essential Eight assessments were being performed against Windows servers and desktops, and importantly, we didn't have to setup and configure any metrics and analysis infrastructure ourselves. 
 
+Happy automating!
