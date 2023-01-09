@@ -1,0 +1,138 @@
+---
+title: Creating Ansible playbooks with ChatGPT
+date: '2023-01-09'
+tags: ['ansible', 'automation', 'chatgpt','tls','certificate','checking']
+draft: false
+summary: "Did you know that you can create Ansible playbooks with ChatGPT?"
+---
+[ChatGPT](https://openai.com/blog/chatgpt/) has taken my Twitter feed by storm. Did you know that it can create Ansible playbooks too?
+
+### What is ChatGPT
+I thought I would let ChatGPT describe itself in its own words.
+
+<Zoom>
+![ChatGPT Description](/static/images/chatgpt_description.png)
+</Zoom>
+
+ChatGPT can write articles, create code, develop Ansible playbooks (like we'll see below), and also create a Shakespearean verse about a man struggling with a peanut butter sandwich stuck in a VCR.
+
+<Zoom>
+![ChatGPT VCR](/static/images/chatgpt_vcr.png)
+</Zoom>
+
+### Creating Ansible playbooks with ChatGPT
+
+One of the use cases for Ansible that comes up frequently is - "Can I use Ansible to automate TLS certificate expiry checks?"
+
+Let's see how ChatGPT performs creating an Ansible playbook for this task:
+
+<Zoom>
+![ChatGPT Ansible playbook](/static/images/chatgpt_ansible.png)
+</Zoom>
+
+Ok - that's actually pretty good! I've got a playbook created, and a description about what each line in the playbook is doing.
+
+This playbook doesn't actually run yet - but we can fix that quickly with ChatGPT!
+
+<Zoom>
+![ChatGPT Ansible YAML](/static/images/chatgpt_ansible_yaml.png)
+</Zoom>
+
+There is one issue with this playbook. It requires us to connect to every host that we want to validate the certificate for, which isn't ideal. I've made one slight change to delegate to `localhost`, and use the `inventory_hostname` special variable to refer to hosts.
+
+Original playbook from ChatGPT:
+```
+---
+- hosts: all
+  gather_facts: false
+  tasks:
+
+    - name: Check TLS certificate expiration dates
+      shell: |
+        openssl s_client -connect {{ ansible_host }}:443 -servername {{ ansible_host }} < /dev/null 2>/dev/null | openssl x509 -noout -dates
+      register: certificate_dates
+
+    - name: Print certificate expiration date
+      debug:
+        msg: "{{ certificate_dates.stdout }}"
+```
+
+New playbook:
+```
+---
+- hosts: servers
+  gather_facts: false
+  tasks:
+
+    - name: Check TLS certificate expiration dates
+      shell: |
+        openssl s_client -connect {{ inventory_hostname }}:443 -servername {{ inventory_hostname }} < /dev/null 2>/dev/null | openssl x509 -noout -dates
+      register: certificate_dates
+      delegate_to: localhost
+
+    - name: Print certificate expiration date
+      debug:
+        msg: "{{ certificate_dates.stdout }}"
+```
+
+ChatGPT came **so close** to creating this playbook itself:
+<Zoom>
+![Ansible ChatGPT modifications](/static/images/chatgpt_ansible_changes.png)
+</Zoom>
+
+It works!
+```
+$ ansible-playbook -i inventory chatgpt_ansible.yml
+
+PLAY [servers] ***************************************************************************************************************************************************************************
+TASK [Check TLS certificate expiration dates] ********************************************************************************************************************************************
+changed: [google.com.au -> localhost]
+
+TASK [Print certificate expiration date] *************************************************************************************************************************************************
+ok: [google.com.au] => {
+    "msg": "notBefore=Nov 28 08:19:42 2022 GMT\nnotAfter=Feb 20 08:19:41 2023 GMT"
+}
+
+PLAY RECAP *******************************************************************************************************************************************************************************
+google.com.au              : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+```
+
+### Comparing with a human-created playbook
+Ok, ChatGPT did a pretty good job. The playbook runs, and outputs certificate validity. Can we do any better?
+
+Here's a basic example that I've come up with, attempting to match the ChatGPT format:
+```
+---
+- name: Check TLS certificate expiration dates
+  hosts: servers
+  gather_facts: false
+  become: no
+  tasks:
+
+    - name: Gather facts from localhost
+      ansible.builtin.setup:
+      delegate_to: localhost
+
+    - name: Get a cert from an https port
+      delegate_to: localhost
+      community.crypto.get_certificate:
+        host: "{{ inventory_hostname }}"
+        port: 443
+      register: cert
+
+    - name: How many days until cert expires
+      debug:
+        msg: "Cert for {{ inventory_hostname }} expires in {{ expire_days }} days."
+      vars:
+        expire_days: "{{ (( cert.not_after | to_datetime('%Y%m%d%H%M%SZ')) - ( ansible_date_time.iso8601 | to_datetime('%Y-%m-%dT%H:%M:%SZ')) ).days }}"
+```
+
+I would argue that this is a more useable Ansible playbook. We've used modules to support the tasks, rather than just 'shelling' out, and we have a certificate variable that we can use to introspect other parameters. Using a specific module also makes it easier to create idempotent playbooks, or handlers to respond to changes.
+
+Importantly though, ChatGPT gave us a great structure for the playbook. This may be all that we need to get started, and then we can substitute Ansible modules for shell commands.
+
+## Wrapping up
+
+ChatGPT performed excellently creating an Ansible playbook that we can use for security automation. It may not have been perfect, but it provided an excellent starting point. Importantly, it gave us a great structure that we can use to improve on.
+
+Give it a try - "Write me an Ansible playbook that patches Windows hosts"!
