@@ -1,0 +1,113 @@
+---
+title: Automating FortiGate with Ansible
+date: '2023-01-17'
+tags: ['security', 'open', 'source','ansible','fortigate','aws']
+draft: false
+summary: "A recent FortiOS vulnerability is being actively exploited. Ansible can be used to implement a mitigation."
+---
+I read an interesting article this week that indicated threat actors are [actively exploiting](https://therecord.media/fortinet-warns-of-hackers-targeting-governments-through-vpn-vulnerability/) a FortiOS SSL-VPN buffer overflow vulnerability. The CVE being targeted - [CVE-2022-42475](https://nvd.nist.gov/vuln/detail/CVE-2022-42475) affects a large number of FortiOS versions, and appears in the [CISA known exploited vulnerabilities catalog](https://www.cisa.gov/known-exploited-vulnerabilities-catalog).
+
+The recommended remediation here is to patch. There's a number of reasons organisations might take longer to patch, and a short-term mitigation is to disable the SSL-VPN device. In this article I'm going to look at an approach to automate this mitigation.
+
+### Disabling SSL-VPN on Fortigate devices
+
+There's a couple of options to disable SSL-VPN on Fortigate devices. One way I could do this is to simply disable the 'Enable SSL-VPN' connection setting, which you can see here.
+
+<Zoom>
+![FortiGate SSL-VPN enable](/static/images/fortigate-enable.png)
+</Zoom>
+
+This works, but it's pretty clunky. I need to login to each FortiGate appliance and manually configure this to 'disabled'.
+
+Another option is to use [Ansible](https://ansible.com) to automate this configuration consistently across many devices. Ansible provides a collection for automating Fortinet appliances, called `fortinet.fortios`, and there's a module specifically for configuring SSL-VPN settings in Fortinet's FortiOS and FortiGate appliances - `fortinet.fortios.fortios_vpn_ssl_settings`. The docs for this module are [here](https://docs.ansible.com/ansible/latest/collections/fortinet/fortios/fortios_vpn_ssl_settings_module.html)
+
+The `fortinet.fortios.fortios_vpn_ssl_settings` Ansible module doesn't expose the `Enable SSL-VPN` option, but it does allow us to remove the source interface from the SSL-VPN settings. This has basically the same effect - the SSL-VPN is disabled.
+
+### Environment
+
+I'm using the FortiGate 30-day trial available through the AWS marketplace.
+
+<Zoom>
+![FortiGate AWS Marketplace](/static/images/fortigate-marketplace.png)
+</Zoom>
+
+The FortiGate AMI is supported with a t2.small instance, which is fine to perform some very basic SSL-VPN config.
+
+### Automating FortiGate SSL-VPN settings with Ansible
+Let's put this Ansible collection to the test, and automate the FortiGate mitigation.
+
+Firstly I need to create an inventory:
+```
+[fortigates]
+3.26.178.2
+
+[fortigates:vars]
+ansible_network_os=fortinet.fortios.fortios
+```
+
+Now let's create an Ansible playbook to remove the source interface from the SSL-VPN settings:
+```
+---
+- name: Remove source interface for fortigate SSL-VPN config
+  hosts: fortigates
+  connection: httpapi
+  collections:
+    - fortinet.fortios
+  gather_facts: false
+  vars:
+    vdom: "root"
+    ansible_httpapi_use_ssl: yes
+    ansible_httpapi_validate_certs: no
+    ansible_httpapi_port: 443
+  tasks:
+    - name: Remove source port configuration
+      fortios_vpn_ssl_settings:
+        vdom: "{{ vdom }}"
+        vpn_ssl_settings:
+          source_interface: []
+```
+
+This playbook:
+- uses the RESTful API presented by FortiGate devices (`httpapi`)
+- removes the source interface for the FortiGate SSL-VPN configuration (sets it to an empty array)
+
+Ok, we're ready to run this playbook. The initial state for our FortiGate appliance has the source interface defined for the SSL-VPN configuration.
+
+<Zoom>
+![FortiGate SSL-VPN initial state](/static/images/fortigate-configured.png)
+</Zoom>
+
+Let's run the playbook:
+```
+$ ansible-playbook -i fortigate-inventory -u admin --ask-pass ansible-fortigate.yml
+SSH password:
+
+PLAY [Remove fortigate VPN configurations] ***********************************************************************************************
+
+TASK [Remove source port configuration] **************************************************************************************************changed: [3.26.178.2]
+
+PLAY RECAP *******************************************************************************************************************************3.26.178.2                 : ok=1    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+```
+If we navigate back to the Fortigate UI, we can see that the source interface has been removed.
+
+<Zoom>
+![FortiGate SSL-VPN mitigated](/static/images/fortigate-mitigated.png)
+</Zoom>
+
+## Comparing different approaches
+
+There's different ways to disable the SSL-VPN configuration, and I thought I'd ask [ChatGPT](https://chat.openai.com/chat) for a different opinion:
+
+<Zoom>
+![ChatGPT FortiGate solution](/static/images/fortigate-chatgpt.png)
+</Zoom>
+
+Interesting! ChatGPT went with the [fortios_config](https://docs.ansible.com/ansible/2.9/modules/fortios_config_module.html) module, instead of `fortios_vpn_ssl_settings`.
+
+Unfortunately this module hasn't been maintained since [2017](https://github.com/bjolivot/ansible-module-fortios/blob/master/fortios_config.py), and it's not shipped with the [Fortinet FortiOS Ansible Collection](https://galaxy.ansible.com/fortinet/fortios). 
+
+## Wrapping up
+
+In this article I looked at automating short-term mitigations for FortiGate devices. We mitigated a critical CVE by disabling the SSL-VPN configuration, using an Ansible playbook.
+
+Happy automating!
