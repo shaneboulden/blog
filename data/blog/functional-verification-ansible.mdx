@@ -39,7 +39,7 @@ Ansible lends itself well to functional verification. Not only does it let us ea
 Often we can run a system utility or a script to functionally verify a control. But, the outcome of this test may indicate success, rather than failure. Being able to control when a test fails allows us to create fine-grained tests. Let's look at an example.
 
 This is an Ansible playbook that we can use to functionally verify a system.
-```
+```yaml
 - name: Application control functional verification
   hosts: all
   become: no
@@ -73,7 +73,7 @@ Let's break down this playbook:
 
 We can see this behaviour if we first stop fapolicyd on a system, and run the playbook:
 
-```
+```yaml
 $ ansible-playbook -i inventory verification.yml
 
 PLAY [Application control functional verification] ***************************************************************************************
@@ -96,7 +96,7 @@ PLAY RECAP *********************************************************************
 
 The binary we pulled from GitHub was able to successfully execute (we can see parts of the `cowsay` cow in the output), so the playbook fails. Now what happens when we start `fapolicyd` and run the playbook:
 
-```
+```yaml
 $ ansible-playbook -i inventory verification.yml
 
 PLAY [Application control functional verification] ***************************************************************************************

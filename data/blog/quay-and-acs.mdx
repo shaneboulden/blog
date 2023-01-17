@@ -61,7 +61,7 @@ Open ACS and select `Integrations`, and the `Red Hat Quay.io` link. Select `New 
 That's it! Private container image repositories held within this quay.io organisation are now available to ACS, and can be scanned and integrated with centrally-managed policies.
 
 You can try out this integration with `roxctl`:
-```
+```yaml
 roxctl --insecure-skip-tls-verify=true -e "my-acs-cluster:443" image check --image=quay.io/private-repo/my-private-image:latest
 
 ✗ Image quay.io/private-repo/my-private-image:latest failed policy '90-Day Image Age' 

@@ -17,7 +17,7 @@ Swag, or "plunder", often refers to the fun gifts you can pick up at events like
 
 I've been creating a lot of applications in React recently, and fortunately there's an existing package available [react-wheel-of-prizes](https://www.npmjs.com/package/react-wheel-of-prizes). The `react-wheel-of-prizes` allows the colours and segments to be customised, and we could simply embed these changes inside a [Patternfly](https://www.patternfly.org/v4/) app.
 
-```
+```jsx
   const segments = [
     'Wireless mouse',
     'Water bottle',
@@ -72,7 +72,7 @@ You can see the final results below, and the code hosted on GitHub [here](https:
 
 Once we had the Patternfly/React application created, we could simply package this inside a container. I've used a Red Hat Universal Base Image (UBI) for this app. The UBI is a freely accessible and redistributable container base image, derived from Red Hat Enterprise Linux.
 
-```
+```docker
 FROM registry.redhat.io/ubi8
 COPY dist/ /var/www/html/
 

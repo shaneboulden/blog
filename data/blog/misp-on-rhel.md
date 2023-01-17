@@ -22,24 +22,24 @@ SELinux alone has mitigated several high-priority vulnerabilities impacting cont
 I'll be using Red Hat Enterprise Linux 8 for this post, and you can get a copy at [Red Hat Developers](https://developers.redhat.com/rhel8).
 
 Once you have a Red Hat Enterprise Linux instance up, subscribe it (you don't need to do this on AWS with pay-as-you-go instances) and make sure all the packages are updated.
-```
+```cli
 subscription-manager register
 subscription-manager attach --auto
 yum update -y
 ```
 Firstly, let's install `podman`. Podman is an open source, drop-in replacement for Docker on Red Hat Enterprise Linux.
-```
+```cli
 yum -y install podman podman-plugins podman-docker
 ```
 We'll also be using `docker-compose` to orchestrate the MISP platform, which you can grab from GitHub
-```
+```bash
 curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
 ```
 ## Configuration
 
 We're using the `dnsname` plugin here to provide local DNS for the container services. First, we need to update the default network configuration. Add the following to `/etc/cni/net.d/87-podman-bridge.conflist`:
-```
+```json
 cat /etc/cni/net.d/87-podman-bridge.conflist
 {
   "cniVersion": "0.4.0",
@@ -58,17 +58,17 @@ cat /etc/cni/net.d/87-podman-bridge.conflist
 }
 ```
 Start `dnsmasq` and the Podman socket, and verify the `dnsname` plugin is active:
-```
+```cli
 systemctl start {dnsmasq,podman.socket}
 podman network ls
 2f259bab93aa  podman        0.4.0       bridge,portmap,firewall,tuning,dnsname
 ```
 Create the `docker-compose.yml` file, and start the services. Optionally, if you're deploying this on a remote host, you can update the `HOSTNAME` environment variable for the `misp` service in the compose file.
-```
+```bash
 curl https://gist.githubusercontent.com/shaneboulden/3a4fc946ce78ad647511610870477625/raw/0cc8498afb4df5db8f98a8a6f4e964aa98a33b8a/misp-docker-compose-nolabels.yml  -o docker-compose.yml
 ```
 An important note - this Dockerfile has been modified from the one hosted at https://github.com/coolacid/docker-misp. Specifically, we've added ports to each service: 
-```
+```yaml
 mail:
   image: namshi/smtp
   ports:
@@ -78,11 +78,11 @@ This allows us to generate SELinux policies in the next section. But, it also ex
 
 ## Testing it out
 At this point you can bring all the services up
-```
+```cli
 docker-compose up
 ```
 You'll start to see some services deploying, and probably a few messages like this:
-```
+```cli
 misp_1          | Setup MISP files dir...
 misp_1          | cp: cannot stat '/var/www/MISP/app/files/community-metadata/defaults.json': Permission denied
 misp_1          | cp: cannot stat '/var/www/MISP/app/files/empty': Permission denied
@@ -96,7 +96,7 @@ It looks like something is preventing the containerised application accessing a 
 ausearch -m avc -ts recent
 ```
 Yep, that looks like SELinux. You'll see a number of SELinux denials that look like this:
-```
+```cli
 ----
 type=AVC msg=audit(1630132075.918:2462): avc:  denied  { setattr } for  pid=5208 comm="rsync" name="wikimedia" dev="dm-0" ino=33602346 scontext=system_u:system_r:container_t:s0:c116,c220 tcontext=system_u:object_r:admin_home_t:s0 tclass=dir permissive=0
 ----
@@ -106,11 +106,11 @@ type=AVC msg=audit(1630132075.918:2463): avc:  denied  { setattr } for  pid=5208
 At this point our application starts, but can't access all the files and ports it needs. We need to create policies for the containers so SELinux will allow access to the files and ports they need - and only the files and ports they need!
 
 Udica is a tool for creating SELinux policies from container specs. It determines which ports and files a container needs, and creates SELinux policies allowing access. Udica is available in the Red Hat Enterprise Linux 8 AppStream repos:
-```
+```cli
 yum install -y /usr/bin/udica
 ```
 Firstly, we need to inspect our containers:
-```
+```cli
 podman ps -a
 CONTAINER ID  IMAGE                                          COMMAND               CREATED     STATUS                     PORTS                                     NAMES
 ...
@@ -119,21 +119,21 @@ CONTAINER ID  IMAGE                                          COMMAND            
 podman inspect 81739f877c42 > misp-mail.json
 ```
 Once we have a json spec for the container, we can create an SELinux policy with Udica:
-```
+```cli
 udica -j misp-mail.json misp-mail
 ```
 You'll now see some output from Udica indicating you can load the policy. Let's try it out:
-```
+```cli
 semodule -i misp-mail.cil /usr/share/udica/templates/{base_container.cil,net_container.cil}
 ```
 Ok! Now repeat this same process for each of the other containers: inspect the container with podman, create a policy with Udica, and load it. 
 
 You'll also need to update each service in the `docker-compose.yml` file with SELinux labels, which look like `label=type:your-process-label.process`. Now is also a good time to remove the port definitions we used in development to create the SELinux policies. You can find a templated compose file here:
-```
+```bash
 curl https://gist.githubusercontent.com/shaneboulden/43909547297482e39268ef42212797f0/raw/37d2d48e42b58e22324ecf07171eb97f45c0a55a/misp-docker-compose.yml -o docker-compose.yml
 ```
 Once you've updated the compose file, you can restart the services
-```
+```cli
 docker-compose down
 docker-compose up
 ```
@@ -141,17 +141,17 @@ docker-compose up
 ## Building on the Udica policies
 
 Ok, now our MISP instance is starting, but we still have an issue. The application can't connect to the database:
-```
+```cli
 misp_1          | Waiting for database to come up
 misp_1          | ERROR 2002 (HY000): Can't connect to MySQL server on 'db' (13)
 ```
 Let's take another look at the audit log:
-```
+```cli
 ausearch -m avc -ts recent
 type=AVC msg=audit(1630213249.039:2914): avc:  denied  { name_connect } for  pid=19132 comm="mysql" dest=3306 scontext=system_u:system_r:misp-docker.process:s0:c296,c415 tcontext=system_u:object_r:mysqld_port_t:s0 tclass=tcp_socket permissive=0
 ```
 It looks like SELinux is still preventing the application connecting to the database. Udica did its best to create an SELinux policy, and we just need to give it a helping hand. Let's append this denial to the `misp-docker` policy:
-```
+```cli
 cat avc
 type=AVC msg=audit(1630213249.039:2914): avc:  denied  { name_connect } for  pid=19132 comm="mysql" dest=3306 scontext=system_u:system_r:misp-docker.process:s0:c296,c415 tcontext=system_u:object_r:mysqld_port_t:s0 tclass=tcp_socket permissive=0
 
@@ -165,7 +165,7 @@ podman inspect 3bc4ab0a365d | udica --append-rules avc misp-docker
 semodule -i misp-docker.cil /usr/share/udica/templates/{base_container.cil,net_container.cil}
 ```
 If you restart the container services you should now be able to see the application connect to the database:
-```
+```cli
 docker-compose down
 docker-compose up
 ```
@@ -173,7 +173,7 @@ docker-compose up
 ## A little more tweaking
 
 We're making progress. The database connects, but there's still a few issues with permissions for the remaining services
-```
+```cli
 misp_1          | Welcome to CakePHP v2.10.24 Console
 misp_1          | ---------------------------------------------------------------
 misp_1          | App : app
@@ -182,13 +182,13 @@ misp_1          | --------------------------------------------------------------
 misp_1          | Error: Permission denied
 ```
 Looking at the audit logs shows a familiar situation:
-```
+```cli
 ausearch -m avc -ts recent
 
 type=AVC msg=audit(1630213508.657:3152): avc:  denied  { name_connect } for  pid=21088 comm="php" dest=6666 scontext=system_u:system_r:misp-docker.process:s0:c22,c509 tcontext=system_u:object_r:unreserved_port_t:s0 tclass=tcp_socket permissive=0
 ```
 We could keep repeating this process, but for the sake of brevity I've captured most of these errors into a couple of files we can load:
-```
+```cli
 curl https://gist.githubusercontent.com/shaneboulden/da4c79c92f8c329448705ce9c3372c2b/raw/28d2966d6dd0687ff149d769f3ac5ed49fca19bc/avc-misp-modules -o avc-misp-modules
 curl https://gist.githubusercontent.com/shaneboulden/bff9b8e0297d3d41bdc41e3de9f32641/raw/fdee6a0a890d641d8f0b0b27ed2340b685f86c57/avc-misp-docker -o avc-misp-docker
 
@@ -207,7 +207,7 @@ docker-compose down
 docker-compose up -d
 ```
 If we have a look at the audit logs now
-```
+```cli
 ausearch -m avc -ts recent
 <no matches>
 ```

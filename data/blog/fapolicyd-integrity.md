@@ -18,29 +18,29 @@ Previously we looked at `fapolicyd` for application control on Red Hat Enterpris
 Here's what I mean.
 
 Let's firstly install and start `fapolicyd`:
-```
+```cli
 $ sudo yum install -y fapolicyd
 $ sudo systemctl start fapolicyd
 ```
 Now let's drop an application onto the system from a potentially questionable source:
-```
+```cli
 $ sudo -i
 # curl -L https://github.com/Code-Hex/Neo-cowsay/releases/download/v1.0.3/cowsay_1.0.3_Linux_x86_64.tar.gz | tar -xz -C /usr/local/bin/
 ```
 Switch to a regular user account and try and execute it:
-```
+```cli
 $ /usr/local/bin/cowsay "Mooo"
 -bash: /usr/local/bin/cowsay: Operation not permitted
 ```
 Ordinarily this would display a friendly cow saying "Mooo". But `fapolicyd` is doing its job and not permitting this application to execute!
 
 What if I move this file into a trusted location?
-```
+```cli
 $ sudo cp /usr/local/bin/cowsay /bin/more
 cp: overwrite '/bin/more'? y
 ```
 Change to a regular user and run the file:
-```
+```cli
 $ more "Mooo"
  ______
 < Mooo >
@@ -72,31 +72,31 @@ In this article we'll configure`fapolicyd` to compare SHA-256 checksums to ensur
 
 ## Configuring integrity checks with the File Access Policy Daemon
 Let's make some changes to the `fapolicyd` configuration to support integrity checking. Open `/etc/fapolicyd/fapolicyd.conf` and update `integrity = none` to `integrity = sha256`.
-```
+```cli
 $ sudo cat /etc/fapolicyd/fapolicyd.conf | grep integrity
 integrity = sha256
 ```
 Let's get our system back in order by re-installing `/bin/more`:
-```
+```cli
 $ sudo yum reinstall -y /bin/more
 ```
 Finally, restart `fapolicyd`:
-```
+```cli
 $ sudo systemctl restart fapolicyd
 ```
 ## Testing everything out
 Let's try the same routine as before. Try and execute the suspicious binary out of `/usr/local/bin/`:
-```
+```cli
 $ /usr/local/bin/cowsay
 -bash: /usr/local/bin/cowsay: Operation not permitted
 ```
 It fails - all good so far! Now let's move it to `/bin/more`:
-```
+```cli
 $ sudo cp /usr/local/bin/cowsay /bin/more
 cp: overwrite '/bin/more'? y
 ```
 Let's try to execute the file as a normal user:
-```
+```cli
 $ more "Mooo"
 -bash: /usr/bin/more: Operation not permitted
 ```

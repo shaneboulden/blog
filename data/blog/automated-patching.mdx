@@ -52,7 +52,7 @@ I've covered [Ansible](https://www.ansible.com) in a [previous article](/blog/au
 - Automating system roll-back in the event that an issue is detected
 
 Here's an example of an Ansible task that could be used to backup a system before applying patches, from the [AWS Ansible docs](https://docs.ansible.com/ansible/latest/collections/amazon/aws/ec2_snapshot_module.html):
-```
+```yaml
 # Snapshot of volume mounted on device_name attached to instance_id
 - amazon.aws.ec2_snapshot:
     instance_id: i-12345678
@@ -60,7 +60,7 @@ Here's an example of an Ansible task that could be used to backup a system befor
     description: snapshot of /data from DB123 taken 2013/11/28 12:18:32
 ```
 Here's another example of applying all outstanding security patches to a Red Hat Enterprise Linux system:
-```
+```yaml
 # Apply only security-related updates to this system
 - yum:
     name: '*'

@@ -20,7 +20,7 @@ I've covered `fapolicyd` and [application control](https://www.cyber.gov.au/acsc
 One of the key components of Ansible is a 'role'. A role is simply a reusable piece of Ansible automation, packaged in a way that it can be shared with the community and further enhanced.
 
 Ansible roles have a defined directory structure with eight main standard directories. This makes it simple to include templates with roles, or separate handlers and variables from Ansible tasks. You can see this directory structure here for the roles `common` and `webservers`:
-```
+```cli
 # playbooks
 site.yml
 webservers.yml
@@ -53,11 +53,11 @@ If you'd like to see how the role is created, you can find the code here on [Git
 ### Setup and preparation
 
 Let's see how you can use this role to automate application control configuration. Create a new Red Hat Enterprise Linux server (you can get access here) and pull down the latest copy of `cowsay` into a user's home directory.
-```
+```cli
 target~$ curl -L https://github.com/Code-Hex/Neo-cowsay/releases/download/v1.0.3/cowsay_1.0.3_Linux_x86_64.tar.gz | tar -xz
 ```
 If you try to run this command you shouldn't have any issues:
-```
+```cli
 target~$ ./cowsay "moooo"
  _______
 < moooo >
@@ -72,7 +72,7 @@ Let's install and setup Ansible and Git on the control node. Create another Red 
 <div style={{ backgroundColor: '#f5f5f5', padding: '2px', borderRadius: '.25rem' }}>
 <p style={{ padding: '6px'}}>You can read more about control nodes and managed nodes in the [Ansible docs](https://docs.ansible.com/ansible/latest/network/getting_started/basic_concepts.html#control-node)</p>
 </div>
-```
+```cli
 control~$ sudo yum install python3-pip git -y
 control~$ sudo pip3 install pip --upgrade
 control~$ pip3 install ansible --user
@@ -80,18 +80,18 @@ control~$ ansible --version
 ansible [core 2.11.6]
 ```
 Let's create a directory structure that can be used to import roles. Create a new directory `roles` containing a file `requirements.yml`:
-```
+```cli
 control~$ mkdir roles
 control~$ touch roles/requirements.yml
 ```
 Update this file to contain our role definition:
-```
+```yaml
 control~$ cat roles/requirements.yml
 ---
 - src: shaneboulden.fapolicyd
 ```
 We need a couple of basic files to get this playbook working. Create a new file `ansible.cfg` with the following content:
-```
+```ini
 [defaults]
 inventory=./inventory
 roles_path=./roles
@@ -102,16 +102,16 @@ become_method=sudo
 become_ask_pass=yes
 ```
 Let's also create an inventory. Here we've listed the IP for the target server - replace it with the hostname/IP of the target server for your environment:
-```
+```yaml
 [all]
 targetserver
 ```
 You can now install the role from Ansible Galaxy using the `ansible-galaxy` cli:
-```
+```cli
 ansible-galaxy install -r roles/requirements.yml
 ```
 You'll be able to see that the role is now installed and ready to use.
-```
+```yaml
 control~$ ansible-galaxy list
 # /home/control/roles
 - shaneboulden.fapolicyd, main
@@ -119,7 +119,7 @@ control~$ ansible-galaxy list
 ### Using the Ansible playbooks and roles
 
 Now that we have the role available and installed let's create a playbook. Create a file `site.yml` with the following content:
-```
+```yaml
 control~$ cat site.yml
 ---
 - name: Update fapolicyd configuration
@@ -129,7 +129,7 @@ control~$ cat site.yml
     - { role: shaneboulden.fapolicyd }
 ```
 This playbook is going to apply the fapolicyd role to all of the servers in our inventory. Before we move on, we need to ensure that the control node can connect to the target server.
-```
+```cli
 control~$ ssh-copy-id user1@targetserver
 user1@targetserver's password: 
 
@@ -137,7 +137,7 @@ Number of key(s) added: 1
 ...
 ```
 You can test that Ansible is correctly configured with an ad hoc command:
-```
+```json
 control~$ ansible all -m ping -b
 targetserver | SUCCESS => {
     "ansible_facts": {
@@ -148,21 +148,21 @@ targetserver | SUCCESS => {
 }
 ```
 You can now run the playbook like so:
-```
+```cli
 control~$ ansible-playbook site.yml
 BECOME Password:
 ```
 Once the playbook completes you'll be able to see a recap of the changes:
-```
+```cli
 targetserver               : ok=4    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 ```
 This looks good - the Ansible playbook has made a number of changes to the target server, including installing/enabling `fapolicyd`. You can test out the local script again on the target server:
-```
+```cli
 target~$ ./cowsay
 -bash: ./cowsay: Operation not permitted
 ```
 You can verify that the application has been blocked by `fapolicyd` by checking the audit logs:
-```
+```cli
 target~$ sudo ausearch --start today -m fanotify --raw | aureport --file -i
 
 File Report

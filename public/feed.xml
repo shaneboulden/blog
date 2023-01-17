@@ -12,12 +12,12 @@
       
   <item>
     <guid>https://stb.id.au/blog/ansible-fortigate</guid>
-    <title>Automating FortiGate with Ansible</title>
+    <title>Automating Fortinet FortiGate devices with Ansible</title>
     <link>https://stb.id.au/blog/ansible-fortigate</link>
     <description>A recent FortiOS vulnerability is being actively exploited. Ansible can be used to implement a mitigation.</description>
     <pubDate>Tue, 17 Jan 2023 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
-    <category>security</category><category>open</category><category>source</category><category>ansible</category><category>fortigate</category><category>aws</category>
+    <category>security</category><category>open</category><category>source</category><category>ansible</category><category>fortinet</category><category>fortigate</category><category>aws</category>
   </item>
 
   <item>

@@ -8,7 +8,7 @@ summary: "Ansible provides a way to automate functional verification tests. This
 A couple of months ago I published an article on [automating functional verification tests with Ansible.](/blog/functional-verification-ansible) I had several people reach out, and thought that there were some improvements I could make.
 
 If you ran the playbook in the original article you probably saw a message like this when it failed:
-```
+```yaml
 $ ansible-playbook -i inventory verification.yml
 
 PLAY [Application control functional verification] ***************************************************************************************
@@ -117,7 +117,7 @@ We can add an `always` block to the end of our functional verification testing p
             - /home/user1/doc
 ```
 And finally, run our new playbook:
-```
+```yaml
 $ ansible-playbook -i inventory verification.yml
 PLAY [Even better functional verification tests] *******************************************************************************************************************************************************************************************
 

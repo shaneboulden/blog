@@ -37,7 +37,7 @@ The FortiGate AMI is supported with a t2.small instance, which is fine to perfor
 Let's put this Ansible collection to the test, and automate the FortiGate mitigation.
 
 Firstly I need to create an inventory:
-```
+```ini
 [fortigates]
 3.26.178.2
 
@@ -46,7 +46,7 @@ ansible_network_os=fortinet.fortios.fortios
 ```
 
 Now let's create an Ansible playbook to remove the source interface from the SSL-VPN settings:
-```
+```yaml
 ---
 - name: Remove source interface for fortigate SSL-VPN config
   hosts: fortigates
@@ -78,7 +78,7 @@ Ok, we're ready to run this playbook. The initial state for our FortiGate applia
 </Zoom>
 
 Let's run the playbook:
-```
+```yaml
 $ ansible-playbook -i fortigate-inventory -u admin --ask-pass ansible-fortigate.yml
 SSH password:
 

@@ -41,7 +41,7 @@ This playbook doesn't actually run yet - but we can fix that quickly with ChatGP
 There is one issue with this playbook. It requires us to connect to every host that we want to validate the certificate for, which isn't ideal. I've made one slight change to delegate to `localhost`, and use the `inventory_hostname` special variable to refer to hosts.
 
 Original playbook from ChatGPT:
-```
+```yaml
 ---
 - hosts: all
   gather_facts: false
@@ -58,7 +58,7 @@ Original playbook from ChatGPT:
 ```
 
 New playbook:
-```
+```yaml
 ---
 - hosts: servers
   gather_facts: false
@@ -81,7 +81,7 @@ ChatGPT came **so close** to creating this playbook itself:
 </Zoom>
 
 It works!
-```
+```bash
 $ ansible-playbook -i inventory chatgpt_ansible.yml
 
 PLAY [servers] ***************************************************************************************************************************************************************************
@@ -101,7 +101,7 @@ google.com.au              : ok=2    changed=1    unreachable=0    failed=0    s
 Ok, ChatGPT did a pretty good job. The playbook runs, and outputs certificate validity. Can we do any better?
 
 Here's a basic example that I've come up with, attempting to match the ChatGPT format:
-```
+```yaml
 ---
 - name: Check TLS certificate expiration dates
   hosts: servers

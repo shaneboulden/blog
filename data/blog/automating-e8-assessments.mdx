@@ -36,7 +36,7 @@ I've setup this Windows 10 desktop with the [OpenSSH Server feature for Windows]
 ### Creating the Essential Eight verification playbook
 
 We have the Essential Eight strategy we want to test identified (application control); we have our Windows 10 desktop configured; and we've identified the Ansible modules we want to use for this automated test. Here's the completed playbook, based on the previous one we created for [Linux](https://github.com/shaneboulden/functional-verification-ansible):
-```
+```yaml
 - name: Application control functional assessment
   hosts: win10
   gather_facts: no
@@ -79,7 +79,7 @@ We have the Essential Eight strategy we want to test identified (application con
 Similar to our [Linux example](/blog/functional-verification-ansible), we're using the Ansible `failed_when` syntax to indicate that this command has successfully executed, but that indicates failure for our test.
 
 Let's run it:
-```
+```yaml
 LAY [Application control functional verification] ******************************************************************************************************************************
 
 TASK [Collect a file to execute] ************************************************************************************************************************************************
