@@ -1,0 +1,63 @@
+---
+title: Is Twitter using my security settings ethically?
+date: '2023-04-01'
+tags: ['twitter', 'security', 'ethical', 'open', 'source']
+draft: false
+summary: 'The Twitter recommendation algorithm was recently released to the open source community. I want to understand - is the platform using my security settings ethically?'
+---
+
+Twitter recently released its [recommendation algorithm](https://github.com/twitter/the-algorithm) to the open source community. I think this is a hugely positive thing to happen for open source and the Twitter user community, as anyone can now validate how their data is being used and how recommendations are generated.
+
+One thing I want to understand from this is effort is - is my profile security data being used ethically? If I provide Twitter my phone number for two factor authentication, then I wouldn't expect this to be used in building better recommendations for my network.
+
+Right?
+
+## Your phone number and Twitter
+
+There's a couple of ways your phone number is used on Twitter. You can add it to your profile, and it simply appears in your profile data. From there, you can specify it as a two factor authentication (2FA) mechanism for the platform:
+<Zoom>
+![Twitter profile security](/static/images/twitter-profile.png)
+</Zoom>
+
+I would argue that the main reason that anyone would add a mobile number to their Twitter profile would be for 2FA. Why else would you want to provide your phone number?
+
+## Analysis
+
+There's a folder in the open source release from Twitter containing a folder `stp_models`, and under here is what appears to be the results of an older predictive analysis model for profile data:
+
+<Zoom>
+![Twitter ep model](/static/images/twitter-model.png)
+</Zoom>
+
+
+Let's take a closer look at this data:
+```
+# OWNER = jdeng
+# Date = 20141223_153423
+# Training Size = 16744473
+# Testing Size = 16767335
+#  trained with ElasticNetCV alpha=0.05 cv_folds=5 best_lambda=1.0E-7
+# num base features: 10
+# num nonzero weights: 30
+{bias:-5.67151,featureMetadataMap:["fwd_email":{metadata:{featureWeight:{weight:2.47389}}},"rev_phone":{metadata:{featureWeight:{weight:1.88433}}},"mutual_follow_path":{metadata:{featureWeight:{intervalWeights:[{left:47.0,weight:6.31809},{left:11.0,right:16.0,weight:4.52959},{left:31.0,right:47.0,weight:5.7101},{right:2.0,weight:0.383515},{left:24.0,right:31.0,weight:5.26515},{left:3.0,right:4.0,weight:2.91751},{left:2.0,right:3.0,weight:2.22851},{left:4.0,right:5.0,weight:3.28515},{left:8.0,right:11.0,weight:4.14731},{left:5.0,right:8.0,weight:3.73588},{left:16.0,right:24.0,weight:4.90908}]}}},"fwd_phone":{metadata:{featureWeight:{weight:2.07327}}},"fwd_email_path":{metadata:{featureWeight:{weight:0.961773}}},"rev_phone_path":{metadata:{featureWeight:{weight:0.354484}}},"low_tweepcred_follow_path":{metadata:{featureWeight:{intervalWeights:[{left:4.0,right:5.0,weight:0.177209},{left:7.0,right:8.0,weight:0.12378},{left:3.0,right:4.0,weight:0.197566},{left:5.0,right:6.0,weight:0.15867},{left:2.0,right:3.0,weight:0.196539},{right:2.0,weight:0.1805},{left:75.0,weight:-0.424598},{left:6.0,right:7.0,weight:0.143698},{left:10.0,right:13.0,weight:0.0458502},{left:8.0,right:10.0,weight:0.0919314},{left:13.0,right:75.0,weight:-0.111484}]}}},"rev_email_path":{metadata:{featureWeight:{weight:0.654451}}},"rev_email":{metadata:{featureWeight:{weight:2.33859}}},"fwd_phone_path":{metadata:{featureWeight:{weight:0.210418}}}]}
+```
+
+There's a few things we can infer here:
+ 
+* This model was trained using [ElasticNetCV](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNetCV.html). Elastic Net is a combination of the two most popular forms of linear regression - meaning that this model is performing some predictive analysis.
+
+* The feature map is the data that the model is trained on. This includes forward and reverse paths based on both phone and email data, and 'tweepcred'.
+
+I can understand that email data is used here. Email is typically used as a profile identifier, and it doesn't show up as a 2FA mechanism under profile settings. But why are there `rev_phone`, `fwd_phone`, `rev_phone_path` and `fwd_phone_path` features being used in this predictive analysis model?
+
+I mentioned above - I would argue that the main reason someone would provide their phone to Twitter would be for 2FA. Why else would you want to offer more data about yourself to the platform? 
+
+If this is the main reason that someone would provide their phone data, is it then ethical to use this to build better models for predictive analytics? Sadly, I would think not.
+
+Another thing I've considered is that the open source release of the Twitter algorithm happened 01 April, Australian time. This could just be an April Fool's joke on Australian users, and if it is, you got me!
+
+## Next steps
+
+The open source release of the Twitter recommendation model is a fantastic step towards better transparency for social media platforms, and I really hope to see more releases like this.
+
+The data shown in this article appears to be the results from an older predictive analysis model (2014-12-23), and there are a lot of assumptions built into this analysis. But, at the outset, it certainly appears that data provided by users to better protect their profile - like a phone number for 2FA - are being used in predictive analysis models to help the platform make better recommendations. I hope that Twitter can provide more detail around these models and how this data is being used.
