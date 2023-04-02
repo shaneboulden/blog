@@ -9,16 +9,6 @@
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
       <lastBuildDate>Sat, 01 Apr 2023 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
-      
-  <item>
-    <guid>https://stb.id.au/blog/twitter-security</guid>
-    <title>Is Twitter using my security settings ethically?</title>
-    <link>https://stb.id.au/blog/twitter-security</link>
-    <description>The Twitter recommendation algorithm was recently released to the open source community. I want to understand - is the platform using my security settings ethically?</description>
-    <pubDate>Sat, 01 Apr 2023 00:00:00 GMT</pubDate>
-    <author>dev@stb.id.au (Shane Boulden)</author>
-    <category>twitter</category><category>security</category><category>ethical</category><category>open</category><category>source</category>
-  </item>
 
   <item>
     <guid>https://stb.id.au/blog/ansible-fortigate</guid>
