@@ -1,22 +1,21 @@
 ---
 title: Sigstore - Signature Sorcery
-date: '2023-03-27'
+date: '2023-04-14'
 tags: ['sigstore', 'signatures', 'containers', 'kubernetes', 'security']
-draft: true
+draft: false
 summary: 'Sigstore is an open source project enabling anyone to sign and validate software releases, including container images. This article takes a closer look at Sigstore and some of the innovation happening around the project.'
 ---
 
-The first time that I tried out the Sigstore open source project I was completely blown away. I had a container image that I wanted to sign, so I pulled down the `cosign` binary, generated a keypair, signed the container image, and pushed the signatures to [quay.io](https://quay.io).
+The first time that I tried out the Sigstore open source project I was completely blown away. I had a container image that I wanted to digitally sign, so I pulled down the `cosign` binary, generated a keypair, signed the container image, and pushed the signatures to [quay.io](https://quay.io).
 
-The best part was that all of this happened in about 10 minutes! I remember thinking - **"wow, that was easy."**
+The best part was that all of this happened in about 2 minutes! I remember thinking - **"wow, that was easy."**
 
 The more I delved into the Sigstore project, the more I realised that this truly was signature sorcery. "Wait, there's also a transparency ledger which records signed metadata about my container image? And it's freely available??"
 
 ## Sigstore background
+The Sigstore project was founded by [Luke Hinds](https://github.com/lukehinds), the Red Hat security engineering lead within the Office of the Chief Technology Officer, It's now an Open Source Security Foundation ([OpenSSF](https://openssf.org/)) project, with an incredibly active community that includes Google (Bob Callaway is a Sigstore co-founder), ChainGuard (Dan Lorenc is also a Sigstore co-founder), GitHub, and many others.
 
-The Sigstore project was founded by [Luke Hinds](https://github.com/lukehinds), the Red Hat security engineering lead within the Office of the Chief Technology Officer. It's now an Open Source Security Foundation ([OpenSSF](https://openssf.org/)) project, with an incredibly active community that includes Google (Bob Callaway is a co-founder), ChainGuard (Dan Lorenc is also a co-founder!), GitHub, and many others.
-
-Sigstore has rapidly become the standard for signing, verifying and protecting software for its ability to automate digitally signing and checking software artifacts. It's seeing massive adoption - [all Kubernetes releases starting with 1.24](https://blog.sigstore.dev/kubernetes-signals-massive-adoption-of-sigstore-for-protecting-open-source-ecosystem-73a6757da73) will include cryptographically signed Sigstore certificates, giving users the ability to verify signatures and have greater confidence in the origin of each and every deployed Kubernetes binary, source code bundle and container image.
+Sigstore has rapidly become the standard for signing, verifying and protecting software for its ability to automate the process of digitally signing and validating software artifacts. It's seeing rapid adoption - [all Kubernetes releases starting with 1.24](https://blog.sigstore.dev/kubernetes-signals-massive-adoption-of-sigstore-for-protecting-open-source-ecosystem-73a6757da73) include cryptographically signed Sigstore certificates, giving users the ability to verify signatures and have greater confidence in the origin of each and every deployed Kubernetes binary, source code bundle and container image.
 
 There's a few components that comprise Sigstore and make it easy to get up and running with signing releases.
 
@@ -36,7 +35,11 @@ Importantly, rekor is also extensible.
 
 ### Fulcio
 
-Fulcio has also recently reached General Availability.
+Fulcio is a free-to-use certificate authority for issuing code signing certificates for an OpenID Connect (OIDC) identity, such as email address.
+
+Fulcio only issues short-lived certificates that are valid for 10 minutes. This is a really good thing for the software trust model that Sigstore introduces. It means that we no longer have to diligently protect GPG keys used to sign containers - the Fulcio X509 certificates are only valid for 10 minutes, greatly minimising the risk that these keys could be exposed, and used to sign fraudulent releases.
+
+Fulcio has also recently reached General Availability. The Sigstore community maintaining the "public good" Sigstore instance provides a 99.5% Availability service level objective (SLO), and uses [semver](link to semver) rules for API stability.
 
 ## Up and running with Sigstore and OpenShift
 
@@ -54,7 +57,7 @@ $ oc patch configmap chains-config -n openshift-pipelines -p='{"data":{"artifact
 $ oc patch configmap chains-config -n openshift-pipelines -p='{"data":{"transparency.enabled": "true"}}'
 ```
 
-3. Configure your Tekton pipeline to emit results. Specifically, Tekton Chains looks for the Tekton `IMAGE_DIGEST` and `IMAGE_URL` results to identify new container images that need to be signed. You can add these results to an existing pipeline using a Tekton task:
+3. Configure your Tekton pipeline to emit results. Specifically, Tekton Chains looks for Tekton results named `IMAGE_DIGEST` and `IMAGE_URL` to identify new container images that need to be signed. You can add these results to an existing pipeline using a Tekton task:
 
 ```
 ...
@@ -75,7 +78,7 @@ results:
 
 You can find the complete example at my GitHub [here](https://github.com/shaneboulden/chat-pipeline/blob/main/buildah-vol.yaml)
 
-That's really all there is. You don't need to explicitly add steps to your build pipeline to sign containers - the Tekton Chains controller will detect new releases from the `IMAGE_URL` and `IMAGE_DIGEST` results, and sign these containers with the key provided and store the signatures as OCI manifest objects alongside your container images in the registry.
+That's really all there is. You don't need to explicitly add steps to your build pipeline to sign containers - the Tekton Chains controller will detect new releases from the `IMAGE_URL` and `IMAGE_DIGEST` results, sign these containers with the key provided, and store the signatures as OCI manifest objects alongside your container images in the registry.
 
 You can confirm this using something like [crane](https://github.com/google/go-containerregistry/blob/main/cmd/crane/doc/crane.md):
 
@@ -96,3 +99,7 @@ sha256-c446564d0876f0af0eba11a93352711cf836b7bc082e50f9151d5d9e90817d75.sig
 I've created a video here showing how to configure Tekton Chains and create a pipeline that signs container images, and also how Tekton Chains can use the public benefit Rekor instance to sign and store metadata about releases.
 
 <YoutubeEmbed embedId="5YQGd9B9Zss" />
+
+## Wrapping up
+
+This has been a short, practicaly guide to getting started signing container images with Sigstore and OpenShift Pipelines. In the next article, I'll look at verifying container signatures - using a Kubernetes admission controller to block unsigned and untrusted content, and only permit signed releases.

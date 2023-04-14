@@ -5,4 +5,18 @@ tags: ['x509', 'pki', 'certificate','stackrox','security','kubernetes','authenti
 draft: true
 summary: "StackRox is an open source, Kubernetes-native security platform. Did you know that it also supports x509 PKI authentication?"
 ---
+[StackRox](https://stackrox.io) is an open source project focusing on Kubernetes security. It uses Kubernetes APIs to perform admission control and incident response, and extends security practices into development. In this article, I'm going to focus on one of the ways organisations can secure StackRox services using x509 PKI authentication.
 
+## About StackRox
+StackRox has been around since 2014, providing security capabilities for Kubernetes and containers including:
+
+- Vulnerability scanning: StackRox contains an in-built CVE scanner, which can identify CVEs in container base images as well as language runtimes and frameworks
+- Vulnerability management: StackRox provides dashboards and search capabilities to search for an indentify vulnerable container images, as well as managing CVE deferral and false-positives.
+- Runtime process baselining: StackRox provides an eBPF probe which can profile container process activity, generating a baseline and creating alerts in response to anomalous process activity.
+- Runtime network traffic baselining: The eBPF probe provided by StackRox also supports network traffic activity, and the platform can create a baseline of "normal" network traffic for a Kubernetes workload and flag anomalous network traffic.
+- Incident response using Kubernetes APIs: StackRox can take action using the Kubernetes API in response to anomalous process or network activity.
+
+Red Hat announced its acquisition of StackRox in January 2021, and completed the acquisition in February. In May 2021, Red Hat released the StackRox platform - which up to this point had been a proprietary security platform - as the StackRox open source community. The StackRox community aims to deliver an open source project that helps users experiment with new approaches in how they protect their Kubernetes environments, and you can find the code on [GitHub](https://github.com/stackrox)
+
+## Why PKI Authentication?
+StackRox supports PKI authentication for users. x509 PKI authentication is a way of identifying users accessing applications using a digital certificate. It has a number of 
