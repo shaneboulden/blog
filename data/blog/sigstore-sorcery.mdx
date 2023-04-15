@@ -91,38 +91,61 @@ The following checks were performed on each of these signatures:
   - Existence of the claims in the transparency log was verified offline
   - The code-signing certificate was verified using trusted certificate authority certificates
 ```
-We can also directly query the Rekor transparency ledger for the attestation that's been created. Firstly we need to search for any transparency log entries using the image digest.
+We can also verify that the signature has been stored in the transparency log. You can see that the log index has been emitted for the previous signing action:
 ```
-$ rekor-cli search --sha=86c9473bdae1201f870c4a328b07bcba5e18a6b4e83c26669cf82a36d7b8cbd5
-Found matching entries (listed by UUID):
-24296fb24b8ad77a7f9157e02f971e0c373e2ec65c2a72bc7642728bba4ca5a8cec931d2a0bb7d8e
+tlog entry created with index: 18012395
 ```
-Now that we have the transparency ledger entry UUID, we can have a look at the attestation.
+We can use the `rekor-cli` to have a look at the data stored on the transparency log.
 ```json
-$ rekor-cli get --uuid=24296fb24b8ad77a7f9157e02f971e0c373e2ec65c2a72bc7642728bba4ca5a8cec931d2a0bb7d8e --format json | jq -r .Attestation | jq
-{
-  "_type": "https://in-toto.io/Statement/v0.1",
-  "predicateType": "https://slsa.dev/provenance/v0.2",
-  "subject": [
-    {
-      "name": "quay.io/smileyfritz/chat-client",
-      "digest": {
-        "sha256": "86c9473bdae1201f870c4a328b07bcba5e18a6b4e83c26669cf82a36d7b8cbd5"
+$ rekor-cli get --log-index 18012395
+
+LogID: c0d23d6ad406973f9559f3ba2d1ca01f84147d8ffc5b8445c224f98b9591801d
+Index: 18012395
+IntegratedTime: 2023-04-15T06:06:16Z
+UUID: 24296fb24b8ad77ad6bd8d95e7e87347f2038be47a9a63238a72848d3d76429365091f2d120770d0
+Body: {
+  "HashedRekordObj": {
+    "data": {
+      "hash": {
+        "algorithm": "sha256",
+        "value": "49411c8fcbe824a82854879ad19240511b1556b61f7ae7f13371fed8460fbee9"
       }
-    }
-  ],
-  "predicate": {
-    "builder": {
-      "id": "https://tekton.dev/chains/v2"
-    },
-    "buildType": "tekton.dev/v1beta1/TaskRun",
-    "invocation": {
-      "configSource": {},
-      "parameters": {
-        "BUILDER_IMAGE": "quay.io/buildah/stable:v1.17.0"
 ...
 ```
-And that's it! We've signed a container with `cosign` using certificates and keys signed by the Fulcio CA, and created attestations and entries in the Rekor transparency ledger. If you want to see some of the other signing workflows available, there's an excellent in-depth tutorial available at [chainguard.dev](https://edu.chainguard.dev/open-source/sigstore/cosign/how-to-sign-a-container-with-cosign/).
+We can string a couple of commands together to extract the certificate used to sign the container image.
+```
+$ rekor-cli get --log-index 18012395 --format json | jq -r '.Body.HashedRekordObj.signature.publicKey.content' | base64 -d | openssl x509 -noout -text
+
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number:
+            01:6d:49:45:8f:3e:e9:dd:10:05:b0:f5:f3:93:b9:5e:48:b8:aa:1a
+        Signature Algorithm: ecdsa-with-SHA384
+        Issuer: O = sigstore.dev, CN = sigstore-intermediate
+        Validity
+            Not Before: Apr 15 06:06:13 2023 GMT
+            Not After : Apr 15 06:16:13 2023 GMT
+        Subject: 
+        Subject Public Key Info:
+            Public Key Algorithm: id-ecPublicKey
+        ...
+        ...
+        X509v3 extensions:
+            X509v3 Key Usage: critical
+                Digital Signature
+            X509v3 Extended Key Usage: 
+                Code Signing
+            ...
+            X509v3 Subject Alternative Name: critical
+                email:shane.boulden@gmail.com
+            1.3.6.1.4.1.57264.1.1: 
+                https://github.com/login/oauth
+          ...
+```
+This output indicates that the certificate was issued from the Sigstore Fulcio public benefit instance to me, based on my OIDC token that was issued from GitHub. It's been stored on the Rekor transparency ledger in perpetuity, so anyone can verify that I've signed this container image. Awesome!
+
+And that's it! We've signed a container with `cosign` using certificates and keys signed by the Fulcio CA, and created entries in the Rekor transparency ledger recording the signing action. If you want to see some of the other signing workflows available, there's an excellent in-depth tutorial available at [chainguard.dev](https://edu.chainguard.dev/open-source/sigstore/cosign/how-to-sign-a-container-with-cosign/).
 
 ## Sigstore and OpenShift
 
@@ -130,7 +153,7 @@ OpenShift supports `cosign` and `rekor` in [Technology Preview](https://access.r
 
 1. Install the **OpenShift Pipelines** operator. OpenShift Pipelines provides the Tekton Chains component in Technology Preview, which allows us to embed container signing inside Tekton pipelines.
 
-2. Configure Tekton Chains. You can find a quick guide [here](https://docs.openshift.com/container-platform/4.11/cicd/pipelines/using-tekton-chains-for-openshift-pipelines-supply-chain-security.html). Make sure that you patch the Tekton Chains config:
+2. Configure Tekton Chains. You can find a quick guide [here](https://docs.openshift.com/container-platform/4.11/cicd/pipelines/using-tekton-chains-for-openshift-pipelines-supply-chain-security.html). Make sure that you patch the Tekton Chains config to use in-toto attestation formats and store attestations in the Rekor transparency ledger:
 
 ```
 $ oc patch configmap chains-config -n openshift-pipelines -p='{"data":{"artifacts.taskrun.format": "in-toto"}}'
@@ -178,7 +201,39 @@ sha256-c446564d0876f0af0eba11a93352711cf836b7bc082e50f9151d5d9e90817d75.sig
 ...
 ```
 
- Here you we can see tags (`0.5`, `v0.6` and `latest`), as well as signatures and attestations created by Sigstore and Tekton Chains components stored within the container image repository.
+Here you we can see tags (`0.5`, `v0.6` and `latest`), as well as signatures and attestations created by Sigstore and Tekton Chains components stored within the container image repository.
+
+We can also directly query the Rekor transparency ledger for the in-toto attestation that's been created. Firstly we need to search for any transparency log entries using the image digest.
+```
+$ rekor-cli search --sha=86c9473bdae1201f870c4a328b07bcba5e18a6b4e83c26669cf82a36d7b8cbd5
+Found matching entries (listed by UUID):
+24296fb24b8ad77a7f9157e02f971e0c373e2ec65c2a72bc7642728bba4ca5a8cec931d2a0bb7d8e
+```
+Now that we have the transparency ledger entry UUID, we can have a look at the attestation.
+```json
+$ rekor-cli get --uuid=24296fb24b8ad77a7f9157e02f971e0c373e2ec65c2a72bc7642728bba4ca5a8cec931d2a0bb7d8e --format json | jq -r .Attestation | jq
+{
+  "_type": "https://in-toto.io/Statement/v0.1",
+  "predicateType": "https://slsa.dev/provenance/v0.2",
+  "subject": [
+    {
+      "name": "quay.io/smileyfritz/chat-client",
+      "digest": {
+        "sha256": "86c9473bdae1201f870c4a328b07bcba5e18a6b4e83c26669cf82a36d7b8cbd5"
+      }
+    }
+  ],
+  "predicate": {
+    "builder": {
+      "id": "https://tekton.dev/chains/v2"
+    },
+    "buildType": "tekton.dev/v1beta1/TaskRun",
+    "invocation": {
+      "configSource": {},
+      "parameters": {
+        "BUILDER_IMAGE": "quay.io/buildah/stable:v1.17.0"
+...
+```
 
 I've created a video here showing how to configure Tekton Chains and create a pipeline that signs container images, and also how Tekton Chains can use the public benefit Rekor instance to sign and store metadata about releases.
 
