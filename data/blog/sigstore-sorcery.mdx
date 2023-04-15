@@ -43,7 +43,7 @@ Fulcio only issues short-lived certificates that are valid for 10 minutes. This 
 
 Ok - let's get hands-on! You can follow the [Sigstore docs](https://docs.sigstore.dev/cosign/installation/) to grab a copy of the `cosign`, `rekor` and `fulcio` binaries.
 
-You can use Fulcio-issues certificates to sign containers by simply using `cosign sign`. I'm going to sign the image `quay.io/smileyfritz/chat-client`. Note that you require access to the registry / repository for the image you want to sign, as the signature is pushed to the registry and stored as an OCI object.
+You can use Fulcio-issues certificates to sign containers by simply using `cosign sign`. I'm going to sign the image `quay.io/smileyfritz/chat-client:latest`. Note that you require access to the registry / repository for the image you want to sign, as the signature is pushed to the registry and stored as an OCI object.
 
 `cosign` works best with digests, not tags. If you try to use a tag, like `latest`, with an image you'll be presented with a warning.
 ```
@@ -56,12 +56,12 @@ WARNING: Image reference quay.io/smileyfritz/chat-client:latest uses a tag, not 
 
 The first thing we need is the digest for the image. You can grab this easily with [crane](https://github.com/google/go-containerregistry/tree/main/cmd/crane)
 ```
-crane digest quay.io/smileyfritz/chat-client:latest
+$ crane digest quay.io/smileyfritz/chat-client:latest
 sha256:86c9473bdae1201f870c4a328b07bcba5e18a6b4e83c26669cf82a36d7b8cbd5
 ```
 Now we can use `cosign` to create ephemeral keys and certificates, get them signed automatically by the Fulcio CA, and store these in the Rekor transparency log.
 ```
-cosign sign quay.io/smileyfritz/rfiweb@sha256:86c9473bdae1201f870c4a328b07bcba5e18a6b4e83c26669cf82a36d7b8cbd5
+$ cosign sign quay.io/smileyfritz/chat-client@sha256:86c9473bdae1201f870c4a328b07bcba5e18a6b4e83c26669cf82a36d7b8cbd5
 ```
 At this point a workflow kicks off which requests you to grant permission to have your information stored permanently in the Rekor transparency logs. If you accept, a browser window will open and you will be directed to a page that asks you to log in with Sigstore. You can authenticate with GitHub, Google, or Microsoft. Note that the email address that is tied to these credentials will be permanently visible in the Rekor transparency log. This makes it publicly visible that you are the one who signed the given artifact, and helps others trust the given artifact.
 ```
@@ -83,7 +83,7 @@ Pushing signature to: quay.io/smileyfritz/chat-client
 ```
 Great! The container is now signed. We can verify the signatures with `cosign` also.
 ```
-cosign verify --certificate-identity shane.boulden@gmail.com --certificate-oidc-issuer https://github.com/login/oauth quay.io/smileyfritz/chat-client@sha256:86c9473bdae1201f870c4a328b07bcba5e18a6b4e83c26669cf82a36d7b8cbd5
+$ cosign verify --certificate-identity shane.boulden@gmail.com --certificate-oidc-issuer https://github.com/login/oauth quay.io/smileyfritz/chat-client@sha256:86c9473bdae1201f870c4a328b07bcba5e18a6b4e83c26669cf82a36d7b8cbd5
 
 Verification for quay.io/smileyfritz/chat-client@sha256:86c9473bdae1201f870c4a328b07bcba5e18a6b4e83c26669cf82a36d7b8cbd5 --
 The following checks were performed on each of these signatures:
@@ -93,13 +93,13 @@ The following checks were performed on each of these signatures:
 ```
 We can also directly query the Rekor transparency ledger for the attestation that's been created. Firstly we need to search for any transparency log entries using the image digest.
 ```
-rekor-cli search --sha=86c9473bdae1201f870c4a328b07bcba5e18a6b4e83c26669cf82a36d7b8cbd5
+$ rekor-cli search --sha=86c9473bdae1201f870c4a328b07bcba5e18a6b4e83c26669cf82a36d7b8cbd5
 Found matching entries (listed by UUID):
 24296fb24b8ad77a7f9157e02f971e0c373e2ec65c2a72bc7642728bba4ca5a8cec931d2a0bb7d8e
 ```
 Now that we have the transparency ledger entry UUID, we can have a look at the attestation.
-```
-rekor-cli get --uuid=24296fb24b8ad77a7f9157e02f971e0c373e2ec65c2a72bc7642728bba4ca5a8cec931d2a0bb7d8e --format json | jq -r .Attestation | jq
+```json
+$ rekor-cli get --uuid=24296fb24b8ad77a7f9157e02f971e0c373e2ec65c2a72bc7642728bba4ca5a8cec931d2a0bb7d8e --format json | jq -r .Attestation | jq
 {
   "_type": "https://in-toto.io/Statement/v0.1",
   "predicateType": "https://slsa.dev/provenance/v0.2",
@@ -142,7 +142,7 @@ $ oc patch configmap chains-config -n openshift-pipelines -p='{"data":{"transpar
 
 3. Configure your Tekton pipeline to emit results. Specifically, Tekton Chains looks for Tekton results named `IMAGE_DIGEST` and `IMAGE_URL` to identify new container images that need to be signed. You can add these results to an existing pipeline using a Tekton task:
 
-```
+```yaml
 ...
 results:
   - name: IMAGE_DIGEST
