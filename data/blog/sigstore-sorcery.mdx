@@ -13,9 +13,11 @@ The best part was that all of this happened in about 2 minutes! I remember think
 The more I delved into the Sigstore project, the more I realised that this truly was signature sorcery. "Wait, there's also a transparency ledger which records signed metadata about my container image? And it's freely available??"
 
 ## Sigstore background
-The Sigstore project was founded by [Luke Hinds](https://github.com/lukehinds), the Red Hat security engineering lead within the Office of the Chief Technology Officer, It's now an Open Source Security Foundation ([OpenSSF](https://openssf.org/)) project, with an incredibly active community that includes Google (Bob Callaway is a Sigstore co-founder), ChainGuard (Dan Lorenc is also a Sigstore co-founder), GitHub, and many others.
+Sigstore is an open source project, and now part of the Open Source Security Foundation ([OpenSSF](https://openssf.org/)). It's an incredibly active community that includes Red Hat ([Luke Hinds](https://github.com/lukehinds) is a co-founder), Google, ChainGuard, GitHub, and many others.
 
 Sigstore has rapidly become the standard for signing, verifying and protecting software for its ability to automate the process of digitally signing and validating software artifacts. It's seeing rapid adoption - [all Kubernetes releases starting with 1.24](https://blog.sigstore.dev/kubernetes-signals-massive-adoption-of-sigstore-for-protecting-open-source-ecosystem-73a6757da73) include cryptographically signed Sigstore certificates, giving users the ability to verify signatures and have greater confidence in the origin of each and every deployed Kubernetes binary, source code bundle and container image.
+
+Importantly, Sigstore lowers the barrier for digital signing. It achieves this by making software signing and attestation more accessible for creators, without having to become experts in crytographic signing, and provides “public benefit” instances of its services that can be used by anyone. This means that open source projects - who might not have had access to signature infrastructure previously - can now sign releases and record metadata about how releases were created, allowing open source consumers to make more informed decisions on trust.
 
 There's a few components that comprise Sigstore and make it easy to get up and running with signing releases.
 
@@ -29,23 +31,104 @@ There's a few components that comprise Sigstore and make it easy to get up and r
 
 Rekor ensures that organisations can make decisions on trust. The timestamps and contents of the ledger cannot be tampered or removed later, enabling organisations to validate log entries and software signatures.
 
-Rekor has recently reached General Availability.
-
-Importantly, rekor is also extensible. 
+Rekor has recently reached [General Availability](https://blog.sigstore.dev/sigstore-ga-ddd6ba67894d/). The Sigstore community maintains the public-benefit Rekor instance and provides a 99.5% availability service level objective (SLO) and round-the-clock pager support, and uses [semantic versioning](https://semver.org/) rules for API stability.
 
 ### Fulcio
 
 Fulcio is a free-to-use certificate authority for issuing code signing certificates for an OpenID Connect (OIDC) identity, such as email address.
 
-Fulcio only issues short-lived certificates that are valid for 10 minutes. This is a really good thing for the software trust model that Sigstore introduces. It means that we no longer have to diligently protect GPG keys used to sign containers - the Fulcio X509 certificates are only valid for 10 minutes, greatly minimising the risk that these keys could be exposed, and used to sign fraudulent releases.
+Fulcio only issues short-lived certificates that are valid for 10 minutes. This is a really good thing for the software trust model that Sigstore introduces. It means that we no longer have to diligently protect GPG keys used to sign containers - the Fulcio X509 certificates are only valid for 10 minutes, greatly minimising the risk that these keys could be exposed, and used to sign fraudulent releases. Fulcio has also recently reached [General Availability](https://blog.sigstore.dev/sigstore-ga-ddd6ba67894d/). 
 
-Fulcio has also recently reached General Availability. The Sigstore community maintaining the "public good" Sigstore instance provides a 99.5% Availability service level objective (SLO), and uses [semver](link to semver) rules for API stability.
+## Intro to Cosign, Rekor and Fulcio
 
-## Up and running with Sigstore and OpenShift
+Ok - let's get hands-on! You can follow the [Sigstore docs](https://docs.sigstore.dev/cosign/installation/) to grab a copy of the `cosign`, `rekor` and `fulcio` binaries.
 
-Ok - time to get hands on! If you have a handy OpenShift environment laying around, there's a couple of simple steps to get up and running with Sigstore and start signing containers:
+You can use Fulcio-issues certificates to sign containers by simply using `cosign sign`. I'm going to sign the image `quay.io/smileyfritz/chat-client`. Note that you require access to the registry / repository for the image you want to sign, as the signature is pushed to the registry and stored as an OCI object.
 
-1. Install the **OpenShift Pipelines** operator. OpenShift Pipelines provides the [Tekton Chains](https://next.redhat.com/project/tekton-chains/) component in Technology Preview, which allows us to embed container signing inside Tekton pipelines.
+`cosign` works best with digests, not tags. If you try to use a tag, like `latest`, with an image you'll be presented with a warning.
+```
+WARNING: Image reference quay.io/smileyfritz/chat-client:latest uses a tag, not a digest, to identify the image to sign.
+    This can lead you to sign a different image than the intended one. Please use a
+    digest (example.com/ubuntu@sha256:abc123...) rather than tag
+    (example.com/ubuntu:latest) for the input to cosign. The ability to refer to
+    images by tag will be removed in a future release.
+```
+
+The first thing we need is the digest for the image. You can grab this easily with [crane](https://github.com/google/go-containerregistry/tree/main/cmd/crane)
+```
+crane digest quay.io/smileyfritz/chat-client:latest
+sha256:86c9473bdae1201f870c4a328b07bcba5e18a6b4e83c26669cf82a36d7b8cbd5
+```
+Now we can use `cosign` to create ephemeral keys and certificates, get them signed automatically by the Fulcio CA, and store these in the Rekor transparency log.
+```
+cosign sign quay.io/smileyfritz/rfiweb@sha256:86c9473bdae1201f870c4a328b07bcba5e18a6b4e83c26669cf82a36d7b8cbd5
+```
+At this point a workflow kicks off which requests you to grant permission to have your information stored permanently in the Rekor transparency logs. If you accept, a browser window will open and you will be directed to a page that asks you to log in with Sigstore. You can authenticate with GitHub, Google, or Microsoft. Note that the email address that is tied to these credentials will be permanently visible in the Rekor transparency log. This makes it publicly visible that you are the one who signed the given artifact, and helps others trust the given artifact.
+```
+Generating ephemeral keys...
+Retrieving signed certificate...
+
+        Note that there may be personally identifiable information associated with this signed artifact.
+        This may include the email address associated with the account with which you authenticate.
+        This information will be used for signing this artifact and will be stored in public transparency logs and cannot be removed later.
+```
+Access the URL generated and you'll be prompted to login to Sigstore. 
+![sigstore login](/static/images/sigstore1.png)
+
+Once you enter the verification code, `cosign` will sign the image and push the signature to the registry.
+```
+Successfully verified SCT...
+tlog entry created with index: 18012395
+Pushing signature to: quay.io/smileyfritz/chat-client
+```
+Great! The container is now signed. We can verify the signatures with `cosign` also.
+```
+cosign verify --certificate-identity shane.boulden@gmail.com --certificate-oidc-issuer https://github.com/login/oauth quay.io/smileyfritz/chat-client@sha256:86c9473bdae1201f870c4a328b07bcba5e18a6b4e83c26669cf82a36d7b8cbd5
+
+Verification for quay.io/smileyfritz/chat-client@sha256:86c9473bdae1201f870c4a328b07bcba5e18a6b4e83c26669cf82a36d7b8cbd5 --
+The following checks were performed on each of these signatures:
+  - The cosign claims were validated
+  - Existence of the claims in the transparency log was verified offline
+  - The code-signing certificate was verified using trusted certificate authority certificates
+```
+We can also directly query the Rekor transparency ledger for the attestation that's been created. Firstly we need to search for any transparency log entries using the image digest.
+```
+rekor-cli search --sha=86c9473bdae1201f870c4a328b07bcba5e18a6b4e83c26669cf82a36d7b8cbd5
+Found matching entries (listed by UUID):
+24296fb24b8ad77a7f9157e02f971e0c373e2ec65c2a72bc7642728bba4ca5a8cec931d2a0bb7d8e
+```
+Now that we have the transparency ledger entry UUID, we can have a look at the attestation.
+```
+rekor-cli get --uuid=24296fb24b8ad77a7f9157e02f971e0c373e2ec65c2a72bc7642728bba4ca5a8cec931d2a0bb7d8e --format json | jq -r .Attestation | jq
+{
+  "_type": "https://in-toto.io/Statement/v0.1",
+  "predicateType": "https://slsa.dev/provenance/v0.2",
+  "subject": [
+    {
+      "name": "quay.io/smileyfritz/chat-client",
+      "digest": {
+        "sha256": "86c9473bdae1201f870c4a328b07bcba5e18a6b4e83c26669cf82a36d7b8cbd5"
+      }
+    }
+  ],
+  "predicate": {
+    "builder": {
+      "id": "https://tekton.dev/chains/v2"
+    },
+    "buildType": "tekton.dev/v1beta1/TaskRun",
+    "invocation": {
+      "configSource": {},
+      "parameters": {
+        "BUILDER_IMAGE": "quay.io/buildah/stable:v1.17.0"
+...
+```
+And that's it! We've signed a container with `cosign` using certificates and keys signed by the Fulcio CA, and created attestations and entries in the Rekor transparency ledger. If you want to see some of the other signing workflows available, there's an excellent in-depth tutorial available at [chainguard.dev](https://edu.chainguard.dev/open-source/sigstore/cosign/how-to-sign-a-container-with-cosign/).
+
+## Sigstore and OpenShift
+
+OpenShift supports `cosign` and `rekor` in [Technology Preview](https://access.redhat.com/solutions/21101) with [OpenShift Pipelines](https://cloud.redhat.com/blog/introducing-openshift-pipelines) and [Tekton Chains](https://next.redhat.com/project/tekton-chains/). If you have a handy OpenShift environment laying around, there's a couple of simple steps to get up and running with Sigstore and start signing containers.
+
+1. Install the **OpenShift Pipelines** operator. OpenShift Pipelines provides the Tekton Chains component in Technology Preview, which allows us to embed container signing inside Tekton pipelines.
 
 2. Configure Tekton Chains. You can find a quick guide [here](https://docs.openshift.com/container-platform/4.11/cicd/pipelines/using-tekton-chains-for-openshift-pipelines-supply-chain-security.html). Make sure that you patch the Tekton Chains config:
 
@@ -78,11 +161,11 @@ results:
 
 You can find the complete example at my GitHub [here](https://github.com/shaneboulden/chat-pipeline/blob/main/buildah-vol.yaml)
 
-That's really all there is. You don't need to explicitly add steps to your build pipeline to sign containers - the Tekton Chains controller will detect new releases from the `IMAGE_URL` and `IMAGE_DIGEST` results, sign these containers with the key provided, and store the signatures as OCI manifest objects alongside your container images in the registry.
+That's really all there is. You don't need to explicitly add steps to your build pipeline to sign containers - the Tekton Chains controller will detect new releases from the `IMAGE_URL` and `IMAGE_DIGEST` results, use `cosign` to sign these containers with the key provided, and store the signatures as OCI manifest objects alongside your container images in the registry.
 
-You can confirm this using something like [crane](https://github.com/google/go-containerregistry/blob/main/cmd/crane/doc/crane.md):
-
+You can confirm this using `crane`:
 ```
+$ crane ls quay.io/smileyfritz/chat-client
 0.5
 sha256-f41cc30a1507e3eb3117e0e31be7604fe484c48caf335cd1cdfe1c1991ada077.att
 sha256-f41cc30a1507e3eb3117e0e31be7604fe484c48caf335cd1cdfe1c1991ada077.sig
@@ -92,9 +175,10 @@ sha256-822be3ad91788b82d275ef8077132c09e4339c415823e286df79d23608a278fe.sig
 latest
 sha256-c446564d0876f0af0eba11a93352711cf836b7bc082e50f9151d5d9e90817d75.att
 sha256-c446564d0876f0af0eba11a93352711cf836b7bc082e50f9151d5d9e90817d75.sig
+...
 ```
 
-`crane` simply dumps the contents of the repository. Here you we can see tags (`0.5`, `v0.6` and `latest`), as well as signatures and attestations created by Sigstore and Tekton Chains components stored within the container image repository.
+ Here you we can see tags (`0.5`, `v0.6` and `latest`), as well as signatures and attestations created by Sigstore and Tekton Chains components stored within the container image repository.
 
 I've created a video here showing how to configure Tekton Chains and create a pipeline that signs container images, and also how Tekton Chains can use the public benefit Rekor instance to sign and store metadata about releases.
 

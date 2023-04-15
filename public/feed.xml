@@ -7,8 +7,18 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Sat, 01 Apr 2023 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Fri, 14 Apr 2023 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
+      
+  <item>
+    <guid>https://stb.id.au/blog/sigstore-sorcery</guid>
+    <title>Sigstore - Signature Sorcery</title>
+    <link>https://stb.id.au/blog/sigstore-sorcery</link>
+    <description>Sigstore is an open source project enabling anyone to sign and validate software releases, including container images. This article takes a closer look at Sigstore and some of the innovation happening around the project.</description>
+    <pubDate>Fri, 14 Apr 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>sigstore</category><category>signatures</category><category>containers</category><category>kubernetes</category><category>security</category>
+  </item>
 
   <item>
     <guid>https://stb.id.au/blog/ansible-fortigate</guid>
