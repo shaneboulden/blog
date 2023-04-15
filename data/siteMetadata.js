@@ -1,7 +1,7 @@
 const siteMetadata = {
-  title: 'Sec3d',
+  title: 'RXRW',
   author: 'Shane Boulden',
-  headerTitle: 'Sec3d',
+  headerTitle: 'RXRW',
   description: 'Building applications, securing infrastructure and applications, and everything in-between.',
   language: 'en-us',
   siteUrl: 'https://stb.id.au',
