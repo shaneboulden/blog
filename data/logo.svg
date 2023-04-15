@@ -1,3 +1,44 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="xMidYMid meet" viewBox="344.5639097744361 330.27819548872174 111.73684210526318 91.21804511278197" width="53.87" height="43.61"><defs><path d="M453.3 331.28L453.3 359.85L388.64 418.5L388.64 388.42L453.3 331.28Z" id="aFZf6T5ED"></path><linearGradient id="gradientb2ThqnP5Op" gradientUnits="userSpaceOnUse" x1="420.97" y1="331.28" x2="420.97" y2="418.5"><stop style="stop-color: #06b6d4;stop-opacity: 1" offset="0%"></stop><stop style="stop-color: #67e8f9;stop-opacity: 1" offset="100%"></stop></linearGradient><path d="M410.23 331.28L410.23 359.85L345.56 418.5L345.56 388.42L410.23 331.28Z" id="a9fehgwfM"></path><linearGradient id="gradientk1wNV9Ostb" gradientUnits="userSpaceOnUse" x1="377.89" y1="331.28" x2="377.89" y2="418.5"><stop style="stop-color: #06b6d4;stop-opacity: 1" offset="0%"></stop><stop style="stop-color: #67e8f9;stop-opacity: 1" offset="100%"></stop></linearGradient></defs><g><g><use xlink:href="#aFZf6T5ED" opacity="1" fill="url(#gradientb2ThqnP5Op)"></use></g><g><use xlink:href="#a9fehgwfM" opacity="1" fill="url(#gradientk1wNV9Ostb)"></use></g></g></svg>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="31.999998"
+   height="30.363312"
+   viewBox="0 0 8.4666662 8.0336255"
+   version="1.1"
+   id="svg137"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs134" />
+  <g
+     id="layer1"
+     transform="translate(-51.765335,-50.60857)">
+    <path
+       style="fill:#37483e;stroke-width:0.239365"
+       id="rect630"
+       width="8.4666662"
+       height="8.0336266"
+       x="51.765335"
+       y="50.60857"
+       d="m 52.765335,50.60857 h 6.466666 a 1,1 45 0 1 1,1 v 6.033627 a 1,1 135 0 1 -1,1 h -6.466666 a 1,1 45 0 1 -1,-1 l 0,-6.033627 a 1,1 135 0 1 1,-1 z" />
+    <rect
+       style="fill:#ffffff;stroke-width:0.264583"
+       id="rect1166"
+       width="1.3803051"
+       height="5.4445319"
+       x="-7.611752"
+       y="74.547073"
+       ry="0.49844316"
+       transform="rotate(-51.690848)" />
+    <rect
+       style="fill:#ffffff;stroke-width:0.264583"
+       id="rect1166-0"
+       width="1.3803051"
+       height="5.4445319"
+       x="-79.40023"
+       y="7.4639583"
+       ry="0.49844316"
+       transform="rotate(-127.82513)" />
+  </g>
+</svg>
