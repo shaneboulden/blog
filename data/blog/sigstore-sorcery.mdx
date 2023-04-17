@@ -112,6 +112,11 @@ Body: {
       }
 ...
 ```
+<div style={{ backgroundColor: '#f5f5f5', padding: '2px', borderRadius: '.25rem' }}>
+<p style={{ padding: '6px'}}>You'll find that the hash recorded here (`49411c8fcbe82...`) does not match the container image digest (`86c9473bdae...`). The reason for this is that `cosign` uploads the hash of the entire signed payload to the transparency ledger, and `rekor` doesn't understand these payloads.</p>
+<p style={{ padding: '6px'}}>Unfortunately this means that for now, we can't simply search by container digest - `rekor-cli search --sha=86c9473bdae...`. There is [work underway at the Rekor project](https://github.com/sigstore/rekor/pull/626) to support container signing types.</p>
+</div>
+
 We can string a couple of commands together to extract the certificate used to sign the container image.
 ```
 $ rekor-cli get --log-index 18012395 --format json | jq -r '.Body.HashedRekordObj.signature.publicKey.content' | base64 -d | openssl x509 -noout -text
@@ -203,7 +208,7 @@ sha256-c446564d0876f0af0eba11a93352711cf836b7bc082e50f9151d5d9e90817d75.sig
 
 Here you we can see tags (`0.5`, `v0.6` and `latest`), as well as signatures and attestations created by Sigstore and Tekton Chains components stored within the container image repository.
 
-We can also directly query the Rekor transparency ledger for the in-toto attestation that's been created. Firstly we need to search for any transparency log entries using the image digest.
+Tekton Chains has recorded an `Attestation` type in the Rekor ledger. To access this we can first search for any transparency log entries using the image digest.
 ```
 $ rekor-cli search --sha=86c9473bdae1201f870c4a328b07bcba5e18a6b4e83c26669cf82a36d7b8cbd5
 Found matching entries (listed by UUID):
