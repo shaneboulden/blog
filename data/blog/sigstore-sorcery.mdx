@@ -41,7 +41,7 @@ Fulcio only issues short-lived certificates that are valid for 10 minutes. This 
 
 ## Intro to Cosign, Rekor and Fulcio
 
-Ok - let's get hands-on! You can follow the [Sigstore docs](https://docs.sigstore.dev/cosign/installation/) to grab a copy of the `cosign`, `rekor` and `fulcio` binaries.
+Ok - let's get hands-on! You can follow the [Sigstore docs](https://docs.sigstore.dev/cosign/installation/) to grab a copy of the `cosign` and `rekor-cli` binaries that you'll need for this section.
 
 You can use Fulcio-issues certificates to sign containers by simply using `cosign sign`. I'm going to sign the image `quay.io/smileyfritz/chat-client:latest`. Note that you require access to the registry / repository for the image you want to sign, as the signature is pushed to the registry and stored as an OCI object.
 
