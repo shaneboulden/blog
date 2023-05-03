@@ -1,0 +1,117 @@
+---
+title: Pre-creating users and roles in Keycloak
+date: '2023-05-04'
+tags: ['keycloak', 'users', 'roles', 'idp', 'rhsso']
+draft: false
+summary: 'Keycloak can support some interesting authentication and authorisation flows, one of which is creating users and assigning roles ahead of upstream identity provider authentication.'
+---
+This week I spent some time investigating a question I received on Keycloak authentication and authorisation. Essentially this team wanted to have an "organisation admin" create users within a realm for a specific org, and then have these users link to an upstream auth provider during login. In this article I'll cover what this looks like with Keycloak, and how Keycloak authentication flows can support this scenario.
+
+### Keycloak configuration
+In this article I'm using a downstream, supported version of Keycloak from Red Hat, called **Red Hat Single Sign On**. I'll use the term 'Keycloak' for this article though, because the platform capabilities are essentially the same for this scenario.
+
+I've also configured my Keycloak server at 192.168.122.80 - you can simply update your configuration to reflect your Keycloak hostname / IP.
+
+The first thing we need to support this scenario is a new realm in Keycloak. I've simply called mine `idp-poc`.
+
+<Zoom>
+![Keycloak IDP POC](/static/images/keycloak/idp-poc.png)
+</Zoom>
+
+Now we can create a user within our realm. This workflow represents the "organisation admin" creating users ahead of upstream IDP auth, and assigning roles.
+
+The user needs to have the same user ID and email as the upstream auth provider (which in this case is GitHub). Here I've created my user `shaneboulden` (my GitHub username) with my email (`shane.boulden@gmail.com`).
+
+<Zoom>
+![Keycloak user create](/static/images/keycloak/keycloak-user-create.png)
+</Zoom>
+
+We'll need a Keycloak password for this user for a later authentication flow. Select **Credentials** and create a new password for the user.
+
+Let's create a new role for our user and assign it. This meets the brief - the "organisation admin" should be able to create users and assign role mappings ahead of upstream identity provider authentication, which we're going to see next. I've simply called this role `app-admin`.
+
+<Zoom>
+![Keycloak user roles](/static/images/keycloak/keycloak-user-roles.png)
+</Zoom>
+
+### Upstream identity provider configuration
+Now that we have a Keycloak user and role mapping configured we need to setup GitHub as an upstream identity provider. The first thing that you'll need to do is head to [https://github.com/settings/developers](https://github.com/settings/developers).
+
+<Zoom>
+![Github developer settings](/static/images/keycloak/github-settings.png)
+</Zoom>
+
+Select **New OAuth app** and enter a name for the new application. Enter the following when prompted for the homepage and callback URLs:
+
+* Homepage URL: https://192.168.122.80:8443/realms/idp-poc
+* Authorization callback URL: https://192.168.122.80:8443/auth/realms/idp-poc/broker/github/endpoint
+
+You'll also have to create a client secret. In the next screen select **Generate a client secret**, and note the client ID and secret value.
+
+<Zoom>
+![Github client secrets](/static/images/keycloak/github-client-secrets.png)
+</Zoom>
+
+That's all for GitHub for now - let's head back to Keycloak and configure the identity provider.
+
+### Keycloak identity provider configuration
+
+Select **Identity Providers** from the Keycloak **Configure** tab, and the **GitHub** drop-down. Specify the client ID and client secret you created above. For the **First Login Flow** select `first broker login`, and for the **Sync Mode** select `import`. 
+
+Select **save**, and the identity provider will be created.
+
+<Zoom>
+![Keycloak IDP](/static/images/keycloak/keycloak-idp.png)
+</Zoom>
+
+That's it - let's try it out!
+
+### Testing everything out
+
+Navigate to https://192.168.122.80:8443/auth/admin/idp-poc/console and you'll see the sign-in page for your realm admin console.
+
+<Zoom>
+![realm console](/static/images/keycloak/realm-console.png)
+</Zoom>
+
+Select `GitHub` and you'll be redirected to a page prompting you to sign-in with your GitHub credentials and authorise the OAuth app to access your data.
+
+<Zoom>
+![oauth approval](/static/images/keycloak/oauth-approval.png)
+</Zoom>
+
+Once you've approved the application Keycloak will prompt you to update your profile information. Simply specify your first and last name, and hit `Submit`.
+
+<Zoom>
+![profile update](/static/images/keycloak/profile-update.png)
+</Zoom>
+
+Keycloak will then prompt you that there is an existing account with the email you've specified. Simply select `Add to existing account`.
+
+<Zoom>
+![keycloak prompt](/static/images/keycloak/keycloak-prompt.png)
+</Zoom>
+
+Keycloak will prompt you to `Authenticate to link your account with github`. Use the *Keycloak password* we created when we initially created this user, and the user will be linked.
+
+Success! If you navigate back to the admin console, you'll see that the user still has the role mappings we created initially and now has an identity provider link also associated with GitHub.
+
+<Zoom>
+![User roles](/static/images/keycloak/keycloak-user-roles.png)
+</Zoom>
+
+<Zoom>
+![Github user links](/static/images/keycloak/user-links.png)
+</Zoom>
+
+
+### Next steps
+This was a really quick look at an alternative authentication flow with Keycloak - creating users and mapping roles in Keycloak, before they authenticate via an upstream identity provider.
+
+Something you may want to experiment with is whether the temporary Keycloak credentials are required. You can modify the `First Broker Login` auth flow and optionally change or remove this step in the authentication flow.
+
+<Zoom>
+![Keycloak auth flow](/static/images/keycloak/auth-flow.png)
+</Zoom>
+
+Let me know in the comments what you think of this authentication flow, and I'm really interested to know how anyone goes experimenting wih the `First Broker Login` authentication flow.

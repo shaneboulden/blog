@@ -7,9 +7,19 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Fri, 14 Apr 2023 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Thu, 04 May 2023 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/keycloak-user-create</guid>
+    <title>Pre-creating users and roles in Keycloak</title>
+    <link>https://stb.id.au/blog/keycloak-user-create</link>
+    <description>Keycloak can support some interesting authentication and authorisation flows, one of which is creating users and assigning roles ahead of upstream identity provider authentication.</description>
+    <pubDate>Thu, 04 May 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>keycloak</category><category>users</category><category>roles</category><category>idp</category><category>rhsso</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/sigstore-sorcery</guid>
     <title>Sigstore - Signature Sorcery</title>
