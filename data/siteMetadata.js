@@ -13,7 +13,7 @@ const siteMetadata = {
   github: 'https://github.com/shaneboulden',
   twitter: 'https://twitter.com/shaneboulden',
   facebook: 'https://facebook.com',
-  youtube: 'https://youtube.com',
+  youtube: 'https://www.youtube.com/channel/UCaBEwrBXGdHS9LwG1Z1M4gw',
   linkedin: 'https://www.linkedin.com/in/shaneboulden',
   locale: 'en-US',
   analytics: {
