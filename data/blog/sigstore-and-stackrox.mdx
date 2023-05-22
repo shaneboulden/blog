@@ -1,0 +1,74 @@
+---
+title: Sigstore and StackRox
+date: '2023-05-21'
+tags: ['sigstore', 'stackrox', 'containers', 'kubernetes', 'security']
+draft: true
+summary: 'Sigstore and StackRox are open source projects helping to address security challenges. Sigstore looks at the software supply chain, and StackRox at Kubernetes-native security models - what do they look like together?'
+---
+Following my last article on [Sigstore](/blog/sigstore-sorcery) I thought I would keep the allitoration going and look at [Sigstore]() and [StackRox](). How do these two open source security projects support and complement each other, and how can you use Sigstore and StackRox to provide better risk mitigation for container-driven application development?
+
+[Sigstore](https://sigstore.dev) needs no introduction. It's an open source project designed to make it easier to sign, verify and attest to the creation of software, and ultimately make it easier to make informed decisions about software and the software supply chain. Sigstore recently added support for [NPM in public beta](https://blog.sigstore.dev/npm-public-beta/). Essentially this bundles Sigstore support directly into the `npm` command-line interface. This means that `npm` can start to generate signed provenance records (attestations) each time a package maintainer releases a new npm module, and users will be able to verify the package was obtained from the correct origin.
+
+One of the co-founders of Sigstore, [Luke Hinds](https://twitter.com/decodebytes), also recently started a new company, [stacklok](https://www.stacklok.com/). I'm incredibly excited to see what's next for Sigstore and stacklok!
+
+## What's StackRox?
+[StackRox](https://stackrox.io) is an open source Kubernetes-native security community. The community kicked-off when Red Hat [released the StackRox source code](https://www.redhat.com/en/blog/red-hat-releases-open-source-stackrox-community) to the open source community, enabling anyone to experiment with Kubernetes-native approaches to security. StackRox brings together a few key components into a Kubernetes-native security approach.
+
+#### Admission control 
+StackRox provides a Kubernetes [admission controller](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/). Kubernetes admission controllers come in two flavours - validating admission controllers, and mutating controllers. The StackRox admission controller is a validating admission controller, which validates whether containers violate any of the enforced policies and blocks these Kubernetes deployments.
+
+If you want to take a closer look at StackRox admission control, I've created a video here.
+
+<YoutubeEmbed embedId="6PfSW0MpPuw" />
+
+#### eBPF 
+StackRox uses an eBPF-based sensor to provide visibility into container workloads at runtime. This extended Berkelely Packet Filter (eBPF)-based approach means that we don't need agents deployed inside containers to provide visibility - we can simply observe container process execution and network traffic flows at the kernel.
+
+There's a great blog on eBPF at the [StackRox blog](https://www.stackrox.io/blog/what-is-ebpf/). For completeness, I think it's also worth a read of [Brendan Gregg's blog](https://www.brendangregg.com/blog/2023-04-28/ebpf-security-issues.html) on the challenges with using eBPF for security workflows. 
+
+If you want to take a closer look at how StackRox uses eBPF to support Kubernetes-native security at runtime, I've created another video here.
+
+<YoutubeEmbed embedId="_jHRr-7dNc0" />
+
+#### Vulnerability management
+StackRox provides a built-in container vulnerability scanner derived from the [Clair](https://github.com/quay/clair) project. The Clair container scanner has been extended to support application runtimes and frameworks, for example Java, Python, and .NET Core. It also supports a number of operating systems, shown in the table below:
+
+<< insert table >>
+
+StackRox comes with a lot of default policies to help organisations better meet their security requirements. You can take a look at these in the [StackRox source](https://github.com/stackrox/stackrox/tree/master/pkg/defaults/policies/files). These policies apply across the build, deploy and runtime phases of the container application lifecycle. For example, [this policy](https://github.com/stackrox/stackrox/blob/master/pkg/defaults/policies/files/log4shell.json) catches containers vulnerable to Log4Shell, a critical vulnerability in the Java log4j logging framework. You can see in the `lifecycleStages` section of the policy that it applies across the **BUILD** and **DEPLOY** phases:
+```json{14-15} showLineNumbers
+{
+  "id": "cf80fb33-c7d0-4490-b6f4-e56e1f27b4e4",
+  "name": "Log4Shell: log4j Remote Code Execution vulnerability",
+  "description": "Alert on deployments with images containing the Log4Shell vulnerabilities (CVE-2021-44228 and CVE-2021-45046). There are flaws in the Java logging library Apache Log4j in versions from 2.0-beta9 to 2.15.0, excluding 2.12.2.",
+  "rationale": "These vulnerabilities allows a remote attacker to execute code on the server if the system logs an attacker-controlled string value with the attacker's JNDI LDAP server lookup.",
+  "remediation": "Update the log4j libary to version 2.16.0 (for Java 8 or later), 2.12.2 (for Java 7) or later. If not possible to upgrade, then remove the JndiLookup class from the classpath: zip -q -d log4j-core-*.jar org/apache/logging/log4j/core/lookup/JndiLookup.class",
+  "categories": [
+    "Vulnerability Management"
+  ],
+  "lifecycleStages": [
+    "BUILD",
+    "DEPLOY"
+  ],
+  ...
+```
+The **BUILD** flag means that when a container scan is initiated with `roxctl` this policy will be reported in the output. This is a common way of integrating StackRox with continuous integration / continuous deployment (CI/CD) pipelines. e.g.
+```
+roxctl -e ...
+```
+The **DEPLOY** flag means that this policy applies when a Kubernetes deployment is created on a secured cluster. This invokes the StackRox admission controller to validate the workload against the enforced policies - like this one - and then either accept it, or block the deployment from progressing. 
+
+## Sigstore and StackRox - better together
+
+So there you have it. StackRox and Sigstore - open source security superheroes.
+
+<< Super hero pic>>
+
+So how do we bring StackRox and Sigstore together?
+
+StackRox introduced support for [Cosign signatures](https://github.com/stackrox/stackrox/pull/706) last year. This means that Kubernetes-native security enthusiasts can create a Cosign integration, and then a policy to block unsigned containers from the platform.
+
+I think the best way to demonstrate this is to get hands-on. In this section I'm using the downstream-version of StackRox from Red Hat, [Red Hat Advanced Cluster Security for Kubernetes](https://www.redhat.com/en/technologies/cloud-computing/openshift/advanced-cluster-security-kubernetes). If you want to follow along, you can install StackRox on  
+
+Once up and running, and you've secured a cluster, you need to create a signature integration. You can find this in the StackRox  **integrations** tab:
+
