@@ -27,7 +27,7 @@ A container is designed to support a single workload. This could be a Java appli
 
 ## LOTL and CI/CD
 
-Unwanted binaries can be detected during container application development. [StackRox](https://www.stackrox.io/) - an open source, Kubernetes-native security platform - contains out-of-the-box policies to detect binaries used to perform system administration, like [curl](https://github.com/stackrox/stackrox/blob/master/pkg/defaults/policies/files/curl.json) and [wget](https://github.com/stackrox/stackrox/blob/master/pkg/defaults/policies/files/wget.json). The `roxctl` binary can be used to scan containers during pipeline-based development; detecting these unwanted binaries, and failing the pipeline. There's an example shown below of a `roxctl` scan of a container that *does* contain `wget`:
+Unwanted binaries can be detected during container application development. [StackRox](https://www.stackrox.io/) - an open source, Kubernetes-native security platform - contains out-of-the-box policies to detect binaries used to perform system administration, like [curl](https://github.com/stackrox/stackrox/blob/master/pkg/defaults/policies/files/curl.json) and [wget](https://github.com/stackrox/stackrox/blob/master/pkg/defaults/policies/files/wget.json). The `roxctl` binary can be used to scan containers during pipeline-based development; detecting these unwanted binaries, and failing the pipeline. There's an example shown below of a `roxctl` scan of a container that *does* contain `curl`:
 
 ```
 roxctl image check -e "central-acs.example.com:443"  --insecure-skip-tls-verify --image quay.io/smileyfritz/chat-client:latest
