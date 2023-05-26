@@ -7,9 +7,19 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Thu, 04 May 2023 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Fri, 26 May 2023 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/living-off-the-land-containers</guid>
+    <title>Living off the land and containers</title>
+    <link>https://stb.id.au/blog/living-off-the-land-containers</link>
+    <description>A recent Microsoft threat intelligence report called attention to &quot;living off the land&quot; techniques. I thought it would be interesting to see how containers and containerised applications inherently help to mitigate these techniques.</description>
+    <pubDate>Fri, 26 May 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>living</category><category>off</category><category>land</category><category>kubernetes</category><category>security</category><category>containers</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/keycloak-user-create</guid>
     <title>Pre-creating users and roles in Keycloak</title>

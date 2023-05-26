@@ -1,0 +1,160 @@
+---
+title: Living off the land and containers
+date: '2023-05-26'
+tags: ['living', 'off', 'land', 'kubernetes', 'security', 'containers']
+draft: false
+summary: 'A recent Microsoft threat intelligence report called attention to "living off the land" techniques. I thought it would be interesting to see how containers and containerised applications inherently help to mitigate these techniques.'
+---
+A recent [Microsoft threat intelligence report](https://www.microsoft.com/en-us/security/blog/2023/05/24/volt-typhoon-targets-us-critical-infrastructure-with-living-off-the-land-techniques/) covered a threat actor - Volt Typhoon - employing living off the land (LOTL) techniques to evade detection  while targeting critical infrastructure organisations. This was quickly followed by [security advisories](https://www.cyber.gov.au/about-us/alerts/prc-state-sponsored-cyber-actor-living-off-the-land-to-evade-detection) from organisations like the Australian Cyber Security Centre (ACSC) providing guidance on investigation and mitigation.
+
+Now that we're seeing more and more workloads deployed to containers, I thought it would be interesting to see how these techniques can be mitigated for container workloads.
+
+## What is living off the land (LOTL)?
+
+Living off the land (LOTL) involves threat actors using built-in administration tools to perform their objectives. For example, using PowerShell scripts, Windows Management Instrumentation (WMI) or simply `cmd.exe` to probe network services, or support command and control (C2). The use of built-in tools - rather than pulling down custom capabilities or implants like [other threat actors](https://www.cyber.gov.au/about-us/advisories/hunting-russian-intelligence-snake-malware) - means that these activites can go unnoticed, or look like legitimate system administration. This technique can also evade system hardening like [application control](/blog/app-control-for-everyone), as it uses existing allow-listed utilities.
+
+As an example, the Volt Typhoon threat actor referenced in these reports used `cmd.exe` to set up port-forwarding on the host:
+```
+"cmd.exe /c "netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=9999 connectaddress=<rfc1918 internal ip address> connectport=8443 protocol=tcp""
+"cmd.exe /c netsh interface portproxy add v4tov4 listenport=50100 listenaddress=0.0.0.0 connectport=1433 connectaddress=<rfc1918 internal ip address>"
+```
+
+## What does LOTL have to do with containers?
+
+More organisations are now adopting cloud-native technologies like containers and Kubernetes. I think these capabilities provide some inherent protections against LOTL techniques given how we can package applications.
+
+A container is designed to support a single workload. This could be a Java application, or a Python API, etc. This means that the processes running inside a container are **only** designed to support that workload. Does a Java application in a container need to access system utilities like `curl`, or `wget`, or even `sudo` and `/bin/sh`? I'd argue not, and the best part is that we can **simply remove** these unwanted binaries from the container.
+
+## LOTL and CI/CD
+
+Unwanted binaries can be detected during container application development. [StackRox](https://www.stackrox.io/) - an open source, Kubernetes-native security platform - contains out-of-the-box policies to detect binaries used to perform system administration, like [curl](https://github.com/stackrox/stackrox/blob/master/pkg/defaults/policies/files/curl.json) and [wget](https://github.com/stackrox/stackrox/blob/master/pkg/defaults/policies/files/wget.json). The `roxctl` binary can be used to scan containers during pipeline-based development; detecting these unwanted binaries, and failing the pipeline. There's an example shown below of a `roxctl` scan of a container that *does* contain `wget`:
+
+```
+roxctl image check -e "central-acs.example.com:443"  --insecure-skip-tls-verify --image quay.io/smileyfritz/chat-client:latest
+Policy check results for image: quay.io/smileyfritz/chat-client:latest
+(TOTAL: 2, LOW: 2, MEDIUM: 0, HIGH: 0, CRITICAL: 0)
+
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+|             POLICY             | SEVERITY | BREAKS BUILD |          DESCRIPTION           |           VIOLATION            |          REMEDIATION           |
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+|         Curl in Image          |   LOW    |      X       | Alert on deployments with curl |        - Image includes        |   Use your package manager's   |
+|                                |          |              |            present             |   component 'curl' (version    |  "remove", "purge" or "erase"  |
+|                                |          |              |                                |   7.61.1-14.el8_3.1.x86_64)    |  command to remove curl from   |
+|                                |          |              |                                |                                | the image build for production |
+|                                |          |              |                                |                                |  containers. Ensure that any   |
+|                                |          |              |                                |                                |  configuration files are also  |
+|                                |          |              |                                |                                |            removed.            |
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+|   Red Hat Package Manager in   |   LOW    |      X       |   Alert on deployments with    |        - Image includes        | Run `rpm -e --nodeps $(rpm -qa |
+|             Image              |          |              |     components of the Red      |    component 'dnf' (version    |  '*rpm*' '*dnf*' '*libsolv*'   |
+|                                |          |              |   Hat/Fedora/CentOS package    |      4.2.23-4.el8.noarch)      |   '*hawkey*' 'yum*')` in the   |
+|                                |          |              |       management system.       |                                |   image build for production   |
+|                                |          |              |                                |        - Image includes        |          containers.           |
+|                                |          |              |                                |    component 'rpm' (version    |                                |
+|                                |          |              |                                |      4.14.3-4.el8.x86_64)      |                                |
+|                                |          |              |                                |                                |                                |
+|                                |          |              |                                |        - Image includes        |                                |
+|                                |          |              |                                |    component 'yum' (version    |                                |
+|                                |          |              |                                |      4.2.23-4.el8.noarch)      |                                |
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+WARN:   A total of 2 policies have been violated
+ERROR:  failed policies found: 2 policies violated that are failing the check
+ERROR:  Policy "Curl in Image" - Possible remediation: "Use your package manager's \"remove\", \"purge\" or \"erase\" command to remove curl from the image build for production containers. Ensure that any configuration files are also removed."
+ERROR:  Policy "Red Hat Package Manager in Image" - Possible remediation: "Run `rpm -e --nodeps $(rpm -qa '*rpm*' '*dnf*' '*libsolv*' '*hawkey*' 'yum*')` in the image build for production containers."
+ERROR:  checking image failed after 3 retries: failed policies found: 2 policies violated that are failing the check
+```
+There's some important things we can see in this output:
+- `curl` has been detected in the container image. This is important, because leaving `curl` around makes it easier for attackers to use compromised containers, since they can easily download software.
+- Red Hat package manager components have been detected in the image. This is also important, because package managers make it easier for attackers to use compromised containers as they can easily add software.
+
+If we inject this `roxctl` scan into a Tekton pipeline, we can see the pipeline fails at this point and generates an error that the build contains an unwanted binary that is usually used for system administration:
+
+<Zoom>
+![acs cicd](/static/images/acs-cicd.png)
+</Zoom>
+
+
+Tools like `curl` and `wget` aren't necessary for the application to run in a container, so we simply remove them. This immediately mitigates some of these LOTL techniques - if the binary is not available, and we've removed the package manager components and tools like `curl` and `wget` attackers could use to install it, it becomes much harder to "live off the land" inside the container.
+
+## LOTL and admission control
+
+[Kubernetes admission controllers](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/) also play an important role in mitigating LOTL techniques used within containers. The Kubernetes docs describe it best - *An admission controller is a piece of code that intercepts requests to the Kubernetes API server prior to persistence of the object, but after the request is authenticated and authorized.* Kubernetes admission controllers come in two flavours - validating admission controllers, and mutating controllers. The StackRox admission controller is a validating admission controller, which validates whether containers violate any of the enforced policies and blocks these Kubernetes deployments.
+
+StackRox admission control works by blocking workloads that violate policies. It fails the `deployment create` action for Kubernetes, and reports an error back to users / developers. For example, let's say we don't want to use the CI/CD pipeline available for workloads, and just deploy an application to OpenShift. In this case StackRox scans the workload, validates that it does in-fact contain an unwanted binary - `curl`- and fails the deployment.
+
+<Zoom>
+![admission control](/static/images/acs-admission-control.png)
+</Zoom>
+
+You can also see a video here showing admission control in action.
+
+<YoutubeEmbed embedId="6PfSW0MpPuw "/>
+
+Admission control is an important workflow in mitigating LOTL techniques for container environments. It means that we don't need to rely on users *deciding* to build code and containers through validated CI/CD pipelines, which detect unwanted binaries before deployment. Whichever way the container workload is deployed, StackRox admission control ensures that the workload is verified, and if it contains unwanted binaries (like `curl` or `dnf`) the workload is blocked.
+
+## LOTL and container escape
+
+Clearly using LOTL techniques within containers is difficult. We can simply remove unwanted binaries from the container, making it much more difficult to use the very limited set of tools and processes inside the container to achieve objectives. 
+
+An attacker wanting to sit below the detection threshold and target container applications would likely want to escape from the container environment, and to the container host. Once on the container host (Kubernetes node) they potentially have many more tools available to achieve their objectives, while still "living off the land" and evading detection. Fortunately for us we can harden container hosts / Kubernetes nodes to mitigate container escape techniques.
+
+Security-Enhanced Linux (SELinux) is one of those controls that can make it much more difficult to escape from a compromised container application. SELinux essentially separates the enforcement of security decisions from policy, and enforces this policy across the entire system, including container workloads. 
+
+Let's see how SELinux mitigates against container escape using a practical example. Here I have a container running on a Kubernetes cluster without SELinux:
+```
+$ kubectl get pods -n devops
+NAME                             READY   STATUS    RESTARTS   AGE
+log4shell-app-75bb85f754-5rj6q   1/1     Running   0          24h
+```
+If I `exec` into the container (representing compromise) I can see that the host Docker socket has been mounted into this container. This means that the user inside the container can make requests to the host Docker daemon, bypassing all platform role-based access controls and protections. e.g.
+```
+$ kubectl -n devops exec -it $(kubectl get pods -n devops | awk '{if (NR!=1) print $1}') -- /bin/sh
+/ # ls -l /var/run/docker.sock
+srw-rw----    1 root     1950             0 May 26 05:25 /var/run/docker.sock
+/ # echo -e "GET /images/json HTTP/1.1\r\nHost: localhost:8080\r\n" | socat unix-connect:/var/run/docker.sock STDIO
+HTTP/1.1 200 OK
+Api-Version: 1.41
+Content-Type: application/json
+Docker-Experimental: false
+Ostype: linux
+Server: Docker/20.10.23 (linux)
+Date: Fri, 26 May 2023 05:27:46 GMT
+Transfer-Encoding: chunked
+
+[{"Containers":-1,"Created":1646429913,"Id":"sha256:201623bfbd655e0c0273d8b0d5e827474a7b6ed3ad3c577f78319ef6d3f94580","Labels":null,"ParentId":"","RepoDigests":["602401143452.dkr.ecr.ap-southeast-2.amazonaws.com/eks/coredns@sha256:09c4a9684cc63dc17565b656b57797498b4a5d5e10f4286ce5ad6ff7435d7f3d"],"RepoTags":["602401143452.dkr.ecr.ap-southeast-2.amazonaws.com/eks/coredns:v1.8.7-eksbuild.1"],"SharedSize":-1,"Size":48975754,"VirtualSize":48975754},{"Containers":-1,"Created":1645116372,"Id":"sha256:c8c9982c9d03789fe4d09993eaa54b11acd7b9bc6ebbfa60a223696172ca7507","Labels":null,"ParentId":"","RepoDigests":["602401143452.dkr.ecr.ap-southeast-2.amazonaws.com/eks/kube-proxy@sha256:c8abb4b8efc94090458f34e5f456791d9f7f57b5c99517b6b4e197305c1f10f6"],"RepoTags":["602401143452.dkr.ecr.ap-southeast-2.amazonaws.com/eks/kube-proxy:v1.22.6-eksbuild.1"],"SharedSize":-1,"Size":103649146,"VirtualSize":103649146},{"Containers":-1,"Created":1644982510,"Id":"sha256:cf0b5dc0e98ac3f541cb02558168e64976a02d59953b7a41d935ebe3f0ee3e37","Labels":{"io.buildah.version":"1.23.1"},"ParentId":"","RepoDigests":["quay.io/smileyfritz/log4shell-app@sha256:6f14cec2186281d18d2be08158143d73f287964373d00cb956e9ac6277640a45"],"RepoTags":["quay.io/smileyfritz/log4shell-app:v0.5"],"SharedSize":-1,"Size":124740532,"VirtualSize":124740532},{"Containers":-1,"Created":1636584456,"Id":"sha256:b65b61ecb3902cd1c038ec0b1d55bed6a0820b15b312c2608d3ea8ecc23db59c","Labels":null,"ParentId":"","RepoDigests":["602401143452.dkr.ecr.ap-southeast-2.amazonaws.com/amazon-k8s-cni-init@sha256:6c70af7bf257712105a89a896b2afb86c86ace865d32eb73765bf29163a08c56"],"RepoTags":["602401143452.dkr.ecr.ap-southeast-2.amazonaws.com/amazon-k8s-cni-init:v1.10.1-eksbuild.1"],"SharedSize":-1,"Size":276136949,"VirtualSize":276136949},{"Containers":-1,"Created":1636584431,"Id":"sha256:407b33483c87ebb2f3ab6559e0850fec7f32b1983e978e76f94bb03dabdb4125","Labels":null,"ParentId":"","RepoDigests":["602401143452.dkr.ecr.ap-southeast-2.amazonaws.com/amazon-k8s-cni@sha256:3b6db8b6fb23424366ef91d7e9e818e42291316fa81c00c2c75dcafa614340c5"],"RepoTags":["602401143452.dkr.ecr.ap-southeast-2.amazonaws.com/amazon-k8s-cni:v1.10.1-eksbuild.1"],"SharedSize":-1,"Size":302003068,"VirtualSize":302003068},{"Containers":-1,"Created":1621698749,"Id":"sha256:6996f8da07bd405c6f82a549ef041deda57d1d658ec20a78584f9f436c9a3bb7","Labels":null,"ParentId":"","RepoDigests":["602401143452.dkr.ecr.ap-southeast-2.amazonaws.com/eks/pause@sha256:529cf6b1b6e5b76e901abc43aee825badbd93f9c5ee5f1e316d46a83abbce5a2"],"RepoTags":["602401143452.dkr.ecr.ap-southeast-2.amazonaws.com/eks/pause:3.5"],"SharedSize":-1,"Size":682696,"VirtualSize":682696}]
+```
+There's now nothing stopping this attacker making their own requests against the container runtime. They could create their own workloads to connect to databases, or connect to external services and exfiltrate data. What's more, this could be difficult to detect on a Kubernetes node - it would effectively represent "living off the land" on a Kubernetes node, by using the Docker daemon to create workloads that achieve the attacker objectives.
+
+Fortunately SELinux can mitigate this type of container escape. Let's see this in action on an OpenShift cluster. 
+
+I have the same workload deployed to OpenShift:
+```
+$ oc get pods -n devops
+NAME                             READY   STATUS    RESTARTS   AGE
+log4shell-app-85d4b6774f-zhpbw   1/1     Running   0          44m
+```
+OpenShift doesn't use Docker as the runtime, but [CRI-O](https://cri-o.io/). Similarly though, if the container runtime socket is mounted into the container we can make requests:
+```
+$ oc rsh -n devops $(oc get pods -n devops | awk '{if (NR!=1) print $1}')
+/ # whoami
+root 
+/ # echo -e "GET /images/json HTTP/1.1\r\nHost: localhost:8080\r\n" | socat unix-connect:/var/run/crio/crio.sock STDIO
+2023/05/26 05:33:02 socat[36] E connect(5, AF=1 "/var/run/crio/crio.sock", 25): Permission denied
+```
+That's interesting. I'm the root user, and trying to make requests against the CRI-O socket. But I'm getting permission denied - what gives?
+
+It turns out that this is SELinux blocking access to the CRI-O socket. We can verify this by looking at the node where the workload is running:
+```
+$ oc debug nodes/$(oc get pod -n devops $(oc get pods -n devops | awk '{if (NR!=1) print $1}') -o jsonpath='{.spec.nodeName}')
+sh-4.4# chroot /host
+sh-4.4# ausearch -m avc -ts today | grep socat
+type=SYSCALL msg=audit(1685079182.105:306): arch=c000003e syscall=42 success=no exit=-13 a0=5 a1=7fffc56b6fdc a2=19 a3=0 items=0 ppid=242513 pid=242635 auid=4294967295 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=pts0 ses=4294967295 comm="socat" exe="/usr/bin/socat" subj=system_u:system_r:container_t:s0:c696,c925 key=(null)
+type=AVC msg=audit(1685079182.105:306): avc:  denied  { write } for  pid=242635 comm="socat" name="crio.sock" dev="tmpfs" ino=34101 scontext=system_u:system_r:container_t:s0:c696,c925 tcontext=system_u:object_r:container_var_run_t:s0 tclass=sock_file permissive=0
+```
+Let's break down this audit message. When SElinux denies an action, an Access Vector Cache (AVC) message is logged to `/var/log/audit/audit.log`. We can see this here: `avc: denied {write} for pid=242635...`. We can see that this audit message identifies the executable (`comm="socat"`), the target (`crio.sock`), and the context (`scontext=system_u:system_r:container_t:s0:c696,c925`). Effectively this means that SELinux blocked the request to access the CRI-O socket from the container environment - in this scenario, blocking the attacker escaping the container environment and making better use of LOTL techniques. 
+
+## Summary
+
+This has been a relatively short intro to "living off the land" techniques and containers. Clearly containers make it more difficult to "live off the land" - we can restrict the available binaries within the container using CI/CD integrations and admission control. This means that if a workload is exploited, it suddenly becomes much more difficult for an attacker to try to use available system binaries and resources. 
+
+An attacker would likely want to try to escape this limited environment to the Kubernetes node, where they have access to many more utilities and system services to evade detection and still achieve their objectives. I've tried to show in this article how controls like SELinux work to prevent access to system resources from container environments, and mitigate this type of container breakout.
