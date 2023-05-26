@@ -33,7 +33,7 @@ If you want to take a closer look at how StackRox uses eBPF to support Kubernete
 #### Vulnerability management
 StackRox provides a built-in container vulnerability scanner derived from the [Clair](https://github.com/quay/clair) project. The Clair container scanner has been extended to support application runtimes and frameworks, for example Java, Python, and .NET Core. It also supports a number of operating systems, shown in the table below:
 
-<< insert table >>
+// table
 
 StackRox comes with a lot of default policies to help organisations better meet their security requirements. You can take a look at these in the [StackRox source](https://github.com/stackrox/stackrox/tree/master/pkg/defaults/policies/files). These policies apply across the build, deploy and runtime phases of the container application lifecycle. For example, [this policy](https://github.com/stackrox/stackrox/blob/master/pkg/defaults/policies/files/log4shell.json) catches containers vulnerable to Log4Shell, a critical vulnerability in the Java log4j logging framework. You can see in the `lifecycleStages` section of the policy that it applies across the **BUILD** and **DEPLOY** phases:
 ```json{14-15} showLineNumbers
