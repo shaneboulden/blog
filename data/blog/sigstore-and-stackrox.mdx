@@ -1,11 +1,11 @@
 ---
 title: Sigstore and StackRox
-date: '2023-05-21'
+date: '2023-06-11'
 tags: ['sigstore', 'stackrox', 'containers', 'kubernetes', 'security']
-draft: true
+draft: false
 summary: 'Sigstore and StackRox are open source projects helping to address security challenges. Sigstore looks at the software supply chain, and StackRox at Kubernetes-native security models - what do they look like together?'
 ---
-Following my last article on [Sigstore](/blog/sigstore-sorcery) I thought I would keep the allitoration going and look at [Sigstore]() and [StackRox](). How do these two open source security projects support and complement each other, and how can you use Sigstore and StackRox to provide better risk mitigation for container-driven application development?
+I wrote an article on [Sigstore](/blog/sigstore-sorcery) a few weeks ago, and it makes sense to keep the allitoration going and look at [Sigstore](https://sigstore.dev) and [StackRox](https://stackrox.io). How do these two open source security projects support and complement each other, and how can you use Sigstore and StackRox to provide better risk mitigation for container-driven application development?
 
 [Sigstore](https://sigstore.dev) needs no introduction. It's an open source project designed to make it easier to sign, verify and attest to the creation of software, and ultimately make it easier to make informed decisions about software and the software supply chain. Sigstore recently added support for [NPM in public beta](https://blog.sigstore.dev/npm-public-beta/). Essentially this bundles Sigstore support directly into the `npm` command-line interface. This means that `npm` can start to generate signed provenance records (attestations) each time a package maintainer releases a new npm module, and users will be able to verify the package was obtained from the correct origin.
 
@@ -31,9 +31,7 @@ If you want to take a closer look at how StackRox uses eBPF to support Kubernete
 <YoutubeEmbed embedId="_jHRr-7dNc0" />
 
 #### Vulnerability management
-StackRox provides a built-in container vulnerability scanner derived from the [Clair](https://github.com/quay/clair) project. The Clair container scanner has been extended to support application runtimes and frameworks, for example Java, Python, and .NET Core. It also supports a number of operating systems, shown in the table below:
-
-// table
+StackRox provides a built-in container vulnerability scanner derived from the [Clair](https://github.com/quay/clair) project. The Clair container scanner has been extended to support application runtimes and frameworks, for example Java, Python, and .NET Core. It also supports a number of operating systems, including Red Hat Enterprise Linux, Debian, Ubuntu, and Alpine Linux.
 
 StackRox comes with a lot of default policies to help organisations better meet their security requirements. You can take a look at these in the [StackRox source](https://github.com/stackrox/stackrox/tree/master/pkg/defaults/policies/files). These policies apply across the build, deploy and runtime phases of the container application lifecycle. For example, [this policy](https://github.com/stackrox/stackrox/blob/master/pkg/defaults/policies/files/log4shell.json) catches containers vulnerable to Log4Shell, a critical vulnerability in the Java log4j logging framework. You can see in the `lifecycleStages` section of the policy that it applies across the **BUILD** and **DEPLOY** phases:
 ```json{14-15} showLineNumbers
@@ -54,21 +52,190 @@ StackRox comes with a lot of default policies to help organisations better meet 
 ```
 The **BUILD** flag means that when a container scan is initiated with `roxctl` this policy will be reported in the output. This is a common way of integrating StackRox with continuous integration / continuous deployment (CI/CD) pipelines. e.g.
 ```
-roxctl -e ...
+roxctl image check  -e "central-acs.example.com:443" --insecure-skip-tls-verify --image quay.io/smileyfritz/log4shell-app:v0.5
+
+Policy check results for image: quay.io/smileyfritz/log4shell-app:v0.5
+(TOTAL: 6, LOW: 3, MEDIUM: 0, HIGH: 1, CRITICAL: 2)
+
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+---------------------------------------------------------------------------+
+|             POLICY             | SEVERITY | BREAKS BUILD |          DESCRIPTION           |           VIOLATION            |                                REMEDIATION                                |
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+---------------------------------------------------------------------------+
+|  Log4Shell: log4j Remote Code  | CRITICAL |      -       |   Alert on deployments with    |   - CVE-2021-44228 (CVSS 10)   |            Update the log4j libary to version 2.16.0 (for Java            |
+|    Execution vulnerability     |          |              |     images containing the      |  (severity Critical) found in  |             8 or later), 2.12.2 (for Java 7) or later. If not             |
+|                                |          |              |   Log4Shell vulnerabilities    |   component 'log4j' (version   |              possible to upgrade, then remove the JndiLookup              |
+|                                |          |              |      (CVE-2021-44228 and       |            2.14.1)             |           class from the classpath: zip -q -d log4j-core-*.jar            |
+|                                |          |              |   CVE-2021-45046). There are   |                                |           org/apache/logging/log4j/core/lookup/JndiLookup.class           |
+|                                |          |              |   flaws in the Java logging    |   - CVE-2021-45046 (CVSS 9)    |
+                  |
+|                                |          |              |    library Apache Log4j in     |  (severity Critical) found in  |
+                  |
+|                                |          |              |   versions from 2.0-beta9 to   |   component 'log4j' (version   |
+                  |
+|                                |          |              |   2.15.0, excluding 2.12.2.    |            2.14.1)             |
+                  |
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+---------------------------------------------------------------------------+
+| Spring4Shell (Spring Framework | CRITICAL |      -       |   Alert on deployments with    |  - CVE-2022-22965 (CVSS 9.8)   |  Upgrade Spring Cloud Function to version 3.1.7 or 3.2.3. Upgrade Spring  |
+|     Remote Code Execution)     |          |              | images containing Spring4Shell |   (severity Critical) found    |    Framework to version 5.3.18+ (if currently on 5.3.x) or 5.2.20+ (if    |
+|   and Spring Cloud Function    |          |              |  vulnerability CVE-2022-22965  |  in component 'spring-webmvc'  |     currently on 5.2.x). If not possible to upgrade Spring Framework,     |
+|        vulnerabilities         |          |              |  which affects the Spring MVC  |        (version 5.3.13)        |  then apply an appropriate workaround from the suggested workarounds on   |
+|                                |          |              |  component and vulnerability   |                                | https://spring.io/blog/2022/03/31/spring-framework-rce-early-announcement |
+|                                |          |              |  CVE-2022-22963 which affects  |                                |
+                  |
+|                                |          |              |  the Spring Cloud component.   |                                |
+                  |
+|                                |          |              |   There are flaws in Spring    |                                |
+                  |
+|                                |          |              |    Cloud Function (versions    |                                |
+                  |
+|                                |          |              |     3.1.6, 3.2.2 and older     |                                |
+                  |
+|                                |          |              |  unsupported versions) and in  |                                |
+                  |
+|                                |          |              |   Spring Framework (5.3.0 to   |                                |
+                  |
+|                                |          |              |  5.3.17, 5.2.0 to 5.2.19 and   |                                |
+                  |
+|                                |          |              |  older unsupported versions).  |                                |
+                  |
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+---------------------------------------------------------------------------+
+|        90-Day Image Age        |   LOW    |      -       |   Alert on deployments with    |     - Image was created at     |                        Rebuild your image, push a                         |
+|                                |          |              |    images that haven't been    |   2022-02-16 03:35:10 (UTC)    |                       new minor version (with a new                       |
+|                                |          |              |       updated in 90 days       |                                |                        immutable tag), and update                         |
+|                                |          |              |                                |                                |                          your service to use it.                          |
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+---------------------------------------------------------------------------+
+|  Alpine Linux Package Manager  |   LOW    |      -       | Alert on deployments with the  |   - Image includes component   |                           Run `apk --purge del
+                  |
+|         (apk) in Image         |          |              |  Alpine Linux package manager  |      'apk-tools' (version      |                       apk-tools` in the image build                       |
+|                                |          |              |         (apk) present          |           2.10.1-r0)           |                        for production containers.                         |
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+---------------------------------------------------------------------------+
+|  Docker CIS 4.1: Ensure That   |   LOW    |      -       |   Containers should run as a   |    - Image has user 'root'     |                      Ensure that the Dockerfile for                       |
+|  a User for the Container Has  |          |              |         non-root user          |                                |                       each container switches from                        |
+|          Been Created          |          |              |                                |                                |                               the root user
+                  |
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+---------------------------------------------------------------------------+
 ```
 The **DEPLOY** flag means that this policy applies when a Kubernetes deployment is created on a secured cluster. This invokes the StackRox admission controller to validate the workload against the enforced policies - like this one - and then either accept it, or block the deployment from progressing. 
 
 ## Sigstore and StackRox - better together
 
-So there you have it. StackRox and Sigstore - open source security superheroes.
+So there you have it. StackRox and Sigstore - open source security superheroes (image generated with GPT-3)
 
-// super hero pic
+![superheroes](/static/images/cosign-stackrox/superheroes.png)
 
-So how do we bring StackRox and Sigstore together?
+### How do we bring StackRox and Sigstore together?
 
 StackRox introduced support for [Cosign signatures](https://github.com/stackrox/stackrox/pull/706) last year. This means that Kubernetes-native security enthusiasts can create a Cosign integration, and then a policy to block unsigned containers from the platform.
 
-I think the best way to demonstrate this is to get hands-on. In this section I'm using the downstream-version of StackRox from Red Hat, [Red Hat Advanced Cluster Security for Kubernetes](https://www.redhat.com/en/technologies/cloud-computing/openshift/advanced-cluster-security-kubernetes). If you want to follow along, you can install StackRox on  
+I think the best way to demonstrate this is to get hands-on. In this section I'm using the downstream-version of StackRox from Red Hat, [Red Hat Advanced Cluster Security for Kubernetes](https://www.redhat.com/en/technologies/cloud-computing/openshift/advanced-cluster-security-kubernetes). You can find a guide to get started [here](https://github.com/stackrox/stackrox#quick-installation-using-helm). 
 
 Once up and running, and you've secured a cluster, you need to create a signature integration. You can find this in the StackRox  **integrations** tab:
 
+<Zoom>
+![Cosign integration 1](/static/images/cosign-stackrox/cosign-integration-1.png)
+</Zoom>
+
+For this example I'm using [Tekton Chains](https://tekton.dev/docs/chains/) to sign my containers, and I've created my own signing key using `cosign generate-key-pair k8s://openshift-pipelines/signing-secrets`, and I can grab the public key from the OpenShift namespace.
+```
+oc get secret signing-secrets -n openshift-pipelines -o jsonpath='{.data.cosign\.pub}' | base64 --decode
+```
+Now simply create a signature integration using the public key:
+
+<Zoom>
+![Cosign integration 2](/static/images/cosign-stackrox/cosign-integration-2.png)
+</Zoom>
+
+<Zoom>
+![Cosign integration 3](/static/images/cosign-stackrox/cosign-integration-3.png)
+</Zoom>
+
+Once we've created the signature integration we need to create a policy that can use it. Navigate to `Policies` and create a new policy. Let's call this policy **Cosign verification**, and add some basic metadata.
+
+<Zoom>
+![acs policy 1](/static/images/cosign-stackrox/acs-policy-1.png)
+</Zoom>
+
+This policy is going to apply to the `deploy` stage of the container application lifecycle, and we also want to enable enforcement at deployment time. This means that when a new Kubernetes deployment is created, StackRox will first validate (via a validating admission controller) whether the container images are signed before accepting the workload. You can configure deployment-time enforcement on the next screen:
+
+<Zoom>
+![acs policy 2](/static/images/cosign-stackrox/acs-policy-2.png)
+</Zoom>
+
+Now we need to configure the policy criteria. Drag the "Not verified by trusted image signers" criteria into the policy:
+
+<Zoom>
+![acs policy 3](/static/images/cosign-stackrox/acs-policy-3.png)
+</Zoom>
+
+Click the **Select** button and specify the cosign integration we created above:
+
+<Zoom>
+![acs policy 4](/static/images/cosign-stackrox/acs-policy-4.png)
+</Zoom>
+
+Finally, review and save the policy.
+
+<Zoom>
+![acs policy 5](/static/images/cosign-stackrox/acs-policy-5.png)
+</Zoom>
+
+You should see that the policy is now enabled:
+
+<Zoom>
+![acs policy 6](/static/images/cosign-stackrox/acs-policy-6.png)
+</Zoom>
+
+Ok - we're ready to try out this cosign validation policy. Create a new namespace in your secured cluster and try and create a deployment that has not been signed. I've used this deployment example:
+```
+apiVersion : apps/v1
+kind: Deployment
+metadata:
+  name: leaderboard
+  labels:
+    app: leaderboard
+    app.kubernetes.io/component: leaderboard
+    app.kubernetes.io/instance: leaderboard
+    app.kubernetes.io/name: leaderboard
+    app.kubernetes.io/part-of: tailspin
+    app.openshift.io/runtime: dotnet
+
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: leaderboard
+  template:
+    metadata:
+      labels:
+        app: leaderboard
+    spec:
+      containers:
+        - name: leaderboard
+          image: quay.io/lijcam/space-game-leaderboard:326
+          ports:
+          - containerPort: 8080
+```
+You should see that the StackRox admission controller blocks the deployment, because the image is not signed. You can see this in the error message in this screenshot from OpenShift:
+
+<Zoom>
+![acs block 1](/static/images/cosign-stackrox/acs-block-1.png)
+</Zoom>
+
+If you navigate to **Violations** in the StackRox interface you should be able to see that a policy violation has been created for this event. The policy violation lists the image that was not signed, and also the action taken (deployment creation was failed).
+
+<Zoom>
+![acs block 2](/static/images/cosign-stackrox/acs-block-2.png)
+</Zoom>
+
+<Zoom>
+![acs block 3](/static/images/cosign-stackrox/acs-block-3.png)
+</Zoom>
+
+## Wrapping up
+
+This has has been a short intro to StackRox and Sigstore, looking at how these two open source security projects can be integrated together to support more secure Kubernetes application development. If you want to see these workflows in action I've created a video here.
+
+<YoutubeEmbed embedId="UZyqGv0sNec" />
+
+If you want to see how you can automate the deployment of pipelines with Sigstore / Cosign image signing built-in, there is an excellent article here from [Roberto Carratalá](https://github.com/rcarrata).
+
+Sigstore and Cosign are also built-in to the [Multicluster DevSecOps pattern](https://hybrid-cloud-patterns.io/blog/2022-12-01-multicluster-devsecops/), available from the [Hybrid Cloud Patterns](https://hybrid-cloud-patterns.io/) open source project. This pattern provides a complete deployment solution for Multicluster DevSecOps that can be used as part of a supply chain deployment pattern across different industries.

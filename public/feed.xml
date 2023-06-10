@@ -7,9 +7,19 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Fri, 26 May 2023 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Sun, 11 Jun 2023 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/sigstore-and-stackrox</guid>
+    <title>Sigstore and StackRox</title>
+    <link>https://stb.id.au/blog/sigstore-and-stackrox</link>
+    <description>Sigstore and StackRox are open source projects helping to address security challenges. Sigstore looks at the software supply chain, and StackRox at Kubernetes-native security models - what do they look like together?</description>
+    <pubDate>Sun, 11 Jun 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>sigstore</category><category>stackrox</category><category>containers</category><category>kubernetes</category><category>security</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/living-off-the-land-containers</guid>
     <title>Living off the land and containers</title>
