@@ -65,53 +65,38 @@ Policy check results for image: quay.io/smileyfritz/log4shell-app:v0.5
 |                                |          |              |   Log4Shell vulnerabilities    |   component 'log4j' (version   |              possible to upgrade, then remove the JndiLookup              |
 |                                |          |              |      (CVE-2021-44228 and       |            2.14.1)             |           class from the classpath: zip -q -d log4j-core-*.jar            |
 |                                |          |              |   CVE-2021-45046). There are   |                                |           org/apache/logging/log4j/core/lookup/JndiLookup.class           |
-|                                |          |              |   flaws in the Java logging    |   - CVE-2021-45046 (CVSS 9)    |
-                  |
-|                                |          |              |    library Apache Log4j in     |  (severity Critical) found in  |
-                  |
-|                                |          |              |   versions from 2.0-beta9 to   |   component 'log4j' (version   |
-                  |
-|                                |          |              |   2.15.0, excluding 2.12.2.    |            2.14.1)             |
-                  |
+|                                |          |              |   flaws in the Java logging    |   - CVE-2021-45046 (CVSS 9)    |                                                                           |
+|                                |          |              |    library Apache Log4j in     |  (severity Critical) found in  |                                                                           |
+|                                |          |              |   versions from 2.0-beta9 to   |   component 'log4j' (version   |                                                                           |
+|                                |          |              |   2.15.0, excluding 2.12.2.    |            2.14.1)             |                                                                           |
 +--------------------------------+----------+--------------+--------------------------------+--------------------------------+---------------------------------------------------------------------------+
 | Spring4Shell (Spring Framework | CRITICAL |      -       |   Alert on deployments with    |  - CVE-2022-22965 (CVSS 9.8)   |  Upgrade Spring Cloud Function to version 3.1.7 or 3.2.3. Upgrade Spring  |
 |     Remote Code Execution)     |          |              | images containing Spring4Shell |   (severity Critical) found    |    Framework to version 5.3.18+ (if currently on 5.3.x) or 5.2.20+ (if    |
 |   and Spring Cloud Function    |          |              |  vulnerability CVE-2022-22965  |  in component 'spring-webmvc'  |     currently on 5.2.x). If not possible to upgrade Spring Framework,     |
 |        vulnerabilities         |          |              |  which affects the Spring MVC  |        (version 5.3.13)        |  then apply an appropriate workaround from the suggested workarounds on   |
 |                                |          |              |  component and vulnerability   |                                | https://spring.io/blog/2022/03/31/spring-framework-rce-early-announcement |
-|                                |          |              |  CVE-2022-22963 which affects  |                                |
-                  |
-|                                |          |              |  the Spring Cloud component.   |                                |
-                  |
-|                                |          |              |   There are flaws in Spring    |                                |
-                  |
-|                                |          |              |    Cloud Function (versions    |                                |
-                  |
-|                                |          |              |     3.1.6, 3.2.2 and older     |                                |
-                  |
-|                                |          |              |  unsupported versions) and in  |                                |
-                  |
-|                                |          |              |   Spring Framework (5.3.0 to   |                                |
-                  |
-|                                |          |              |  5.3.17, 5.2.0 to 5.2.19 and   |                                |
-                  |
-|                                |          |              |  older unsupported versions).  |                                |
-                  |
+|                                |          |              |  CVE-2022-22963 which affects  |                                |                                                                           |
+|                                |          |              |  the Spring Cloud component.   |                                |                                                                           |
+|                                |          |              |   There are flaws in Spring    |                                |                                                                           |
+|                                |          |              |    Cloud Function (versions    |                                |                                                                           |
+|                                |          |              |     3.1.6, 3.2.2 and older     |                                |                                                                           |
+|                                |          |              |  unsupported versions) and in  |                                |                                                                           |
+|                                |          |              |   Spring Framework (5.3.0 to   |                                |                                                                           |
+|                                |          |              |  5.3.17, 5.2.0 to 5.2.19 and   |                                |                                                                           |
+|                                |          |              |  older unsupported versions).  |                                |                                                                           |
 +--------------------------------+----------+--------------+--------------------------------+--------------------------------+---------------------------------------------------------------------------+
 |        90-Day Image Age        |   LOW    |      -       |   Alert on deployments with    |     - Image was created at     |                        Rebuild your image, push a                         |
 |                                |          |              |    images that haven't been    |   2022-02-16 03:35:10 (UTC)    |                       new minor version (with a new                       |
 |                                |          |              |       updated in 90 days       |                                |                        immutable tag), and update                         |
 |                                |          |              |                                |                                |                          your service to use it.                          |
 +--------------------------------+----------+--------------+--------------------------------+--------------------------------+---------------------------------------------------------------------------+
-|  Alpine Linux Package Manager  |   LOW    |      -       | Alert on deployments with the  |   - Image includes component   |                           Run `apk --purge del
-                  |
+|  Alpine Linux Package Manager  |   LOW    |      -       | Alert on deployments with the  |   - Image includes component   |                           Run `apk --purge del                            |
 |         (apk) in Image         |          |              |  Alpine Linux package manager  |      'apk-tools' (version      |                       apk-tools` in the image build                       |
 |                                |          |              |         (apk) present          |           2.10.1-r0)           |                        for production containers.                         |
 +--------------------------------+----------+--------------+--------------------------------+--------------------------------+---------------------------------------------------------------------------+
 |  Docker CIS 4.1: Ensure That   |   LOW    |      -       |   Containers should run as a   |    - Image has user 'root'     |                      Ensure that the Dockerfile for                       |
 |  a User for the Container Has  |          |              |         non-root user          |                                |                       each container switches from                        |
-|          Been Created          |          |              |                                |                                |                               the root user
-                  |
+|          Been Created          |          |              |                                |                                |                               the root user                               |
 +--------------------------------+----------+--------------+--------------------------------+--------------------------------+---------------------------------------------------------------------------+
 ```
 The **DEPLOY** flag means that this policy applies when a Kubernetes deployment is created on a secured cluster. This invokes the StackRox admission controller to validate the workload against the enforced policies - like this one - and then either accept it, or block the deployment from progressing. 
