@@ -118,12 +118,6 @@ The **DEPLOY** flag means that this policy applies when a Kubernetes deployment 
 
 ## Sigstore and StackRox - better together
 
-So there you have it. StackRox and Sigstore - open source security superheroes (image generated with GPT-3)
-
-![superheroes](/static/images/cosign-stackrox/superheroes.png)
-
-### How do we bring StackRox and Sigstore together?
-
 StackRox introduced support for [Cosign signatures](https://github.com/stackrox/stackrox/pull/706) last year. This means that Kubernetes-native security enthusiasts can create a Cosign integration, and then a policy to block unsigned containers from the platform.
 
 I think the best way to demonstrate this is to get hands-on. In this section I'm using the downstream-version of StackRox from Red Hat, [Red Hat Advanced Cluster Security for Kubernetes](https://www.redhat.com/en/technologies/cloud-computing/openshift/advanced-cluster-security-kubernetes). You can find a guide to get started [here](https://github.com/stackrox/stackrox#quick-installation-using-helm). 
