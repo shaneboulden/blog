@@ -11,7 +11,7 @@ I wrote an article on [Sigstore](/blog/sigstore-sorcery) a few weeks ago, and it
 
 One of the co-founders of Sigstore, [Luke Hinds](https://twitter.com/decodebytes), also recently started a new company, [stacklok](https://www.stacklok.com/). I'm incredibly excited to see what's next for Sigstore and stacklok!
 
-## What's StackRox?
+## StackRox
 [StackRox](https://stackrox.io) is an open source Kubernetes-native security community. The community kicked-off when Red Hat [released the StackRox source code](https://www.redhat.com/en/blog/red-hat-releases-open-source-stackrox-community) to the open source community, enabling anyone to experiment with Kubernetes-native approaches to security. StackRox brings together a few key components into a Kubernetes-native security approach.
 
 #### Admission control 
@@ -34,7 +34,8 @@ If you want to take a closer look at how StackRox uses eBPF to support Kubernete
 StackRox provides a built-in container vulnerability scanner derived from the [Clair](https://github.com/quay/clair) project. The Clair container scanner has been extended to support application runtimes and frameworks, for example Java, Python, and .NET Core. It also supports a number of operating systems, including Red Hat Enterprise Linux, Debian, Ubuntu, and Alpine Linux.
 
 StackRox comes with a lot of default policies to help organisations better meet their security requirements. You can take a look at these in the [StackRox source](https://github.com/stackrox/stackrox/tree/master/pkg/defaults/policies/files). These policies apply across the build, deploy and runtime phases of the container application lifecycle. For example, [this policy](https://github.com/stackrox/stackrox/blob/master/pkg/defaults/policies/files/log4shell.json) catches containers vulnerable to Log4Shell, a critical vulnerability in the Java log4j logging framework. You can see in the `lifecycleStages` section of the policy that it applies across the **BUILD** and **DEPLOY** phases:
-```json{14-15} showLineNumbers
+
+```json {14-15} showLineNumbers
 {
   "id": "cf80fb33-c7d0-4490-b6f4-e56e1f27b4e4",
   "name": "Log4Shell: log4j Remote Code Execution vulnerability",
