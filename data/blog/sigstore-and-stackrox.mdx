@@ -165,7 +165,7 @@ You should see that the policy is now enabled:
 </Zoom>
 
 Ok - we're ready to try out this cosign validation policy. Create a new namespace in your secured cluster and try and create a deployment that has not been signed. I've used this deployment example:
-```
+```yaml
 apiVersion : apps/v1
 kind: Deployment
 metadata:
