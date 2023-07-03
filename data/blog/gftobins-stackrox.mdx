@@ -12,14 +12,14 @@ In the article I presented a couple of built-in StackRox policies that detect bi
 ## GTFOBins
 A lot of 'living off the land' (LOTL) analysis focuses on Windows binaries, and trying to identify those Windows binaries that are helpful for an attacker in hiding payloads, process dumping, downloading files, bypassing UAC keylogging, etc. The term 'LOLBins' ('living off the land binaries') has become commmon to identify these binaries.
 
-The [LOLBAS](https://github.com/LOLBAS-Project/LOLBAS) project has been created to track and identify binaries, scripts and libraries that can be used for to support a LOTL strategy. To be included in the list a LOLBin/Lib/Script must:
+The [LOLBAS](https://github.com/LOLBAS-Project/LOLBAS) project has been created to track and identify binaries, scripts and libraries that can be used to support a LOTL strategy. To be included in the list a LOLBin/Lib/Script must:
 
 * Be a Microsoft-signed file, either native to the OS or downloaded from Microsoft.
 * Have extra "unexpected" functionality. It is not interesting to document intended use cases.
     * Exceptions are application whitelisting bypasses
 * Have functionality that would be useful to an APT or red team
 
-[GTFOBins](https://gtfobins.github.io/) is a similar effort to curate Unix binaries that can be used to bypass local security restrictions, and support a LOTL strategy. It's an open source, collaborative project originally by [Emilio Pinna](https://twitter.com/norbemi) and [Andrea Cardaci](https://twitter.com/cyrus_and) under GPL v3.
+[GTFOBins](https://gtfobins.github.io/) is a similar effort to curate Unix binaries that can be used to bypass local security restrictions, and support a LOTL strategy. It's an open source, collaborative project originally created by [Emilio Pinna](https://twitter.com/norbemi) and [Andrea Cardaci](https://twitter.com/cyrus_and) under GPLv3.
 
 ## GTFOBins and StackRox
 I've created a StackRox policy that can identify GTFOBins-tracked binaries in container images. This policy is generated from the GTFOBins source, and I've created a change [here](https://github.com/GTFOBins/GTFOBins.github.io/pull/395) to include it with the GTFOBins project. Using this policy teams can identify GTFOBins in container images, and take action via StackRox policy enforcement. This could include failing CI/CD pipelines, or using the StackRox Kubernetes admission controller to block deployments referencing these container images.
@@ -132,7 +132,7 @@ Let's build and import this policy into a running StackRox instance. You can run
 ```
 $ python scripts/generate-stackrox-policy.py > policy.json
 ```
-You can now upload the policy to StackRox. Here I'm using the downstream, supported version of StackRox, Red Hat Advanced Cluster Security for Kubernetes.
+You can now upload the policy to StackRox. Here I'm using the downstream, supported version of StackRox, [Red Hat Advanced Cluster Security for Kubernetes](https://www.redhat.com/en/technologies/cloud-computing/openshift/advanced-cluster-security-kubernetes).
 
 <Zoom>
 ![Import button](/static/images/gtfobins/acs-import-button.png)
