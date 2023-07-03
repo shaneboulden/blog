@@ -7,9 +7,19 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Sun, 11 Jun 2023 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Mon, 03 Jul 2023 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/gftobins-stackrox</guid>
+    <title>GTFOBins and StackRox</title>
+    <link>https://stb.id.au/blog/gftobins-stackrox</link>
+    <description>A few weeks I wrote an article on &#39;Living off the Land&#39; and containers. GTFOBins is an open source project tracking binaries that could be used to support a &#39;Living off the Land&#39; strategy, and this article explores integrations with StackRox.</description>
+    <pubDate>Mon, 03 Jul 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>gtfobins</category><category>kubernetes</category><category>security</category><category>openshift</category><category>stackrox</category><category>containers</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/sigstore-and-stackrox</guid>
     <title>Sigstore and StackRox</title>

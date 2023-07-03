@@ -1,0 +1,191 @@
+---
+title: GTFOBins and StackRox
+date: '2023-07-03'
+tags: ['gtfobins','kubernetes','security','openshift','stackrox','containers']
+draft: false
+summary: "A few weeks I wrote an article on 'Living off the Land' and containers. GTFOBins is an open source project tracking binaries that could be used to support a 'Living off the Land' strategy, and this article explores integrations with StackRox."
+---
+A few weeks ago I wrote an article on [living off the land and containers](/blog/living-off-the-land-containers). It looked at a recent [Microsoft threat intelligence report](https://www.microsoft.com/en-us/security/blog/2023/05/24/volt-typhoon-targets-us-critical-infrastructure-with-living-off-the-land-techniques/) highligting these techniques, and how containers and Kubernetes naturally help to mitigate this techniques.
+
+In the article I presented a couple of built-in StackRox policies that detect binaries in container images that are helpful for attackers. For example, policies that detect [curl](https://github.com/stackrox/stackrox/blob/master/pkg/defaults/policies/files/curl.json) or [wget](https://github.com/stackrox/stackrox/blob/master/pkg/defaults/policies/files/wget.json), which could be used by attackers to pull-down additional capabilities, or probe services to move laterally. One of the questions I received was - "how do you identify which binaries are useful for attackers?" This is where [GTFOBins](https://gtfobins.github.io/) comes in.
+
+## GTFOBins
+A lot of 'living off the land' (LOTL) analysis focuses on Windows binaries, and trying to identify those Windows binaries that are helpful for an attacker in hiding payloads, process dumping, downloading files, bypassing UAC keylogging. The term 'LOLBins' has become commmon to identify these binaries.
+
+The [LOLBAS](https://github.com/LOLBAS-Project/LOLBAS) project has been created to track and identify binaries, scripts and libraries that can be used for to support a LOTL strategy. To be included in the list a LOLBin/Lib/Script must:
+
+* Be a Microsoft-signed file, either native to the OS or downloaded from Microsoft.
+* Have extra "unexpected" functionality. It is not interesting to document intended use cases.
+    * Exceptions are application whitelisting bypasses
+* Have functionality that would be useful to an APT or red team
+
+[GTFOBins](https://gtfobins.github.io/) is a similar effort to curate Unix binaries that can be used to bypass local security restrictions, and support a LOTL strategy. It's an open source, collaborative project originally by [Emilio Pinna](https://twitter.com/norbemi) and [Andrea Cardaci](https://twitter.com/cyrus_and) under GPL v3.
+
+## GTFOBins and StackRox
+I've created a StackRox policy that can identify GTFOBins-tracked binaries in container images. This policy is generated from the GTFOBins source, and I've created a change [here](https://github.com/GTFOBins/GTFOBins.github.io/pull/395) to include it with the GTFOBins project. Using this policy, teams can identify GTFOBins in container images, and take action via StackRox policy enforcement. This could failing CI/CD pipelines, or using the StackRox Kubernetes admission controller to block deployments referencing these container images.
+
+Here's the script that generates the StackRox policy:
+```python
+import json
+import os
+import re
+
+def get_gtfobins(root):
+    root, _, files = next(os.walk(root))
+    names = []
+    for name in files:
+        if not name.endswith('.md'):
+            continue
+        names.append(re.split("(.*)\.md",name)[1])
+    return names
+        
+def build_policy(root):
+    policy = {}
+    policy['name'] = "GTFOBins component in image"
+    policy['description'] = "Alert on deployments with GTFOBins components present"
+    policy['rationale'] = "Leaving GTFOBins components inside container images makes it easier for attackers to 'live off the land' inside a container environment"
+    policy['remediation'] = "Use your package manager's \"remove\", \"purge\" or \"erase\" command to remove GTFOBins components from the image build for production containers."
+    policy['disabled'] = False
+    policy['categories'] = ["Security Best Practices"]
+    policy['lifecycleStages'] = ["BUILD","DEPLOY"]
+    policy['eventSource'] = "NOT_APPLICABLE"
+    policy['exclusions'] = []
+    policy['scope'] = []
+    policy['severity'] = "LOW_SEVERITY"
+    policy['enforcementActions'] = []
+    policy['notifiers'] = []
+    policy['SORTName'] = "GTFOBins component in image"
+    policy['SORTLifecycleStage'] = "BUILD,DEPLOY"
+    policy['SORTEnforcement'] = False
+    policy['policyVersion'] = "1.1"
+    section = {}
+    section['sectionName'] = "Policy Section 1"
+    section['policyGroups'] = []
+    section['policyGroups'].append({})
+    section['policyGroups'][0]['fieldName'] = "Image Component"
+    section['policyGroups'][0]['booleanOperator'] = "OR"
+    section['policyGroups'][0]['negate'] = False
+    section['policyGroups'][0]['values'] = []
+
+    names = get_gtfobins(root)
+    for name in names:
+        section['policyGroups'][0]['values'].append({"value": '%s' % "".join([name,"="])})
+
+    policy['policySections'] = [section]
+    policy['mitreAttackVectors'] = []
+
+    # TA0002 - Execution. Many of the GTFOBins components enable execution
+    # in various contexts.
+    policy['mitreAttackVectors'].append({
+        "tactic": "TA0002",
+        "techniques": ["T1059.004"]
+    })
+
+    # TA0007 - Discovery. Binaries like dmidecode can be used to provide information
+    # on the environment
+    policy['mitreAttackVectors'].append({
+        "tactic": "TA0007",
+        "techniques": ["T1046"]
+    }) 
+
+    # TA0008 - Lateral movement. Binaries like ssh and netcat can be used 
+    # to enable lateral movement.
+    policy['mitreAttackVectors'].append({
+        "tactic": "TA0008",
+        "techniques": ["T1570"]
+    })
+
+    # TA0010 - Exfiltration. Binaries like tar, curl and tftp can be used to exfiltrate
+    # data from environments.
+    policy['mitreAttackVectors'].append({
+        "tactic": "TA0010",
+        "techniques": ["T1567"]
+    })
+
+    # TA0043 - Reconnaissance. 
+    policy['mitreAttackVectors'].append({
+        "tactic": "TA0043",
+        "techniques": ["T1592"]
+    })
+
+    policy['criteriaLocked'] = False
+    policy['mitreVectorsLocked'] = False
+    policy['isDefault'] = False
+    return policy
+
+if __name__ == '__main__':
+    policy = build_policy("_gtfobins/")
+    print(json.dumps({"policies": [ policy ]}))
+```
+The StackRox policy generated from this script:
+* Is enabled by default
+* Applies to the **build** and **deploy** phases of the container application lifecycle. This means that pipelines using `roxctl` to scan containers, or attempts to deploy containers to Kubernetes platforms will be targeted, but containers already running will not.
+* Does not include any enforcement actions by default (only reporting violations 'for information')
+* Contains a list of GTFOBins components generated from the project source
+* Identifies MITRE ATT&CK techniques that align with GTFOBins
+
+Let's build and import this policy into a running StackRox instance. You can run the script directly from the `scripts/` directly in the GTFOBins source tree:
+```
+$ python scripts/generate-stackrox-policy.py > policy.json
+```
+You can now upload the policy to StackRox. Here I'm using the downstream, supported version of StackRox, Red Hat Advanced Cluster Security for Kubernetes.
+
+<Zoom>
+![Import button](/static/images/gtfobins/acs-import-button.png)
+</Zoom>
+
+<Zoom>
+![GTFOBins policy](/static/images/gtfobins/acs-import-policy.png)
+</Zoom>
+
+<Zoom>
+![Successful import](/static/images/gtfobins/acs-successful-import.png)
+</Zoom>
+
+Once the policy is created you can see it by searching for `GTFO`:
+
+<Zoom>
+![GTFOBins policy 1](/static/images/gtfobins/acs-gtfo-policy-1.png)
+</Zoom>
+
+<Zoom>
+![GTFOBins policy 2](/static/images/gtfobins/acs-gtfo-policy-1.png)
+</Zoom>
+
+## Scanning container images for GTFOBins components
+Now that the policy is created we can start scanning container images for GTFOBins components. 
+```
+roxctl image check  -e "central-acs-central.apps.cluster1.example.com:443" --insecure-skip-tls-verify --image quay.io/smileyfritz/log4shell-app:v0.5
+Policy check results for image: quay.io/smileyfritz/log4shell-app:v0.5
+(TOTAL: 4, LOW: 4, MEDIUM: 0, HIGH: 0, CRITICAL: 0)
+
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+|             POLICY             | SEVERITY | BREAKS BUILD |          DESCRIPTION           |           VIOLATION            |          REMEDIATION           |
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+|        90-Day Image Age        |   LOW    |      -       |   Alert on deployments with    |     - Image was created at     |   Rebuild your image, push a   |
+|                                |          |              |    images that haven't been    |   2022-02-16 03:35:10 (UTC)    | new minor version (with a new  |
+|                                |          |              |       updated in 90 days       |                                |   immutable tag), and update   |
+|                                |          |              |                                |                                |    your service to use it.     |
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+|  Alpine Linux Package Manager  |   LOW    |      -       | Alert on deployments with the  |   - Image includes component   |      Run `apk --purge del      |
+|         (apk) in Image         |          |              |  Alpine Linux package manager  |      'apk-tools' (version      | apk-tools` in the image build  |
+|                                |          |              |         (apk) present          |           2.10.1-r0)           |   for production containers.   |
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+|  Docker CIS 4.1: Ensure That   |   LOW    |      -       |   Containers should run as a   |    - Image has user 'root'     | Ensure that the Dockerfile for |
+|  a User for the Container Has  |          |              |         non-root user          |                                |  each container switches from  |
+|          Been Created          |          |              |                                |                                |         the root user          |
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+|  GTFOBins component in image   |   LOW    |      -       |   Alert on deployments with    |   - Image includes component   |   Use your package manager's   |
+|                                |          |              |  GTFOBins components present   | 'busybox' (version 1.28.4-r2)  |      "remove", "purge" or      |
+|                                |          |              |                                |                                |   "erase" command to remove    |
+|                                |          |              |                                |   - Image includes component   |  GTFOBins components from the  |
+|                                |          |              |                                |   'bzip2' (version 1.0.6-r6)   |   image build for production   |
+|                                |          |              |                                |                                |          containers.           |
+|                                |          |              |                                |   - Image includes component   |                                |
+|                                |          |              |                                |    'gcc' (version 6.4.0-r9)    |                                |
+|                                |          |              |                                |                                |                                |
+|                                |          |              |                                |   - Image includes component   |                                |
+|                                |          |              |                                |  'socat' (version 1.7.3.2-r4)  |                                |
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+```
+
