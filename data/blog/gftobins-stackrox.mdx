@@ -5,7 +5,7 @@ tags: ['gtfobins','kubernetes','security','openshift','stackrox','containers']
 draft: false
 summary: "A few weeks I wrote an article on 'Living off the Land' and containers. GTFOBins is an open source project tracking binaries that could be used to support a 'Living off the Land' strategy, and this article explores integrations with StackRox."
 ---
-A few weeks ago I wrote an article on [living off the land and containers](/blog/living-off-the-land-containers). It looked at a recent [Microsoft threat intelligence report](https://www.microsoft.com/en-us/security/blog/2023/05/24/volt-typhoon-targets-us-critical-infrastructure-with-living-off-the-land-techniques/) highligting these techniques, and how containers and Kubernetes naturally help to mitigate this techniques.
+A few weeks ago I wrote an article on [living off the land and containers](/blog/living-off-the-land-containers). It looked at a recent [Microsoft threat intelligence report](https://www.microsoft.com/en-us/security/blog/2023/05/24/volt-typhoon-targets-us-critical-infrastructure-with-living-off-the-land-techniques/) highligting these techniques, and how containers and Kubernetes naturally help to mitigate this techniques. 
 
 In the article I presented a couple of built-in StackRox policies that detect binaries in container images that are helpful for attackers. For example, policies that detect [curl](https://github.com/stackrox/stackrox/blob/master/pkg/defaults/policies/files/curl.json) or [wget](https://github.com/stackrox/stackrox/blob/master/pkg/defaults/policies/files/wget.json), which could be used by attackers to pull-down additional capabilities, or probe services to move laterally. One of the questions I received was - "how do you identify which binaries are useful for attackers?" This is where [GTFOBins](https://gtfobins.github.io/) comes in.
 
@@ -17,7 +17,7 @@ The [LOLBAS](https://github.com/LOLBAS-Project/LOLBAS) project has been created 
 * Be a Microsoft-signed file, either native to the OS or downloaded from Microsoft.
 * Have extra "unexpected" functionality. It is not interesting to document intended use cases.
     * Exceptions are application whitelisting bypasses
-* Have functionality that would be useful to an APT or red team
+* Have functionality that would be useful to an advanced persistent threat (APT) or red team
 
 [GTFOBins](https://gtfobins.github.io/) is a similar effort to curate Unix binaries that can be used to bypass local security restrictions, and support a LOTL strategy. It's an open source, collaborative project originally created by [Emilio Pinna](https://twitter.com/norbemi) and [Andrea Cardaci](https://twitter.com/cyrus_and) under GPLv3.
 
@@ -192,4 +192,9 @@ Policy check results for image: quay.io/smileyfritz/log4shell-app:v0.5
 |                                |          |              |                                |  'socat' (version 1.7.3.2-r4)  |                                |
 +--------------------------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
 ```
+
+## Wrapping up
+[GTFOBins](https://gtfobins.github.io/) is an awesome, open source curated list of binaries that are very useful to attackers if they can get access to a container image. I've demonstrated an integration here with StackRox that can be used to detect GTFOBins during container image development and deployment, and hopefully ensure that these components are restricted / removed from running containers.
+
+In the next article I'll look at a similar policy for containers at runtime, and how to detect GTFOBins execution at runtime. Stay tuned!
 
