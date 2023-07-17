@@ -54,13 +54,15 @@ Images:
   NAME                                           DIGEST
   agent-installer-api-server                     sha256:9aafb914d5d7d0dec4edd800d02f811d7383a7d49e500af548eab5d00c1bffdb
   agent-installer-csr-approver                   sha256:d57bf6b28bd554f7dcb9158d640da9d419c2487ecd8995cc73e92dacdf16cbc1
+
+  (snip)
 ```
 Let's pull apart this information a little more:
 
 - This release image covers OpenShift 4.12.23
 - It contains 647 manifests, and one metadata file
 - The release errata is available at https://access.redhat.com/errata/RHSA-2023:3925
-- The digests for OpenShift component versions that make up this release are contained in the release image, and shown under `Images`.
+- The digests for OpenShift component versions that make up this release are contained in the release image, and shown under `Images`. Note that the `oc adm release info` command prints out all ~180 image references, and I've abbreviated the output here.
 
 So the release image contains all the information needed to reproducibly deploy an OpenShift cluster. It also contains the digests (hashes) of images that make up this OpenShift version, and information about the release.
 
@@ -97,11 +99,11 @@ Red Hat signs container images using GPG, and image signatures are usually distr
 
 However, the release image signatures are stored separately, at https://mirror.openshift.com/pub/openshift-v4/signatures/openshift-release-dev/ocp-release/. These aren't in a format readily understood by `podman` or CRI-O, but you can use the `skopeo standalone-verify` command to verify that the release images are in-fact signed by Red Hat.
 
-Firstly, pull-down the Red Hat release key:
+Firstly, pull down the Red Hat release key:
 ```
 $ curl -o pub.key https://access.redhat.com/security/data/fd431d51.txt
 ```
-Pull-down the signature file for the specific release that you want to verify. In this example, I am verifying OpenShift version 4.12.23, and the release image digest is `2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417`. This means that the signature file is at https://mirror.openshift.com/pub/openshift-v4/signatures/openshift-release-dev/ocp-release/sha256%3D2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417/signature-1
+Grab the signature file for the specific release that you want to verify. In this example, I am verifying OpenShift version 4.12.23, and the release image digest is `2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417`. This means that the signature file is at https://mirror.openshift.com/pub/openshift-v4/signatures/openshift-release-dev/ocp-release/sha256%3D2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417/signature-1
 ```
 $ curl -o signature-1 https://mirror.openshift.com/pub/openshift-v4/signatures/openshift-release-dev/ocp-release/sha256%3D2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417/signature-1
 ```
