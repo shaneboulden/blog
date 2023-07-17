@@ -1,5 +1,5 @@
 ---
-title: De-mystifying the OpenShift release image
+title: Demystifying the OpenShift release image
 date: '2023-07-17'
 tags: ['openshift', 'supply', 'chain','release','security','kubernetes','signatures']
 draft: false
@@ -30,7 +30,7 @@ The `Digest` shown here is the digest of the release image, and the release imag
 Pull From: quay.io/openshift-release-dev/ocp-release@sha256:2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417
 ```
 
-All of this information shown in `oc adm release info` is retrieved from the release image. You can verify this by running `oc adm release info` directly on the release image:
+All of the information shown in `oc adm release info` is retrieved from the release image. You can verify this by running `oc adm release info` directly on the release image:
 ```
 $ oc adm release info quay.io/openshift-release-dev/ocp-release@sha256:2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417
 
@@ -74,7 +74,7 @@ So the release image contains all the information needed to reproducibly deploy 
 
 Each release image is signed by Red Hat using the same keys used to sign other Red Hat software releases. This is important, because there are a number of container images that are not signed by Red Hat that are deployed during an OpenShift update or install. You can see these by inspecting the OpenShift release image.
 
-This image is signed:
+This image is signed (it's the release image):
 ```
 $ oc adm release info 4.12.23
 ...
@@ -100,7 +100,7 @@ quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:9aafb914d5d7d0dec4edd800d0
 (snip)
 ...
 ```
-This release image is immutable. Because the release image is signed, and immutable, the contents (container image references used to pull OpenShift components) can be trusted.
+The release image is immutable. Because the release image is signed, and immutable, the contents (container image references used to pull OpenShift components) can be trusted.
 
 I like to think of this like a package update on Red Hat Enterprise Linux. When you install a new package, you check the signature on the RPM. But, you don't check to see that all the files that the RPM contains are signed individually. The signature on the RPM validates the package contents.
 
