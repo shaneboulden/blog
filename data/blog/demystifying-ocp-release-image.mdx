@@ -21,6 +21,9 @@ Manifests:      647
 Metadata files: 1
 
 Pull From: quay.io/openshift-release-dev/ocp-release@sha256:2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417
+...
+(snip)
+...
 ```
 The `Digest` shown here is the digest of the release image, and the release image is shown in the `Pull From` reference:
 ```
@@ -54,8 +57,9 @@ Images:
   NAME                                           DIGEST
   agent-installer-api-server                     sha256:9aafb914d5d7d0dec4edd800d02f811d7383a7d49e500af548eab5d00c1bffdb
   agent-installer-csr-approver                   sha256:d57bf6b28bd554f7dcb9158d640da9d419c2487ecd8995cc73e92dacdf16cbc1
-
+  ...
   (snip)
+  ...
 ```
 Let's pull apart this information a little more:
 
@@ -73,14 +77,18 @@ Each release image is signed by Red Hat using the same keys used to sign other R
 This image is signed:
 ```
 $ oc adm release info 4.12.23
+...
 (snip)
+...
 Pull From: quay.io/openshift-release-dev/ocp-release@sha256:2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417 -
 ```
 These images are not signed:
 ```
 $ oc adm release info 4.12.23 -o pullspec
 quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:9aafb914d5d7d0dec4edd800d02f811d7383a7d49e500af548eab5d00c1bffdb 
+...
 (snip)
+...
 ```
 Wait, there are unsigned images used during an OpenShift deployment or update? What gives?
 
@@ -88,6 +96,9 @@ OpenShift can support this, because the unsigned image references are contained 
 ```
 oc adm release info  quay.io/openshift-release-dev/ocp-release@sha256:2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417 -o pullspec
 quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:9aafb914d5d7d0dec4edd800d02f811d7383a7d49e500af548eab5d00c1bffdb
+...
+(snip)
+...
 ```
 This release image is immutable. Because the release image is signed, and immutable, the contents (container image references used to pull OpenShift components) can be trusted.
 
@@ -126,7 +137,9 @@ if err := r.verifier.Verify(verifyCtx, releaseDigest); err != nil {
 			Message: fmt.Sprintf("The update cannot be verified: %v", err),
 			Nested:  err,
 		}
+        ...
 		(snip)
+        ...
 	} else {
 		info.Verified = true
 	}
@@ -134,8 +147,9 @@ if err := r.verifier.Verify(verifyCtx, releaseDigest); err != nil {
 The `Verify` function referenced above performs the signature verification, and is shown [here](https://github.com/openshift/library-go/blob/master/pkg/verify/verify.go#L164C1-L211C4):
 ```go
 func (v *releaseVerifier) Verify(ctx context.Context, releaseDigest string) error {
+    ...
 	(snip)
-
+    ...
 	var signedWith [][]byte
 	var errs []error
 	err := v.store.Signatures(ctx, "", releaseDigest, func(ctx context.Context, signature []byte, errIn error) (done bool, err error) {
