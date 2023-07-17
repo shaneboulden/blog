@@ -134,7 +134,7 @@ So we can use `skopeo standalone-verify` to verify the release image signature a
 
 ## Automated verification during updates
 
-I mentioned above that the release image signatures aren't in a format that can be readily understood by `podman`, or CRI-O, and internally OpenShift doesn't use `skopeo` to verify signatures. So how is the release image verified? 
+I mentioned earlier that the release image signatures aren't in a format that can be readily understood by `podman`, or CRI-O, and internally OpenShift doesn't use `skopeo` to verify signatures. So how is the release image verified? 
 
 The OpenShift [Cluster Version Operator](https://github.com/openshift/cluster-version-operator) verifies signatures on the release images during an OpenShift update. The role of the Cluster Version Operator is to consume the release image, unpack the [manifests](https://kubernetes.io/docs/reference/glossary/?all=true#term-manifest) contained in the release image, and reconcile the resources within the OpenShift cluster to match the manifests in the release image. This is how the OpenShift Cluster Version Operator (CVO) implements cluster upgrades.
 
@@ -220,5 +220,5 @@ In another article I'll cover how this verification works for air-gapped / disco
 
 ## Thanks
 
-A huge thanks to [Ben Blasco](https://github.com/benblasco), [Oleg Bulatov](https://github.com/dmage), [Scott Dodson](https://github.com/sdodson) and [W. Trevor King](https://github.com/wking) for sharing feedback on various drafts of this article.
+A huge thanks to Damien Lederer, [Ben Blasco](https://github.com/benblasco), [Oleg Bulatov](https://github.com/dmage), [Scott Dodson](https://github.com/sdodson) and [W. Trevor King](https://github.com/wking) for sharing feedback on various drafts of this article.
 
