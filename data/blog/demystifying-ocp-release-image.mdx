@@ -89,6 +89,8 @@ quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:9aafb914d5d7d0dec4edd800d0
 ```
 This release image is immutable. Because the release image is signed, and immutable, the contents (container image references used to pull OpenShift components) can be trusted.
 
+I like to think of this like a package update on Red Hat Enterprise Linux. When you install a new package, you check the signature on the RPM. But, you don't check to see that all the files that the RPM contains are signed individually. The signature on the RPM validates the package contents.
+
 ## Release image signatures
 
 Red Hat signs container images using GPG, and image signatures are usually distributed through a few signature stores - https://access.redhat.com/webassets/docker/content/sigstore and https://registry.redhat.io/containers/sigstore. This enables validation of container images published by Red Hat via [podman / atomic](https://access.redhat.com/articles/3116561) or [CRI-O](https://access.redhat.com/verify-images-ocp4).
