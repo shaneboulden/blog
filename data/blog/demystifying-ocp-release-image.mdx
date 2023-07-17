@@ -1,0 +1,193 @@
+---
+title: De-mystifying the OpenShift release image
+date: '2023-07-17'
+tags: ['openshift', 'supply', 'chain','release','security','kubernetes','signatures']
+draft: false
+summary: "The OpenShift release image is a critical component of the software supply-chain for OpenShift. In this article I want to take a closer look at the release image, and how it's verified."
+---
+The OpenShift release image is a critical component of the software supply-chain for OpenShift. It provides all of the artifacts to validate an OpenShift release, and the platform won't update or install without a valid release image. So how does it work?
+
+## OpenShift release image overview
+The OpenShift release image is a container image with a binary and a set of yaml contents that can reproducibly deploy a particular OpenShift version. The binary in the release image is used to deploy the cluster and maintain updates, and the manifests contain information about the provenance of the images as well as deployment instructions.
+
+OpenShift release images are stored at `quay.io/ocp-release-dev/ocp-release`, and each digest maps to a particular OpenShift version. You can see the particular image that maps to a release using the `oc adm release info` command:
+```
+$ oc adm release info 4.12.23
+Name:           4.12.23
+Digest:         sha256:2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417
+Created:        2023-06-29T18:29:05Z
+OS/Arch:        linux/amd64
+Manifests:      647
+Metadata files: 1
+
+Pull From: quay.io/openshift-release-dev/ocp-release@sha256:2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417
+```
+The `Digest` shown here is the digest of the release image, and the release image is shown in the `Pull From` reference:
+```
+Pull From: quay.io/openshift-release-dev/ocp-release@sha256:2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417
+```
+
+All of this information shown in `oc adm release info` is retrieved from the release image. You can verify this by running `oc adm release info` directly on the release image:
+```
+$ oc adm release info quay.io/openshift-release-dev/ocp-release@sha256:2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417
+
+Name:           4.12.23
+Digest:         sha256:2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417
+Created:        2023-06-29T18:29:05Z
+OS/Arch:        linux/amd64
+Manifests:      647
+Metadata files: 1
+
+Pull From: quay.io/openshift-release-dev/ocp-release@sha256:2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417
+
+Release Metadata:
+  Version:  4.12.23
+  Upgrades: 4.11.11, 4.11.12, 4.11.13, 4.11.14, 4.11.16, 4.11.17, 4.11.18, 4.11.19, 4.11.20, 4.11.21, 4.11.22, 4.11.23, 4.11.24, 4.11.25, 4.11.26, 4.11.27, 4.11.28, 4.11.29, 4.11.30, 4.11.31, 4.11.32, 4.11.33, 4.11.34, 4.11.35, 4.11.36, 4.11.37, 4.11.38, 4.11.39, 4.11.40, 4.11.41, 4.11.42, 4.11.43, 4.11.44, 4.12.0, 4.12.1, 4.12.2, 4.12.3, 4.12.4, 4.12.5, 4.12.6, 4.12.7, 4.12.8, 4.12.9, 4.12.10, 4.12.11, 4.12.12, 4.12.13, 4.12.14, 4.12.15, 4.12.16, 4.12.17, 4.12.18, 4.12.19, 4.12.20, 4.12.21, 4.12.22
+  Metadata:
+    url: https://access.redhat.com/errata/RHSA-2023:3925
+
+Component Versions:
+  kubernetes 1.25.11
+  machine-os 412.86.202306271602-0 Red Hat Enterprise Linux CoreOS
+
+Images:
+  NAME                                           DIGEST
+  agent-installer-api-server                     sha256:9aafb914d5d7d0dec4edd800d02f811d7383a7d49e500af548eab5d00c1bffdb
+  agent-installer-csr-approver                   sha256:d57bf6b28bd554f7dcb9158d640da9d419c2487ecd8995cc73e92dacdf16cbc1
+```
+Let's pull apart this information a little more:
+
+- This release image covers OpenShift 4.12.23
+- It contains 647 manifests, and one metadata file
+- The release errata is available at https://access.redhat.com/errata/RHSA-2023:3925
+- The digests for OpenShift component versions that make up this release are contained in the release image, and shown under `Images`.
+
+So the release image contains all the information needed to reproducibly deploy an OpenShift cluster. It also contains the digests (hashes) of images that make up this OpenShift version, and information about the release.
+
+## Release image verification
+
+Each release image is signed by Red Hat using the same keys used to sign other Red Hat software releases. This is important, because there are a number of container images that are not signed by Red Hat that are deployed during an OpenShift update or install. You can see these by inspecting the OpenShift release image.
+
+This image is signed:
+```
+$ oc adm release info 4.12.23
+(snip)
+Pull From: quay.io/openshift-release-dev/ocp-release@sha256:2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417 -
+```
+These images are not signed:
+```
+$ oc adm release info 4.12.23 -o pullspec
+quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:9aafb914d5d7d0dec4edd800d02f811d7383a7d49e500af548eab5d00c1bffdb 
+(snip)
+```
+Wait, there are unsigned images used during an OpenShift deployment or update? What gives?
+
+OpenShift can support this, because the unsigned image references are contained in the **signed OpenShift release image**!
+```
+oc adm release info  quay.io/openshift-release-dev/ocp-release@sha256:2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417 -o pullspec
+quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:9aafb914d5d7d0dec4edd800d02f811d7383a7d49e500af548eab5d00c1bffdb
+```
+This release image is immutable. Because the release image is signed, and immutable, the contents (container image references used to pull OpenShift components) can be trusted.
+
+## Release image signatures
+
+Red Hat signs container images using GPG, and image signatures are usually distributed through a few signature stores - https://access.redhat.com/webassets/docker/content/sigstore and https://registry.redhat.io/containers/sigstore. This enables validation of container images published by Red Hat via [podman / atomic](https://access.redhat.com/articles/3116561) or [CRI-O](https://access.redhat.com/verify-images-ocp4).
+
+However, the release image signatures are stored separately, at https://mirror.openshift.com/pub/openshift-v4/signatures/openshift-release-dev/ocp-release/. These aren't in a format readily understood by `podman` or CRI-O, but you can use the `skopeo standalone-verify` command to verify that the release images are in-fact signed by Red Hat.
+
+Firstly, pull-down the Red Hat release key:
+```
+$ curl -o pub.key https://access.redhat.com/security/data/fd431d51.txt
+```
+Pull-down the signature file for the specific release that you want to verify. In this example, I am verifying OpenShift version 4.12.23, and the release image digest is `2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417`. This means that the signature file is at https://mirror.openshift.com/pub/openshift-v4/signatures/openshift-release-dev/ocp-release/sha256%3D2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417/signature-1
+```
+$ curl -o signature-1 https://mirror.openshift.com/pub/openshift-v4/signatures/openshift-release-dev/ocp-release/sha256%3D2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417/signature-1
+```
+Get the manifest for the release image:
+```
+$ skopeo inspect --raw docker://quay.io/openshift-release-dev/ocp-release@sha256:2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417 > manifest.json
+```
+Now use `skopeo` to verify the signature:
+```
+$ skopeo standalone-verify manifest.json quay.io/openshift-release-dev/ocp-release:4.12.23-x86_64 any signature-1 --public-key-file pub.key
+Signature verified using fingerprint 567E347AD0044ADE55BA8A5F199E2F91FD431D51, digest sha256:2309578b68c5666dad62aed696f1f9d778ae1a089ee461060ba7b9514b7ca417
+```
+So we can use `skopeo standalone-verify` to verify the release image signature and that it's signed by Red Hat. Internally OpenShift doesn't use `skopeo` to do this, and the release image signatures are not stored in a format that is readily understood by podman or CRI-O. So how does verification happen?
+
+The OpenShift Cluster Version Operator verifies the signatures on the release images during update and install. You can see some of the code [here](https://github.com/openshift/cluster-version-operator/blob/216683cfc09eebefd87bed66849d52b6a357c5ab/pkg/cvo/updatepayload.go#L128)
+```go
+if err := r.verifier.Verify(verifyCtx, releaseDigest); err != nil {
+		vErr := &payload.UpdateError{
+			Reason:  "ImageVerificationFailed",
+			Message: fmt.Sprintf("The update cannot be verified: %v", err),
+			Nested:  err,
+		}
+		(snip)
+	} else {
+		info.Verified = true
+	}
+```
+The `Verify` function referenced above performs the signature verification, and is shown [here](https://github.com/openshift/library-go/blob/master/pkg/verify/verify.go#L164C1-L211C4):
+```go
+func (v *releaseVerifier) Verify(ctx context.Context, releaseDigest string) error {
+	(snip)
+
+	var signedWith [][]byte
+	var errs []error
+	err := v.store.Signatures(ctx, "", releaseDigest, func(ctx context.Context, signature []byte, errIn error) (done bool, err error) {
+		if errIn != nil {
+			klog.V(4).Infof("error retrieving signature for %s: %v", releaseDigest, errIn)
+			errs = append(errs, fmt.Errorf("%s: %w", time.Now().Format(time.RFC3339), errIn))
+			return false, nil
+		}
+		for k, keyring := range remaining {
+			content, _, err := verifySignatureWithKeyring(bytes.NewReader(signature), keyring)
+			if err != nil {
+				klog.V(4).Infof("keyring %q could not verify signature for %s: %v", k, releaseDigest, err)
+				errs = append(errs, fmt.Errorf("%s: %w", time.Now().Format(time.RFC3339), err))
+				continue
+			}
+			if err := verifyAtomicContainerSignature(content, releaseDigest); err != nil {
+				klog.V(4).Infof("signature for %s is not valid: %v", releaseDigest, err)
+				errs = append(errs, fmt.Errorf("%s: %w", time.Now().Format(time.RFC3339), err))
+				continue
+			}
+			delete(remaining, k)
+			signedWith = append(signedWith, signature)
+		}
+		return len(remaining) == 0, nil
+	})
+	if err != nil {
+		klog.V(4).Infof("Failed to retrieve signatures for %s: %v", releaseDigest, err)
+		errs = append(errs, fmt.Errorf("%s: %w", time.Now().Format(time.RFC3339), err))
+	}
+
+	if len(remaining) > 0 {
+		remainingKeyRings := make([]string, 0, len(remaining))
+		for k := range remaining {
+			remainingKeyRings = append(remainingKeyRings, k)
+		}
+		err := &wrapError{
+			msg: fmt.Sprintf("unable to verify %s against keyrings: %s", releaseDigest, strings.Join(remainingKeyRings, ", ")),
+			err: errors.NewAggregate(errs),
+		}
+		klog.V(4).Info(err.Error())
+		return err
+	}
+
+	v.cacheVerification(releaseDigest, signedWith)
+
+	return nil
+}
+```
+Now we know that:
+- Release images are signed by Red Hat
+- Release image signatures are stored at https://mirror.openshift.com/pub/openshift-v4/signatures/openshift-release-dev/ocp-release/
+- Release image signatures can be verified using `skopeo standalone-verify`
+- Internally OpenShift verifies the release image signatures
+
+## Wrapping up
+In this article I've tried to provide more clarity around the OpenShift release image, which is a critical component of the OpenShift software supply-chain. Without a valid release image OpenShift won't install or update, and OpenShift internally validates the signature on the release image.
+
+In another article I'll cover how this verification works for air-gapped / disconnected clusters, and how OpenShift can still verify release image signatures in air-gapped environments. Stay tuned!
+
