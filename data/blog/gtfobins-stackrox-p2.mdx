@@ -1,0 +1,21 @@
+---
+title: GTFOBins and StackRox - part II
+date: '2023-07-26'
+tags: ['gtfobins','kubernetes','security','openshift','stackrox','containers']
+draft: true
+summary: "A few weeks I wrote an article on StackRox and another open source projcet, GTFOBins. The first article looked at identifying GTFOBins components during development, and this article looks at identifying GTFOBins execution inside containers at runtime."
+---
+A few weeks I wrote an article on StackRox and another open source projcet, [GTFOBins](/blog/stackrox-gtfobins). I looked at how you can create a [StackRox](https://www.stackrox.io/) policy from the GTFOBins [source](https://github.com/GTFOBins/GTFOBins.github.io), and use the `roxctl` CLI to scan container images and identify GTFOBins components.
+
+The catalyst for this article was a Microsoft threat intelligence report on cyber threat actors employing "Living off the Land" techniques, and I covered a high-level overview of strategies to mitigate these threats in [another article](/blog/living-off-the-land-containers).
+
+This article builds on the last one, and looks at identifying GTFOBins process execution inside containers at runtime. 
+
+```
+oc new-app quay.io/smileyfritz/log4shell-app:v0.5
+
+oc get pods -n devops
+
+oc exec -n devops $(oc get pods -n devops | awk '{if (NR!=1) print $1}') -- /usr/bin/socat
+2023/07/25 06:02:52 socat[34] E exactly 2 addresses required (there are 0); use option "-h" for help
+```
