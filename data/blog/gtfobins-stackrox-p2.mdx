@@ -7,9 +7,28 @@ summary: "A few weeks I wrote an article on StackRox and another open source pro
 ---
 A few weeks I wrote an article on StackRox and another open source projcet, [GTFOBins](/blog/stackrox-gtfobins). I looked at how you can create a [StackRox](https://www.stackrox.io/) policy from the GTFOBins [source](https://github.com/GTFOBins/GTFOBins.github.io), and use the `roxctl` CLI to scan container images and identify GTFOBins components.
 
-The catalyst for this article was a Microsoft threat intelligence report on cyber threat actors employing "Living off the Land" techniques, and I covered a high-level overview of strategies to mitigate these threats in [another article](/blog/living-off-the-land-containers).
+The catalyst for this article was a Microsoft threat intelligence report on cyber threat actors employing "Living off the Land" techniques, and I covered a high-level overview of strategies to mitigate these threats in [another article](/blog/living-off-the-land-containers). This article builds on the last one, and looks at identifying GTFOBins process execution inside containers at runtime. 
 
-This article builds on the last one, and looks at identifying GTFOBins process execution inside containers at runtime. 
+## Kubernetes runtime security
+Runtime security is often the main concern for organisations operating digital services on Kubernetes. This was highlighted in the Red Hat State of Kubernetes Security reports over the last few years. This is a survey that Red Hat creates across enterprises... and identifies trends in approaches to Kubernetes security.
+
+Over the last few years we've seen a pretty consistent interest in runtime security. The 2022 State of Kubernetes security called this out as the number one concern for organisations:
+
+####  insert graphic
+
+The 2023 report further confirmed this trend:
+
+#### Insert graphic
+
+## StackRox and runtime process execution
+During installation StackRox pushes an eBPF program down to nodes to identify processes executing inside containers at runtime, and also identify network traffic flows inside containers. 
+
+You can see these programs on an OpenShift cluster by taking a look at the node:
+```
+
+```
+
+## GTFOBins component execution at runtime
 
 ```
 oc new-app quay.io/smileyfritz/log4shell-app:v0.5
