@@ -29,15 +29,15 @@ virtualenv .qmk
 source ~/.qmk/bin/activate
 pip3 install qmk
 ```
-You can then use the `qmk setup` command to create a new copy of the QMK firmware:
+You can then use the `qmk setup` command to create a new copy of the QMK source:
 ```
 $ qmk setup
 ☒ Could not find qmk_firmware!
 Would you like to clone qmk/qmk_firmware to /home/user/qmk_firmware? [y/n]
 ```
-When you select yes, the `qmk` binary will pull down the latest copy of the QMK firmware and all [Git submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules).
+When you select yes, the `qmk` binary will pull down the latest copy of the QMK source and all [Git submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules).
 
-The next step is to configure a default keyboard, which you can also do with the `qmk` binary. You can derive the keyboard name from the QMK firmware directory structure. You'll find a directory `keyboards`, and under each of these a vendor, and model numbers. In this case I'm using the Keychron V6 ANSI layout:
+The next step is to configure a default keyboard, which you can also do with the `qmk` binary. You can derive the keyboard name from the QMK firmware directory structure. You'll find a directory `keyboards`, and under each of these a vendor and model numbers. In this case I'm using the Keychron V6 ANSI layout:
 ```
 $ cd qmk_firmware
 $ tree keyboards/keychron/v6/ansi
@@ -88,12 +88,12 @@ keyboards/keychron/v6/ansi
 Now you're ready to go!
 
 ## Building a QMK keymap for OpenShift
-I mentioned earlier that I want to use a new feature to support my OpenShift developer workflows, specifically the [QMK leader key](https://github.com/qmk/qmk_firmware/blob/master/docs/feature_leader_key.md). You might have come across a leader key before in `vim`. Essentially it's a shortcut to user-defined shortcuts. For example, you might find something like this in a `.vimrc` file:
+I mentioned earlier that I want to use a new feature to support my OpenShift developer workflows, specifically the [QMK leader key](https://github.com/qmk/qmk_firmware/blob/master/docs/feature_leader_key.md). You might have come across a leader key before in `vim` - essentially it's a shortcut to user-defined shortcuts. For example, you might find something like this in a `.vimrc` file:
 ```
 let mapleader=","
 noremap <Leader>W :w !sudo tee % > /dev/null
 ```
-When you hit `,W` in `vim` this command will save the current file using `sudo`. 
+When you hit `,W` in `vim`, this command will execute in a shell and save the current file using `sudo`. 
 
 Configuring a leader key in QMK is very similar, and allows us to create user-defined shortcuts. I've chosen three shortcuts initially for my OpenShift developer setup:
 - `<Leader>O` - Print out "OpenShift is awesome!"
