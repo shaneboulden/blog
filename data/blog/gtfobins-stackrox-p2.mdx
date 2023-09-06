@@ -1,40 +1,202 @@
 ---
 title: GTFOBins and StackRox - part II
-date: '2023-07-26'
+date: '2023-09-07'
 tags: ['gtfobins','kubernetes','security','openshift','stackrox','containers']
 draft: true
-summary: "A few weeks I wrote an article on StackRox and another open source projcet, GTFOBins. The first article looked at identifying GTFOBins components during development, and this article looks at identifying GTFOBins execution inside containers at runtime."
+summary: "A couple of months ago I wrote an article on StackRox and another open source projcet, GTFOBins. The first article looked at identifying GTFOBins components during development, and this article looks at identifying GTFOBins execution inside containers at runtime."
 ---
-A few weeks I wrote an article on StackRox and another open source projcet, [GTFOBins](/blog/stackrox-gtfobins). I looked at how you can create a [StackRox](https://www.stackrox.io/) policy from the GTFOBins [source](https://github.com/GTFOBins/GTFOBins.github.io), and use the `roxctl` CLI to scan container images and identify GTFOBins components.
+A couple of months ago I wrote an article on StackRox and another open source projcet, [GTFOBins](/blog/stackrox-gtfobins). I looked at how you can create a [StackRox](https://www.stackrox.io/) policy from the GTFOBins [source](https://github.com/GTFOBins/GTFOBins.github.io), and use the `roxctl` CLI to scan container images and identify GTFOBins components.
 
-The catalyst for this article was a Microsoft threat intelligence report on cyber threat actors employing "Living off the Land" techniques, and I covered a high-level overview of strategies to mitigate these threats in [another article](/blog/living-off-the-land-containers). This article builds on the last one, and looks at identifying GTFOBins process execution inside containers at runtime. 
+The catalyst for this article was a Microsoft threat intelligence report on cyber threat actors employing "Living off the Land" techniques, and I covered a high-level overview of strategies to mitigate these threats in [another article](/blog/living-off-the-land-containers). 
+
+This article builds on the last one, and looks at identifying GTFOBins process execution inside containers at runtime. 
 
 ## Kubernetes runtime security
-Runtime security is often the main concern for organisations operating digital services on Kubernetes. This was highlighted in the Red Hat State of Kubernetes Security reports over the last few years. This is a survey that Red Hat creates across enterprises... and identifies trends in approaches to Kubernetes security.
+Runtime security is often the main concern for organisations operating digital services on Kubernetes, and this was highlighted in the Red Hat State of Kubernetes Security reports over the last few years. The 'State of Kubernetes Security' is a report created by Red Hat that examines the security challenges organizations face when it comes to cloud-native development and how they address these challenges to protect their applications and IT environments. The report is based on surveys of more than 300 DevOps, engineering and security professionals, highlighting how companies are adopting containers and Kubernetes while still balancing the security of these environments. 
 
-Over the last few years we've seen a pretty consistent interest in runtime security. The 2022 State of Kubernetes security called this out as the number one concern for organisations:
+Over the last few years we've seen a pretty consistent interest in runtime security. The [2022 State of Kubernetes security report](https://www.redhat.com/en/blog/state-kubernetes-security-2022-1) called this out as the number one concern for organisations: 
 
-####  insert graphic
+<Zoom>
+![State of Kubernetes security 2022](/static/images/state-1.png)
+</Zoom>
 
-The 2023 report further confirmed this trend:
+The [2023 State of Kubernetes security report](https://www.redhat.com/en/resources/state-kubernetes-security-report-2023) also highlighted runtime security as a significant concern, with nearly half (49%) of organisations surveyed experiencing a security issue at runtime.
 
-#### Insert graphic
+<Zoom>
+![State of Kubernetes security 2023](/static/images/state-2.png)
+</Zoom>
+
+Often I find this is where organisations have the most concerns with cloud-native security. They'd usually push an [agent](/blog/access-and-agents) down to protected servers, alerting on anomalous activity or indicators of compromise (IOCs) at runtime. But cloud-native workloads - which are usually running in containers - don't have agents. So how do we monitor workloads at runtime?
+
+One approach that is increasingly being adopted for runtime observability for cloud-native workloads is [eBPF](https://ebpf.io/). eBPF, or extended Berkeley Packet Filter, is a technology that empowers developers to enhance and introspect the inner workings of the Linux kernel in a safe and efficient manner. Originally designed for network packet filtering, eBPF has evolved into a versatile framework for programmable data plane processing. With eBPF, you can write and load custom programs into the kernel, enabling real-time monitoring, tracing, and dynamic network control without requiring kernel modifications. 
+
+eBPF has some really interesting applications for security. Using eBPF we can see and understand all system calls, including system calls from containers. We can also create a packet and socket-level view of network traffic flows, helping to create a baseline of network activity, including network traffic for container applications. This means that we can start to monitor container workloads at runtime, without needing to add additional libraries to the container image, or running an agent on the node. 
+
+There is still discussion about whether BPF/eBPF is the right tool for security monitoring, and there's a really good article from [Brendan Gregg](https://www.brendangregg.com/blog/2023-04-28/ebpf-security-issues.html). Brendan highlights that, while there are some limitations to using observability tools like eBPF for security monitoring, there is also potential for an awesome eBPF security product. I think that StackRox is well on the way there, and it uses eBPF for runtime security monitoring of container workloads running on Kubernetes.
 
 ## StackRox and runtime process execution
-During installation StackRox pushes an eBPF program down to nodes to identify processes executing inside containers at runtime, and also identify network traffic flows inside containers. 
+During installation StackRox pushes an eBPF program down to nodes to identify processes executing inside containers at runtime, and also identify network traffic flows inside containers. StackRox leverages the [Falco](https://falco.org/) libraries via a [custom fork](https://github.com/stackrox/falcosecurity-libs) to support eBPF.
 
-You can see these programs on an OpenShift cluster by taking a look at the node:
-```
+StackRox also contains a number of pre-built policies to identify anomalous activity at runtime. You can find the complete list of out-of-the-box policies [here](https://github.com/stackrox/stackrox/tree/master/pkg/defaults/policies/files), which includes:
 
-```
+* [Detecting netcat execution](https://github.com/stackrox/stackrox/blob/master/pkg/defaults/policies/files/exec-netcat.json): Netcat activity could indicate an attacker trying to discover additional services running within a cluster, or trying to move laterally.
+* [Detecting binaries that can be used to manipulate network configuration and management](https://github.com/stackrox/stackrox/blob/master/pkg/defaults/policies/files/exec-net-tools.json): This could indicate an attacker trying to sniff passwords from the wire, or otherwise discover network traffic.
+* [Detecting cryptocurrency mining binaries](https://github.com/stackrox/stackrox/blob/master/pkg/defaults/policies/files/exec-mining-binaries.json)
+* [Detecting shell as a subprocess of a Java application](https://github.com/stackrox/stackrox/blob/master/pkg/defaults/policies/files/exec-java-shell.json): It's pretty unusual for a Java process to spawn a shell, and this activity should be investigated.
 
 ## GTFOBins component execution at runtime
+Let's look at how we can identify "living off the land" activity at runtime for container workloads.
 
+StackRox contains a number of policies that can be used to identify anomalous runtime activity, but I want to create a new policy dedicated to detecting GTFOBins components. I've extended the script I created in an [earlier article](/blog/gtfobins-stackrox) to now also create a runtime policy for StackRox and GTFOBins components, as well as a deployment-time policy. The script is here:
+
+```python
+import json
+import os
+import re
+
+def get_gtfobins(root):
+    root, _, files = next(os.walk(root))
+    names = []
+    for name in files:
+        if not name.endswith('.md'):
+            continue
+        names.append(re.split("(.*)\.md",name)[1])
+    return names
+        
+def build_policies(root):
+    policies = []
+
+    polmap = {'build': {}, 'runtime': {}}
+    polmap['build']['name'] = "GTFOBins component in image"
+    polmap['build']['description'] = "Alert on deployments with GTFOBins components present"
+    polmap['build']['lifecycleStages'] = ["BUILD","DEPLOY"]
+    polmap['build']['sortName'] = "GTFOBins component in image"
+    polmap['build']['sortLifecycleStage'] = "BUILD,DEPLOY"
+    polmap['build']['eventSource'] = "NOT_APPLICABLE"
+    polmap['build']['fieldName'] = "Image Component"
+
+    polmap['runtime']['name'] = "GTFOBins component execution detected"
+    polmap['runtime']['description'] = "Detects contains running a GTFOBins component"
+    polmap['runtime']['lifecycleStages'] = ["RUNTIME"]
+    polmap['runtime']['sortName'] = "GTFOBins component execution"
+    polmap['runtime']['sortLifecycleStage'] = "RUNTIME"
+    polmap['runtime']['eventSource'] = "DEPLOYMENT_EVENT"
+    polmap['runtime']['fieldName'] = "Process Name"
+
+    for key in polmap:
+        policy = {}
+        policy['name'] = polmap[key]['name']
+        policy['description'] = polmap[key]['description']
+        policy['rationale'] = "Leaving GTFOBins components inside container images makes it easier for attackers to 'live off the land' inside a container environment"
+        policy['remediation'] = "Use your package manager's \"remove\", \"purge\" or \"erase\" command to remove GTFOBins components from the image build for production containers."
+        policy['disabled'] = False
+        policy['categories'] = ["Security Best Practices"]
+        policy['lifecycleStages'] = polmap[key]['lifecycleStages']
+        policy['eventSource'] = polmap[key]['eventSource']
+        policy['exclusions'] = []
+        policy['scope'] = []
+        policy['severity'] = "LOW_SEVERITY"
+        policy['enforcementActions'] = []
+        policy['notifiers'] = []
+        policy['SORTName'] = polmap[key]['sortName']
+        policy['SORTLifecycleStage'] = polmap[key]["sortLifecycleStage"]
+        policy['SORTEnforcement'] = False
+        policy['policyVersion'] = "1.1"
+        section = {}
+        section['sectionName'] = "Policy Section 1"
+        section['policyGroups'] = []
+        section['policyGroups'].append({})
+        section['policyGroups'][0]['fieldName'] = polmap[key]["fieldName"]
+        section['policyGroups'][0]['booleanOperator'] = "OR"
+        section['policyGroups'][0]['negate'] = False
+        section['policyGroups'][0]['values'] = []
+
+        names = get_gtfobins(root)
+        for name in names:
+            if(key == "build"):
+                section['policyGroups'][0]['values'].append({"value": '%s' % "".join([name,"="])})
+            else:
+                section['policyGroups'][0]['values'].append({"value": '%s' % name })
+
+        policy['policySections'] = [section]
+        policy['mitreAttackVectors'] = []
+
+        # TA0002 - Execution. Many of the GTFOBins components enable execution
+        # in various contexts.
+        policy['mitreAttackVectors'].append({
+            "tactic": "TA0002",
+            "techniques": ["T1059.004"]
+        })
+
+        # TA0007 - Discovery. Binaries like dmidecode can be used to provide information
+        # on the environment
+        policy['mitreAttackVectors'].append({
+            "tactic": "TA0007",
+            "techniques": ["T1046"]
+        }) 
+
+        # TA0008 - Lateral movement. Binaries like ssh and netcat can be used 
+        # to enable lateral movement.
+        policy['mitreAttackVectors'].append({
+            "tactic": "TA0008",
+            "techniques": ["T1570"]
+        })
+
+        # TA0010 - Exfiltration. Binaries like tar, curl and tftp can be used to exfiltrate
+        # data from environments.
+        policy['mitreAttackVectors'].append({
+            "tactic": "TA0010",
+            "techniques": ["T1567"]
+        })
+
+        # TA0043 - Reconnaissance. 
+        policy['mitreAttackVectors'].append({
+            "tactic": "TA0043",
+            "techniques": ["T1592"]
+        })
+
+        policy['criteriaLocked'] = False
+        policy['mitreVectorsLocked'] = False
+        policy['isDefault'] = False
+        policies.append(policy)
+
+    return policies
+
+if __name__ == '__main__':
+    policy = build_policies("_gtfobins/")
+    print(json.dumps({"policies": policy }))
 ```
+This script builds two policies for StackRox:
+
+* **GTFOBins component in image**: This policy targets the `deploy` stage of the container application lifecycle. It means that when a new Kubernetes deployment is created StackRox will first validate whether the container image contains GTFOBins components, via the validting admission controller. If GTFOBins components are detected StackRox will block the deployment, and create a policy violation.
+
+* **GTFOBins component execution detected**: This policy targets the `runtime` stage of the container application lifecycle. This policy will report GTFOBins process executions detected at runtime, via the StackRox eBPF program.
+
+Having both of these policies is important to protect container applications. Ideally we want all GTFOBins components to be caught at the `deploy` stage, and we can prevent these binaries ever being deployed to the platform inside a container workload. But there may be reasons we want to allow some binaries (particular applications need them, debugging, etc). In these instances, we want the monitoring provided by the runtime process to detect and report on GTFOBins execution at runtime.
+
+You can create this new policy by simply running the script (`python scripts/generate-stackrox-policy.py`) and then uploading the policy into StackRox:
+
+#### Image - uploading policy
+
+You should now be able to see a new policy available in StackRox:
+
+#### Image - policy contents
+
+Let's try out this new policy on the cluster. I've created a new workload which contains a couple of GTFOBins components (I'm not enforcing the `deploy` policy):
+```
+oc new-project devops
+
 oc new-app quay.io/smileyfritz/log4shell-app:v0.5
-
-oc get pods -n devops
-
+```
+If I run `socat` inside this container I should see it flagged by StackRox:
+```
 oc exec -n devops $(oc get pods -n devops | awk '{if (NR!=1) print $1}') -- /usr/bin/socat
 2023/07/25 06:02:52 socat[34] E exactly 2 addresses required (there are 0); use option "-h" for help
 ```
+#### Image - StackRox violation
+
+At the moment this policy is just informing us that GTFOBins components are executing at runtime. We could also change the policy to `enforcing`, which will start killing pods when GTFOBins component execution is detected. If I now run `socat` inside the container I should see that the activity is detected, but also that the pod is killed:
+
+#### Image - pod killed
+
+
