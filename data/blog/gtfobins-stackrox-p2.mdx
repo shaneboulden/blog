@@ -1,11 +1,11 @@
 ---
 title: GTFOBins and StackRox - part II
-date: '2023-09-07'
+date: '2023-09-12'
 tags: ['gtfobins','kubernetes','security','openshift','stackrox','containers']
 draft: true
 summary: "A couple of months ago I wrote an article on StackRox and another open source projcet, GTFOBins. The first article looked at identifying GTFOBins components during development, and this article looks at identifying GTFOBins execution inside containers at runtime."
 ---
-A couple of months ago I wrote an article on StackRox and another open source projcet, [GTFOBins](/blog/stackrox-gtfobins). I looked at how you can create a [StackRox](https://www.stackrox.io/) policy from the GTFOBins [source](https://github.com/GTFOBins/GTFOBins.github.io), and use the `roxctl` CLI to scan container images and identify GTFOBins components.
+A couple of months ago I [wrote an article](/blog/gtfobins-stackrox) on StackRox and another open source projcet, [GTFOBins](https://gtfobins.github.io). I looked at how you can create a [StackRox](https://www.stackrox.io/) policy from the GTFOBins [source](https://github.com/GTFOBins/GTFOBins.github.io), and use the `roxctl` CLI to scan container images and identify GTFOBins components.
 
 The catalyst for this article was a Microsoft threat intelligence report on cyber threat actors employing "Living off the Land" techniques, and I covered a high-level overview of strategies to mitigate these threats in [another article](/blog/living-off-the-land-containers). 
 
@@ -45,10 +45,44 @@ StackRox also contains a number of pre-built policies to identify anomalous acti
 * [Detecting shell as a subprocess of a Java application](https://github.com/stackrox/stackrox/blob/master/pkg/defaults/policies/files/exec-java-shell.json): It's pretty unusual for a Java process to spawn a shell, and this activity should be investigated.
 
 ## GTFOBins component execution at runtime
-Let's look at how we can identify "living off the land" activity at runtime for container workloads.
+Let's look at how we can identify "living off the land" activity at runtime for container workloads. StackRox contains a number of policies that can be used to identify anomalous runtime activity, but I want to create a new policy dedicated to detecting GTFOBins components. 
 
-StackRox contains a number of policies that can be used to identify anomalous runtime activity, but I want to create a new policy dedicated to detecting GTFOBins components. I've extended the script I created in an [earlier article](/blog/gtfobins-stackrox) to now also create a runtime policy for StackRox and GTFOBins components, as well as a deployment-time policy. The script is here:
+In the last article I introduced a script that walks the GTFOBins source, and generates a StackRox policy that can detect components in container images. When a container is scanned (either by `roxctl` or in a CI/CD pipeline) the container image components are evaluated, and any GTFOBins components are detected and highlighted. 
+```
+$ roxctl image check  -e "central-acs-central.apps.cluster1.example.com:443" --insecure-skip-tls-verify --image quay.io/smileyfritz/log4shell-app:v0.5
+Policy check results for image: quay.io/smileyfritz/log4shell-app:v0.5
+(TOTAL: 4, LOW: 4, MEDIUM: 0, HIGH: 0, CRITICAL: 0)
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+|             POLICY             | SEVERITY | BREAKS BUILD |          DESCRIPTION           |           VIOLATION            |          REMEDIATION           |
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+|        90-Day Image Age        |   LOW    |      -       |   Alert on deployments with    |     - Image was created at     |   Rebuild your image, push a   |
+|                                |          |              |    images that haven't been    |   2022-02-16 03:35:10 (UTC)    | new minor version (with a new  |
+|                                |          |              |       updated in 90 days       |                                |   immutable tag), and update   |
+|                                |          |              |                                |                                |    your service to use it.     |
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+|  Alpine Linux Package Manager  |   LOW    |      -       | Alert on deployments with the  |   - Image includes component   |      Run `apk --purge del      |
+|         (apk) in Image         |          |              |  Alpine Linux package manager  |      'apk-tools' (version      | apk-tools` in the image build  |
+|                                |          |              |         (apk) present          |           2.10.1-r0)           |   for production containers.   |
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+|  Docker CIS 4.1: Ensure That   |   LOW    |      -       |   Containers should run as a   |    - Image has user 'root'     | Ensure that the Dockerfile for |
+|  a User for the Container Has  |          |              |         non-root user          |                                |  each container switches from  |
+|          Been Created          |          |              |                                |                                |         the root user          |
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+|  GTFOBins component in image   |   LOW    |      -       |   Alert on deployments with    |   - Image includes component   |   Use your package manager's   |
+|                                |          |              |  GTFOBins components present   | 'busybox' (version 1.28.4-r2)  |      "remove", "purge" or      |
+|                                |          |              |                                |                                |   "erase" command to remove    |
+|                                |          |              |                                |   - Image includes component   |  GTFOBins components from the  |
+|                                |          |              |                                |   'bzip2' (version 1.0.6-r6)   |   image build for production   |
+|                                |          |              |                                |                                |          containers.           |
+|                                |          |              |                                |   - Image includes component   |                                |
+|                                |          |              |                                |    'gcc' (version 6.4.0-r9)    |                                |
+|                                |          |              |                                |                                |                                |
+|                                |          |              |                                |   - Image includes component   |                                |
+|                                |          |              |                                |  'socat' (version 1.7.3.2-r4)  |                                |
++--------------------------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+```
 
+I've extended this script to now also create a runtime policy for StackRox and GTFOBins components, as well as a deployment-time policy. The script is here:
 ```python
 import json
 import os
@@ -166,37 +200,80 @@ if __name__ == '__main__':
     policy = build_policies("_gtfobins/")
     print(json.dumps({"policies": policy }))
 ```
-This script builds two policies for StackRox:
-
+When the script is now run it generates two policies; one for GTFOBins components in container images, and one that detects GTFOBins processes executing in a container at runtime.
+```
+$ python scripts/generate-stackrox-policy.py | jq
+{
+  "policies": [
+    {
+      "name": "GTFOBins component in image",
+      "description": "Alert on deployments with GTFOBins components present",
+      "rationale": "Leaving GTFOBins components inside container images makes it easier for attackers to 'live off the land' inside a container environment",
+      "remediation": "Use your package manager's \"remove\", \"purge\" or \"erase\" command to remove GTFOBins components from the image build for production containers.",
+      "disabled": false,
+      "categories": [
+        "Security Best Practices"
+      ],
+      "lifecycleStages": [
+        "BUILD",
+        "DEPLOY"
+      ],
+...
+(snip)
+...
+ {
+      "name": "GTFOBins component execution detected",
+      "description": "Detects contains running a GTFOBins component",
+      "rationale": "Leaving GTFOBins components inside container images makes it easier for attackers to 'live off the land' inside a container environment",
+      "remediation": "Use your package manager's \"remove\", \"purge\" or \"erase\" command to remove GTFOBins components from the image build for production containers.",
+      "disabled": false,
+      "categories": [
+        "Security Best Practices"
+      ],
+      "lifecycleStages": [
+        "RUNTIME"
+      ],
+```
+Here's a closer look at these two policies:
 * **GTFOBins component in image**: This policy targets the `deploy` stage of the container application lifecycle. It means that when a new Kubernetes deployment is created StackRox will first validate whether the container image contains GTFOBins components, via the validting admission controller. If GTFOBins components are detected StackRox will block the deployment, and create a policy violation.
 
 * **GTFOBins component execution detected**: This policy targets the `runtime` stage of the container application lifecycle. This policy will report GTFOBins process executions detected at runtime, via the StackRox eBPF program.
 
 Having both of these policies is important to protect container applications. Ideally we want all GTFOBins components to be caught at the `deploy` stage, and we can prevent these binaries ever being deployed to the platform inside a container workload. But there may be reasons we want to allow some binaries (particular applications need them, debugging, etc). In these instances, we want the monitoring provided by the runtime process to detect and report on GTFOBins execution at runtime.
 
-You can create this new policy by simply running the script (`python scripts/generate-stackrox-policy.py`) and then uploading the policy into StackRox:
+You can create this new policy by simply running the script (`python scripts/generate-stackrox-policy.py`) and then uploading the policy into StackRox where they'll be available \[I've detailed the process to import policies from JSON into StackRox in the [last article](/blog/gtfobins-stackrox)\].
 
-#### Image - uploading policy
+<Zoom>
+![StackRox GTFOBins runtime upload](/static/images/gtfobins/import-1.png)
+</Zoom>
 
-You should now be able to see a new policy available in StackRox:
+<Zoom>
+![StackRox GTFOBins runtime policy](/static/images/gtfobins/import-2.png)
+</Zoom>
 
-#### Image - policy contents
+## Trying it out
+Ok - let's try out this runtime policy!
 
-Let's try out this new policy on the cluster. I've created a new workload which contains a couple of GTFOBins components (I'm not enforcing the `deploy` policy):
-```
-oc new-project devops
+Firstly, let's check out the runtime policy and make sure that it looks ok.
 
+Create a new workload that contains a known GTFOBins component. In this case I'm deploying a container image that I know is vulnerable to a critical CVE, and that also contains a `socat` binary.
+
+```bash
 oc new-app quay.io/smileyfritz/log4shell-app:v0.5
 ```
-If I run `socat` inside this container I should see it flagged by StackRox:
-```
+Once the workload is running, exec into the pod and run the `socat` command:
+```bash
 oc exec -n devops $(oc get pods -n devops | awk '{if (NR!=1) print $1}') -- /usr/bin/socat
-2023/07/25 06:02:52 socat[34] E exactly 2 addresses required (there are 0); use option "-h" for help
+2023/09/07 05:01:13 socat[22] E exactly 2 addresses required (there are 0); use option "-h" for help
 ```
-#### Image - StackRox violation
+Ok - the output from the container indicates we ran the `socat` command with no arguments. If the policy is working, you should see a new violation created in StackRox.
 
-At the moment this policy is just informing us that GTFOBins components are executing at runtime. We could also change the policy to `enforcing`, which will start killing pods when GTFOBins component execution is detected. If I now run `socat` inside the container I should see that the activity is detected, but also that the pod is killed:
+<Zoom>
+![GTFOBins runtime violation](/static/images/gtfobins/runtime-violation.png)
+</Zoom>
 
-#### Image - pod killed
+Success! We can now detect GTFOBins usage at runtime for container workloads.
 
+## Wrapping up
+In this article I expanded on a [previous write-up](/blog/gtfobins-stackrox) by looking at runtime detection of GTFOBins. If you want to take a closer look at eBPF and StackRox there's a great article [here](https://www.stackrox.io/blog/what-is-ebpf/), and I'd highly recommend Brendan Gregg's excellent guide to [learning eBPF Tracing](https://www.brendangregg.com/blog/2019-01-01/learn-ebpf-tracing.html).
 
