@@ -1,0 +1,260 @@
+---
+title: RHSAs, CVEs, and RHACS (oh my)
+date: '2023-10-16'
+tags: ['rhsa','cve','security','openshift','stackrox','containers','vulnerability','management']
+draft: false
+summary: "A deep dive into Red Hat Advanced Cluster Security for Kubernetes (RHACS), Red Hat Security Advisories (RHSAs), and Common Vulnerabilities and Exposures (CVEs). No mention of lions, tigers, or bears."
+---
+Software vulnerabilities have [directly led to some of the largest data breaches reported](), and one of the many challenges facing security teams is how to manage the risk associated with software vulnerabilities. In this article I want to dive deeper into managing vulnerabilities with Red Hat Advanced Cluster Security for Kubernetes (RHACS), and how to manage some of the complexity that comes with cloud-native vulnerability management.
+
+## Cloud-native applications and 'waivers'
+One of the challenges that constantly comes up in vulnerability management is how to manage 'waivers'. A 'waiver', or 'deferral', is where a development team requests that a vulnerability is deferred to be fixed at a later date. This could be because they need more time to evaluate the implications of a patch, or create new integration tests.
+
+Managing these waivers / deferrals can be a complicated process. Software applications could be deployed across different environments and platforms, and managing waivers / deferrals means not only tracking that the deferral has been granted, but that other controls are in-place to mitigate risk while the deferral is in-place. This can also take up a lot of time from security and development teams - assessing whether a waiver is required, assessing the risk of providing a waiver, and tracking and auditing waivers are all tasks that require a lot of effort.
+
+Cloud-native applications make this challenge very apparent. A long time ago, in a datacentre far, far away, security teams only had to manage vulnerabilities in a single Standard Operating Environment (SOE), and potentially only a single application platform (JBoss) and language runtime (Java). And then "the cloud" happened, and brought with it cloud-native applications and containers, and fundamentally changed the vulnerability management problem. Where once there was a single SOE and operating system, now developers had the freedom to choose any base operating system, and language runtime or framework, and package this inside a container, allowing them to create new applications in response to business changes. While this had incredible impacts on developer productivity and ushered in the "DevOps" operating model, it certainly complicated vulnerability management. More applications means more vulnerabilities that need to be triaged, potentially deferred, and patched.
+
+So how do we manage the increasing number of vulnerabilities, across a larger number of applications and platforms, and still provide a mechanism to provide waivers / deferrals? There's only really one way - leaning into DevSecOps, and using automation! There's a few technologies I've put together to automate this problem, and I wanted to quickly introduce them.
+
+### Red Hat Advanced Cluster Security for Kubernetes (RHACS)
+[Red Hat Advanced Cluster Security for Kubernetes (RHACS)](https://www.redhat.com/en/technologies/cloud-computing/openshift/advanced-cluster-security-kubernetes) is a Kubnernetes-native security platform, derived from the open source [Stackrox](https://stackrox.io) project. I've covered StackRox in a few articles recently, looking at [Sigstore and StackRox](/blog/sigstore-and-stackrox), and also looking at integrating the open source [GTFOBins project with StackRox](/blog/gtfobins-stackrox-p2). 
+
+RHACS provides a mechanism to manage vulnerability waivers / deferrals for cloud-native applications and provides an approval workflow that enables security teams to retain control over these deferrals.
+
+### Ansible
+[Ansible](https://www.ansible.com/) is an agentless automation framework which I've covered in articles over the last few years, including [automating application control](/blog/automating-app-control), [creating Ansible playbooks with ChatGPT](/blog/ansible-chatgpt), [automating Essential Eight assessments](/blog/automating-e8-assessments), and [automating system patching](/blog/automated-patching).
+
+## Automating CVE waivers / deferrals
+Let's look at how to bring Ansible together with Red Hat Advanced Cluster Security for Kubernetes (RHACS) to automate CVE deferral.
+
+Ansible can be used to automate CVE deferral workflows with RHACS using the RESTful it provides. I've created a basic Ansible playbook that creates a deferral / waiver inside RHACS, permitting the security team to review this and either approve, deny, or cancel the request. You can see it here:
+```yaml showLineNumbers
+- name: Defer a CVE for a specified number of days in Red Hat Advanced Cluster Security for Kubernetes
+  hosts: localhost
+  gather_facts: true
+
+  vars_files:
+    - vault
+
+  vars:
+    acs_host: "{{ vaulted_acs_host }}"
+    acs_token: "{{ vaulted_acs_token }}"
+
+  tasks:
+    - name: Defer the CVE
+      ansible.builtin.uri:
+        url: https://{{ acs_host }}/v1/cve/requests/defer
+        headers:
+          Authorization: "Bearer {{ acs_token }}"
+        method: POST
+        body: |
+          {
+            "cve": "{{ cve }}",
+            "scope": {"globalScope": {}},
+            "comment": "Deferred {{ cve }}",
+            "expiresWhenFixed": true,
+            "expiresOn": "{{ lookup('pipe', 'date +%Y-%m-%dT%H:%M:%SZ -d \"+{{ days }} days\"') }}"
+          }
+        force_basic_auth: true
+        status_code: 200
+        body_format: json
+        validate_certs: false
+      no_log: false
+      changed_when: true
+```
+Let's take a closer look at this playbook:
+- It runs against the `localhost`. This means that we don't need to configure SSH or other credentials for this playbook, it will just run as a local process.
+- It uses credentials stored in [Ansible vault](https://docs.ansible.com/ansible/latest/vault_guide/index.html). Specifically, it expects the Red Hat Advanced Cluster Security for Kubernetes (RHACS) host and API token to be stored in a vault file which are then referenced in the following plays.
+- It uses the RHACS RESTful API to defer CVEs, using the parameterised `cve` value
+- It sets an expiration date on the deferral / waiver after which the CVE will be re-observed and reported on. 
+
+When I run this playbook it creates a pending deferral in RHACS. 
+
+<Zoom>
+  ![ACS pending](/static/images/cve/acs_pending_1.png)
+</Zoom>
+
+
+This can be reviewed by the security team, and either approved, denied, or the request cancelled. If the CVE is deferred it means a couple of things:
+
+- Running a `roxctl image check` will not fail policies based on the deferred CVE
+- RHACS policies that invoke the admission controller will not block deployments vulnerable to this CVE
+- This CVE will not be reported in RHACS reports
+
+Approved deferrals can be seen within the RHACS `Risk Acceptance` tab:
+
+<Zoom>
+  ![ACS deferral](/static/images/cve/acs_deferred_1.png)
+</Zoom>
+
+## RHSAs and RHACS
+There's another problem that can crop up that's specific to RHACS, and it has to do with Red Hat Security Advisories (RHSAs). 
+
+Red Hat produces a number of major types of errata - Red Hat Security Advisories (RHSAs), Red Hat Bug Advisories (RHBAs) and Red Hat Enhancement Advisories (RHEAs). Each of these are pieces of metadata that tie an update to a human-readable description, and are created by Red Hat engineering when they generate a new package and publish it on the Red Hat customer portal.
+
+Specifically, RHSAs contain one or more security fixes and might also contain bug or enhancements fixes. RHSAs are ranked using a severity rating of Low, Moderate, Important, or Critical based on the severity of the vulnerability.
+
+Let's see an example of RHSAs in RHACS. I have a container image that is vulnerable to [CVE-2022-47629](https://access.redhat.com/security/cve/CVE-2022-47629). This is a vulnerability in the Libskda library which can lead to remote code execution (RCE) by passing specially crafted data to the application. Let's see what happens if I search for this CVE in Red Hat Advanced Cluster Security for Kubernetes (RHACS):
+
+<Zoom>
+  ![ACS CVEs 7](/static/images/cve/acs_cve_7.png)
+</Zoom>
+
+Hmm - no results. But, if I search by RHSA, I *do* get a result.
+
+<Zoom>
+  ![ACS RHSA 1](/static/images/cve/acs_rhsa_1.png)
+</Zoom>
+
+In fact, this image only lists RHSAs - but not CVEs:
+
+<Zoom>
+  ![ACS RHSA 2](/static/images/cve/acs_rhsa_2.png)
+</Zoom>
+
+While it's really helpful that we're getting RHSAs reported directly into the ACS data streams, security teams are much better versed in CVE identifiers than RHSAs. What we need is another step in our automation process that maps CVEs to RHSAs, and defers both in Red Hat Advanced Cluster Security for Kubernetes (RHACS).
+
+### Ansible filter plugins to the rescue!
+Fortunately there's another capability built-in to Ansible we can use to solve this problem, called [filter plugins](https://docs.ansible.com/ansible/latest/plugins/filter.html). Filter plugins are a really useful way to manipulate data and inject this into Ansible automation. For example, I could use a filter plugin to convert a value to YAML:
+```yaml
+vars:
+   yaml_string: "{{ some_variable|to_yaml }}"
+```
+Ansible includes a number of built-in filters we can use, but to solve this challenge I need a custom filter plugin that takes a CVE and can map this to multiple Red Hat Security Advisories (RHSAs). I need to map this to multiple RHSAs, because there are multiple RHSAs that contain the fix for this CVE for different releases of Red Hat products, shown below.
+
+<Zoom>
+  ![CVE-2022-47629](/static/images/cve/cve_rhsa.png)
+</Zoom>
+
+I mentioned that the [Red Hat Security Data API](https://www.redhat.com/en/blog/gathering-security-data-using-red-hat-security-data-api) can provide a mapping of RHSAs to CVEs, and I can programmatically build this into my automation using a custom filter plugin:
+```python showLineNumbers
+import requests
+import sys
+
+class FilterModule(object):
+    ''' CVE to RHSA filter '''
+
+    def filters(self):
+        return {
+            'cve2rhsa': self.cve2rhsa
+        }
+
+    def get_data(self,query):
+        PROXIES = {}
+        API_HOST = 'https://access.redhat.com/hydra/rest/securitydata'
+        full_query = API_HOST + query
+        r = requests.get(full_query, proxies=PROXIES)
+
+        if r.status_code != 200:
+            print('ERROR: Invalid request; returned {} for the following '
+                'query:\n{}'.format(r.status_code, full_query))
+            sys.exit(1)
+
+        return r.json()
+
+    def cve2rhsa(self, cves):
+        rhsas_and_cves = []
+        endpoint = '/csaf.json'
+
+        for cve in cves:
+            params = "cve="+cve
+            data = self.get_data(endpoint + '?' + params)
+
+            if data:
+                for csaf in data:
+                    rhsas_and_cves.append(csaf["RHSA"])
+
+            rhsas_and_cves.append(cve)
+
+        return rhsas_and_cves
+```
+Let's take a closer look at this filter plugin:
+- It takes a list of CVEs from an Ansible playbook as input
+- For each CVE in the list, it uses the `/csaf.json` endpoint to retrieve RHSAs associated with the CVE from the Red Hat Security Data API in [Common Security Advisory Framework (CSAF)](https://oasis-open.github.io/csaf-documentation/) format
+- Finally, the filter plugin returns a list of RHSAs and CVEs back to the Ansible playbook
+
+We can simply place this plugin in a `filter_plugins` directory relative to our Ansible playbook:
+```
+.
+├── ansible.cfg
+├── playbook.yml
+├── filter_plugins
+│   ├── cve2rhsa.py
+├── inventory
+└── vault
+```
+And to use it, we can add the location of filter plugins to the `ansible.cfg`:
+```ini
+[defaults]
+filter_plugins = ./filter_plugins
+```
+... and then pipe a variable containing a list into the filter:
+```
+cves_enriched: "{{ cves | cve2rhsa }}"
+```
+
+## Bringing it all together
+Ok! I think we're finally ready to bring this all together. Here's the completed Ansible playbooks used to automate this CVE management workflow:
+```yaml {11,32} showLineNumbers
+- name: Defer multiple CVEs for a specified number of  days in Red Hat Advanced Cluster Security for Kubernetes
+  hosts: localhost
+  gather_facts: true
+
+  vars_files:
+    - vault
+
+  vars:
+    acs_host: "{{ vaulted_acs_host }}"
+    acs_token: "{{ vaulted_acs_token }}"
+    cves_enriched: "{{ cves.split('\n') | cve2rhsa }}"
+
+  tasks:
+    - name: "Defer the CVEs"
+      ansible.builtin.uri:
+        url: https://{{ acs_host }}/v1/cve/requests/defer
+        headers:
+          Authorization: "Bearer {{ acs_token }}"
+        method: POST
+        body: |
+          {
+            "cve": "{{ item }}",
+            "scope": {"globalScope": {}},
+            "comment": "{{ comment }}",
+            "expiresWhenFixed": true,
+            "expiresOn": "{{ lookup('pipe', 'date +%Y-%m-%dT%H:%M:%SZ -d \"+{{ days } days\"') }}"
+          }
+        force_basic_auth: true
+        status_code: 200
+        body_format: json
+        validate_certs: false
+      loop: "{{ cves_enriched }}"
+      no_log: false
+      changed_when: true
+```
+I've exposed this to users using an [Ansible Automation Platform](https://www.redhat.com/en/technologies/management/ansible) template and survey:
+
+<Zoom>
+  ![Ansible CVE deferral form](/static/images/cve/cve_form.png)
+</Zoom>
+
+When I click `Launch` and run this playbook it invokes the Ansible filter to map each CVE to its corresponding Red Hat Security Advisories (RHSAs), and then creates a deferral for both the CVEs and RHSAs in Red Hat Advanced Cluster Security for Kubernetes (RHACS).
+
+<Zoom>
+  ![Ansible job](/static/images/cve/acs_ansible_cves.png)
+</Zoom>
+
+<Zoom>
+  ![ACS pending CVEs](/static/images/cve/acs_pending_2.png)
+</Zoom>
+
+This playbook demonstrates the powerful simplicity of Ansible filter plugins. In this example, adding the ability to map CVEs to RHSAs and then automate deferrals across CVEs and RHSAs only added two lines to my original Ansible playbook, and didn't change any of the automation logic!
+
+## Wrapping up
+
+CVE waivers / deferrals can be difficult for security teams to manage, particularly as organisations adopt cloud-native applications. Red Hat Advanced Cluster Security for Kubernetes (RHACS) provides capabilities to manage waivers for CVEs, and importantly provides a RESTful API to automate CVE deferral management.
+
+In this article I explored using Ansible to automate these workflows using the RHACS RESTful API. I also looked at some of the challenges that can come up with CVE management, and introduced an Ansible filter that can be used to map CVES to Red Hat Security Advisories (RHSAs).
+
+A great way to get started with Red Hat Advanced Cluster Security for Kubernetes (RHACS) is via the hosted cloud service, available from the [AWS Marketplace](https://aws.amazon.com/marketplace/pp/prodview-epwnwxab4jwdo)
+
+Happy automating!

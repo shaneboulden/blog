@@ -7,14 +7,24 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Tue, 19 Sep 2023 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Mon, 16 Oct 2023 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/rhsa-cves-rhacs-oh-my</guid>
+    <title>RHSAs, CVEs, and RHACS (oh my)</title>
+    <link>https://stb.id.au/blog/rhsa-cves-rhacs-oh-my</link>
+    <description>A deep dive into Red Hat Advanced Cluster Security for Kubernetes (RHACS), Red Hat Security Advisories (RHSAs), and Common Vulnerabilities and Exposures (CVEs). No mention of lions, tigers, or bears.</description>
+    <pubDate>Mon, 16 Oct 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>rhsa</category><category>cve</category><category>security</category><category>openshift</category><category>stackrox</category><category>containers</category><category>vulnerability</category><category>management</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/gtfobins-stackrox-p2</guid>
     <title>GTFOBins and StackRox - part II</title>
     <link>https://stb.id.au/blog/gtfobins-stackrox-p2</link>
-    <description>A couple of months ago I wrote an article on StackRox and another open source projcet, GTFOBins. The first article looked at identifying GTFOBins components during development, and this article looks at identifying GTFOBins execution inside containers at runtime.</description>
+    <description>A couple of months ago I wrote an article on StackRox and another open source project, GTFOBins. The first article looked at identifying GTFOBins components during development, and this article looks at identifying GTFOBins execution inside containers at runtime.</description>
     <pubDate>Tue, 19 Sep 2023 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>gtfobins</category><category>kubernetes</category><category>security</category><category>openshift</category><category>stackrox</category><category>containers</category>
