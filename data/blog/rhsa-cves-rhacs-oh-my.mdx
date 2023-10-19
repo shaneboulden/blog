@@ -29,7 +29,7 @@ Let's look at how to bring Ansible together with Red Hat Advanced Cluster Securi
 
 Ansible can be used to automate CVE deferral workflows with RHACS using the RESTful it provides. I've created a basic Ansible playbook that creates a deferral / waiver inside RHACS, permitting the security team to review this and either approve, deny, or cancel the request. You can see it here:
 ```yaml showLineNumbers
-- name: Defer a CVE for a specified number of days in Red Hat Advanced Cluster Security for Kubernetes
+- name: Defer a CVE for a specified number of  days in Red Hat Advanced Cluster Security for Kubernetes
   hosts: localhost
   gather_facts: true
 
@@ -39,6 +39,7 @@ Ansible can be used to automate CVE deferral workflows with RHACS using the REST
   vars:
     acs_host: "{{ vaulted_acs_host }}"
     acs_token: "{{ vaulted_acs_token }}"
+    date_string: "date +%Y-%m-%dT%H:%M:%SZ -d '+{{ days }} days'"
 
   tasks:
     - name: Defer the CVE
@@ -53,7 +54,7 @@ Ansible can be used to automate CVE deferral workflows with RHACS using the REST
             "scope": {"globalScope": {}},
             "comment": "Deferred {{ cve }}",
             "expiresWhenFixed": true,
-            "expiresOn": "{{ lookup('pipe', 'date +%Y-%m-%dT%H:%M:%SZ -d \"+{{ days }} days\"') }}"
+            "expiresOn": "{{ lookup('pipe', date_string) }}"
           }
         force_basic_auth: true
         status_code: 200
@@ -196,7 +197,7 @@ cves_enriched: "{{ cves | cve2rhsa }}"
 ## Bringing it all together
 Ok! I think we're finally ready to bring this all together. Here's the completed Ansible playbooks used to automate this CVE management workflow:
 ```yaml {11,32} showLineNumbers
-- name: Defer multiple CVEs for a specified number of  days in Red Hat Advanced Cluster Security for Kubernetes
+- name: Defer multiple CVEs for a specified number of days in Red Hat Advanced Cluster Security for Kubernetes (RHACS)
   hosts: localhost
   gather_facts: true
 
@@ -207,6 +208,7 @@ Ok! I think we're finally ready to bring this all together. Here's the completed
     acs_host: "{{ vaulted_acs_host }}"
     acs_token: "{{ vaulted_acs_token }}"
     cves_enriched: "{{ cves.split('\n') | cve2rhsa }}"
+    date_string: "date +%Y-%m-%dT%H:%M:%SZ -d '+{{ days }} days'"
 
   tasks:
     - name: "Defer the CVEs"
@@ -221,7 +223,7 @@ Ok! I think we're finally ready to bring this all together. Here's the completed
             "scope": {"globalScope": {}},
             "comment": "{{ comment }}",
             "expiresWhenFixed": true,
-            "expiresOn": "{{ lookup('pipe', 'date +%Y-%m-%dT%H:%M:%SZ -d \"+{{ days } days\"') }}"
+            "expiresOn": "{{ lookup('pipe', date_string) }}"
           }
         force_basic_auth: true
         status_code: 200
