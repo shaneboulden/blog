@@ -196,7 +196,7 @@ cves_enriched: "{{ cves | cve2rhsa }}"
 
 ## Bringing it all together
 Ok! I think we're finally ready to bring this all together. Here's the completed Ansible playbooks used to automate this CVE management workflow:
-```yaml {11,32} showLineNumbers
+```yaml {11,33} showLineNumbers
 - name: Defer multiple CVEs for a specified number of days in Red Hat Advanced Cluster Security for Kubernetes (RHACS)
   hosts: localhost
   gather_facts: true
