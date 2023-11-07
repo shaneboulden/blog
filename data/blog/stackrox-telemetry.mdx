@@ -5,20 +5,43 @@ tags: ['stackrox', 'telemetry', 'data', 'kubernetes', 'security']
 draft: true
 summary: 'One of the great things about open source is that we can deeply understand how software behaves. This is even more important for security software, and where we want confidence that an application does what it says. This article looks at how telemetry is implemented in StackRox, and what it means for you as a StackRox user.'
 ---
-Open source software provides something for security practitioners that proprietary software never can - validation and verification. 
+Open source software provides something for security practitioners that proprietary software never can - **validation** and **verification.**
 
 A website may tell you that particular software "never stores or transmits your data" - but how do you know that? Maybe the software developers had good intentions, but their execution was lacking, and they accidentally stored your data in the application database. Or, maybe the website is flat-out lying to you, and your data is being "phoned home" regularly and often.
 
-I think this is even more important for software that provides security capabilities. You need to be able to trust that your data is being handled appropriately, and where you have permitted it to be stored, you can validate and verify that the data collected is what you expect, and it's being anonymised.
+I think this is even more important for software that provides security capabilities. You need to be able to trust that your data is being handled appropriately, and where you have permitted it to be stored, you should validate and verify that the data collected is what you expect, and it's being anonymised.
 
 How can you test claims and assertions about data protection, if you can't see the code?
 
-[Red Hat Advanced Cluster Security for Kubernetes]() is a Kubernetes-native security platform created from the StackRox open source project. This means that we can look at the StackRox source to validate how the platform operates, and how it manages data. Specifically I want to dive into how RHACS / StackRox handles telemetry data, and show how we can both validate the implementation of telemetry data collection, as well as verify that data is being handled appropriately and anonymised.
+[Red Hat Advanced Cluster Security for Kubernetes]() is a Kubernetes-native security platform created from the StackRox open source project. By default RHACS collects telemetry about how users operate and manage the platform, and this is used to improve the service.
 
-I'm not going to provide too much information on what StackRox does, or how it does it. If you want to learn more about StackRox you can see some of the other blogs and videos I've creatd previously:
+I'm not going to provide too much information on what RHACS does, or how it does it. If you want to learn more about RHACS and StackRox you can see some of the other blogs and videos I've creatd previously:
 
+- 
 -
--
+
+The RHACS docs outline [what data is collected by telemetry](https://docs.openshift.com/acs/4.2/telemetry/about-telemetry.html#information-collected-by-telemetry_about-telemetry):
+
+- API, roxctl CLI, and user interface (UI) features and settings to know how Red Hat Advanced Cluster Security for Kubernetes (RHACS) is used, which helps prioritize efforts.
+
+- The time spent on UI screens to help improve the user experience.
+
+- The integrations that are used.
+
+- The number of connected secured clusters and their configurations.
+
+- Errors encountered to identify the most common problems.
+
+The docs state that "Telemetry does not collect identifying information such as user names, passwords, or the names or addresses of user resources."
+
+The docs also make a few statements about how telemetry is configured:
+- It's enabled by default
+- It can be disabled
+- It doesn't operate in clusers configured in offline mode (i.e. disconnected or air-gapped clusters)
+
+Let's start digging through the StackRox code and validating these claims!
+
+There's a few claims about telemetry that we will validate through the open source code, and 
 
 ## Exploring the StackRox code
 The StackRox code-base is hosted at github.com/stackrox, and there are various repositories which are used to support the platform:
@@ -30,10 +53,10 @@ The one that we want to look at to explore telemetry is the [github.com/stackrox
 
 ## Verifying and validating how telemetry can be disabled
 
-The Red Hat Advanced Cluster Security for Kubernetes (RHACS) docs state that [telemetry is enabled by default](). The docs also state that telemetry can be disabled in a few ways:
+The Red Hat Advanced Cluster Security for Kubernetes (RHACS) docs state that [telemetry is enabled by default](https://docs.openshift.com/acs/4.2/telemetry/about-telemetry.html#information-collected-by-telemetry_about-telemetry). The docs also state that telemetry can be disabled in a few ways:
 
-- 
-- 
+- Through the UI
+- When the cluster is configured in `offline` mode
 
 https://github.com/stackrox/stackrox/blob/4f05c32cc3e3889d7c22698e79d19fdc83d816f2/central/telemetry/centralclient/instance_config.go#L41
 
@@ -51,11 +74,7 @@ func getInstanceConfig() (*phonehome.Config, map[string]any, error) {
 
 ## Verifying and validating data anonymisation
 
-
-
 ## Verifying where telemetry data is sent
-
-
 
 So where is the telemetry configured?
 ```
