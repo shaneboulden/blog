@@ -1,0 +1,77 @@
+---
+title: Exploring StackRox Telemetry
+date: '2023-11-14'
+tags: ['stackrox', 'telemetry', 'data', 'kubernetes', 'security']
+draft: true
+summary: 'One of the great things about open source is that we can deeply understand how software behaves. This is even more important for security software, and where we want confidence that an application does what it says. This article looks at how telemetry is implemented in StackRox, and what it means for you as a StackRox user.'
+---
+Open source software provides something for security practitioners that proprietary software never can - validation and verification. 
+
+A website may tell you that particular software "never stores or transmits your data" - but how do you know that? Maybe the software developers had good intentions, but their execution was lacking, and they accidentally stored your data in the application database. Or, maybe the website is flat-out lying to you, and your data is being "phoned home" regularly and often.
+
+I think this is even more important for software that provides security capabilities. You need to be able to trust that your data is being handled appropriately, and where you have permitted it to be stored, you can validate and verify that the data collected is what you expect, and it's being anonymised.
+
+How can you test claims and assertions about data protection, if you can't see the code?
+
+[Red Hat Advanced Cluster Security for Kubernetes]() is a Kubernetes-native security platform created from the StackRox open source project. This means that we can look at the StackRox source to validate how the platform operates, and how it manages data. Specifically I want to dive into how RHACS / StackRox handles telemetry data, and show how we can both validate the implementation of telemetry data collection, as well as verify that data is being handled appropriately and anonymised.
+
+I'm not going to provide too much information on what StackRox does, or how it does it. If you want to learn more about StackRox you can see some of the other blogs and videos I've creatd previously:
+
+-
+-
+
+## Exploring the StackRox code
+The StackRox code-base is hosted at github.com/stackrox, and there are various repositories which are used to support the platform:
+-
+-
+-
+
+The one that we want to look at to explore telemetry is the [github.com/stackrox/stackrox](https://github.com/stackrox/stackrox) repository, and specifically the `pkg/telemetry` directory.
+
+## Verifying and validating how telemetry can be disabled
+
+The Red Hat Advanced Cluster Security for Kubernetes (RHACS) docs state that [telemetry is enabled by default](). The docs also state that telemetry can be disabled in a few ways:
+
+- 
+- 
+
+https://github.com/stackrox/stackrox/blob/4f05c32cc3e3889d7c22698e79d19fdc83d816f2/central/telemetry/centralclient/instance_config.go#L41
+
+```go
+func getInstanceConfig() (*phonehome.Config, map[string]any, error) {
+	if env.OfflineModeEnv.BooleanSetting() {
+		return nil, nil, nil
+	}
+	key, err := phonehome.GetKey(env.TelemetryStorageKey.Setting(),
+		env.TelemetryConfigURL.Setting())
+	if key == "" || err != nil {
+		return nil, nil, err
+	}
+```
+
+## Verifying and validating data anonymisation
+
+
+
+## Verifying where telemetry data is sent
+
+
+
+So where is the telemetry configured?
+```
+pkg/telemetry/phonehome: 2023/11/06 09:05:46.020499 key_management.go:40: Info: Telemetry configuration has been downloaded from hardcoded
+telemetry/centralclient: 2023/11/06 09:05:46.022252 instance_config.go:116: Info: Central ID: a0012db9-d7f9-4552-83b2-4b4c6fa88820
+telemetry/centralclient: 2023/11/06 09:05:46.022307 instance_config.go:117: Info: Tenant ID: a0012db9-d7f9-4552-83b2-4b4c6fa88820
+telemetry/centralclient: 2023/11/06 09:05:46.022330 instance_config.go:118: Info: API path telemetry enabled for: []
+telemetry/centralclient: 2023/11/06 09:05:46.022363 instance_config.go:209: Info: Telemetry collection has been enabled.
+detection/lifecycle: 2023/11/06 09:05:46.106035 singleton.go:41: Info: Injecting 86 policies into detectors.
+```
+
+```go
+if useRemoteKey(version.IsReleaseVersion(), remoteCfg, key) {
+			key = remoteCfg.Key
+			log.Info("Telemetry configuration has been downloaded from ", cfgURL)
+		}
+```
+
+https://github.com/stackrox/stackrox/blob/d6ff2824cc6964d188c410042fbd6c463cc19e81/pkg/telemetry/phonehome/hash.go
