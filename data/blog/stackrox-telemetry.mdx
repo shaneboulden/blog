@@ -37,7 +37,7 @@ The docs state that "Telemetry does not collect identifying information such as 
 The docs also make a few statements about how telemetry is configured:
 - It's enabled by default
 - It can be disabled
-- It doesn't operate in clusers configured in offline mode (i.e. disconnected or air-gapped clusters)
+- It doesn't operate in clusters configured in offline mode (i.e. disconnected or air-gapped clusters)
 
 Let's start digging through the StackRox code and validating these claims!
 
@@ -78,12 +78,13 @@ func getInstanceConfig() (*phonehome.Config, map[string]any, error) {
 
 So where is the telemetry configured?
 ```
+...
 pkg/telemetry/phonehome: 2023/11/06 09:05:46.020499 key_management.go:40: Info: Telemetry configuration has been downloaded from hardcoded
 telemetry/centralclient: 2023/11/06 09:05:46.022252 instance_config.go:116: Info: Central ID: a0012db9-d7f9-4552-83b2-4b4c6fa88820
 telemetry/centralclient: 2023/11/06 09:05:46.022307 instance_config.go:117: Info: Tenant ID: a0012db9-d7f9-4552-83b2-4b4c6fa88820
 telemetry/centralclient: 2023/11/06 09:05:46.022330 instance_config.go:118: Info: API path telemetry enabled for: []
 telemetry/centralclient: 2023/11/06 09:05:46.022363 instance_config.go:209: Info: Telemetry collection has been enabled.
-detection/lifecycle: 2023/11/06 09:05:46.106035 singleton.go:41: Info: Injecting 86 policies into detectors.
+...
 ```
 
 ```go
