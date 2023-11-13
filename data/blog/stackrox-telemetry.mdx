@@ -13,23 +13,21 @@ I think this is even more important for software that provides security capabili
 
 How can you test claims and assertions about data protection, if you can't see the code?
 
-[Red Hat Advanced Cluster Security for Kubernetes]() is a Kubernetes-native security platform created from the StackRox open source project. By default RHACS collects telemetry about how users operate and manage the platform, and this is used to improve the service.
+[Red Hat Advanced Cluster Security for Kubernetes](https://www.redhat.com/en/technologies/cloud-computing/openshift/advanced-cluster-security-kubernetes) is a Kubernetes-native security platform created from the StackRox open source project. By default RHACS collects telemetry about how users operate and manage the platform, and this is used to improve the service.
 
 I'm not going to provide too much information on what RHACS does, or how it does it. If you want to learn more about RHACS and StackRox you can see some of the other blogs and videos I've creatd previously:
 
 - 
 -
 
+## Exploring StackRox telemetry configuration
+
 The RHACS docs outline [what data is collected by telemetry](https://docs.openshift.com/acs/4.2/telemetry/about-telemetry.html#information-collected-by-telemetry_about-telemetry):
 
 - API, roxctl CLI, and user interface (UI) features and settings to know how Red Hat Advanced Cluster Security for Kubernetes (RHACS) is used, which helps prioritize efforts.
-
 - The time spent on UI screens to help improve the user experience.
-
 - The integrations that are used.
-
 - The number of connected secured clusters and their configurations.
-
 - Errors encountered to identify the most common problems.
 
 The docs state that "Telemetry does not collect identifying information such as user names, passwords, or the names or addresses of user resources."
@@ -39,28 +37,16 @@ The docs also make a few statements about how telemetry is configured:
 - It can be disabled
 - It doesn't operate in clusters configured in offline mode (i.e. disconnected or air-gapped clusters)
 
-Let's start digging through the StackRox code and validating these claims!
+Let's start digging through the [StackRox code](https://github.com/stackrox/stackrox) and validating this data!
 
-There's a few claims about telemetry that we will validate through the open source code, and 
+## Exploring where telemetry data is sent
 
-## Exploring the StackRox code
-The StackRox code-base is hosted at github.com/stackrox, and there are various repositories which are used to support the platform:
--
--
--
 
-The one that we want to look at to explore telemetry is the [github.com/stackrox/stackrox](https://github.com/stackrox/stackrox) repository, and specifically the `pkg/telemetry` directory.
+## Verifying and validating telemetry configuration
 
-## Verifying and validating how telemetry can be disabled
+The Red Hat Advanced Cluster Security for Kubernetes (RHACS) docs state that [telemetry is enabled by default](https://docs.openshift.com/acs/4.2/telemetry/about-telemetry.html#information-collected-by-telemetry_about-telemetry), except when the cluster is configured in `offline mode` to support air-gapped or disconnected environments.. We can verify this in the telemetry config for the [StackRox Central client](https://github.com/stackrox/stackrox/blob/master/central/telemetry/centralclient/instance_config.go):
 
-The Red Hat Advanced Cluster Security for Kubernetes (RHACS) docs state that [telemetry is enabled by default](https://docs.openshift.com/acs/4.2/telemetry/about-telemetry.html#information-collected-by-telemetry_about-telemetry). The docs also state that telemetry can be disabled in a few ways:
-
-- Through the UI
-- When the cluster is configured in `offline` mode
-
-https://github.com/stackrox/stackrox/blob/4f05c32cc3e3889d7c22698e79d19fdc83d816f2/central/telemetry/centralclient/instance_config.go#L41
-
-```go
+```go 
 func getInstanceConfig() (*phonehome.Config, map[string]any, error) {
 	if env.OfflineModeEnv.BooleanSetting() {
 		return nil, nil, nil
@@ -70,11 +56,110 @@ func getInstanceConfig() (*phonehome.Config, map[string]any, error) {
 	if key == "" || err != nil {
 		return nil, nil, err
 	}
+	...
+	return &phonehome.Config{
+			ClientID:     centralID,
+			ClientName:   "Central",
+			GroupType:    "Tenant",
+			GroupID:      tenantID,
+			StorageKey:   key,
+			Endpoint:     env.TelemetryEndpoint.Setting(),
+			PushInterval: env.TelemetryFrequency.DurationSetting(),
+		}, map[string]any{
+			"Image Flavor":       defaults.GetImageFlavorNameFromEnv(),
+			"Central version":    version.GetMainVersion(),
+			"Chart version":      version.GetChartVersion(),
+			"Orchestrator":       orchestrator,
+			"Kubernetes version": v.GitVersion,
+			"Managed":            env.ManagedCentral.BooleanSetting(),
+		}, nil
+}
 ```
+This method shows that:
+ - If the StackRox 'offline mode' configuration is set, return `nil` parameters for the instance config.
+ - Otherwise, configure the telemetry configuration from the storage key setting (we'll cover this a little later)
+ - If there was an error in setting up the telemetry configuration, return the error
+
+Great! This looks like it confirms the docs. Telemetry is enabled by default, and is disabled when StackRox is configured in `offline mode`. StackRox also uses this instance configuration to check whether telemetry is enabled:
+```go [pkg/telemetry/phonehome/client_config.go]
+// Enabled tells whether telemetry data collection is enabled.
+func (cfg *Config) Enabled() bool {
+	return cfg != nil && cfg.StorageKey != ""
+}
+```
+StackRox exposes a toggle to disable telemetry collection. We can see that this is simply a React page:
+```javascript
+const PublicConfigTelemetryDetails = ({
+    publicConfig,
+}: PublicConfigTelemetryDetailsProps): ReactElement => {
+    // telemetry will be enabled by default which is why we only check for false here. null/undefined/true will all equate to enabled.
+    const isEnabled = publicConfig?.telemetry?.enabled !== false;
+
+    return (
+        <Card isFlat data-testid="telemetry-config">
+            <CardHeader>
+                <CardHeaderMain>
+                    <CardTitle component="h3">Online Telemetry Data Collection</CardTitle>
+                </CardHeaderMain>
+                <CardActions data-testid="telemetry-state">
+                    {isEnabled ? <Label color="green">Enabled</Label> : <Label>Disabled</Label>}
+                </CardActions>
+            </CardHeader>
+            <Divider component="div" />
+            <CardBody>
+                <p className="pf-u-mb-sm">
+                    Online telemetry data collection allows Red Hat to use anonymized information to
+                    enhance your user experience. Consult the documentation to see what is
+                    collected, and for information about how to opt out.
+                </p>
+            </CardBody>
+        </Card>
+    );
+};
+```
+This React component also confirms that Telemetry needs to be explicitly disabled - or the system set to offline mode - as it is enabled by default.
+
+The Red Hat Advanced Cluster Security for Kubernetes (RHACS) docs also state that the platform collects information on interactions with the UI. We can see in the [ui/apps/platform/src/global/initializeAnalytics.js](https://github.com/stackrox/stackrox/blob/3940bc413eb65f52b793d7e51937be32db36bc39/ui/apps/platform/src/global/initializeAnalytics.js#L51) file that this is supported by the [Segment.com](https://segment.com) JavaScript analytics library.
+```
+analytics.load = function (key, e) {
+	const t = document.createElement('script');
+	...
+	t.src = `https://cdn.segment.com/analytics.js/v1/${key}/analytics.min.js`;
+	...
+};
+```
+Using this library is disabled when telemetry configuration is explicitly disabled, as shown in [useAnalytics.js](https://github.com/stackrox/stackrox/blob/3940bc413eb65f52b793d7e51937be32db36bc39/ui/apps/platform/src/hooks/useAnalytics.ts#L3)
+```
+const useAnalytics = () => {
+    const telemetry = useSelector(selectors.publicConfigTelemetrySelector);
+    const { enabled: isTelemetryEnabled } = telemetry || ({} as Telemetry);
+
+    const analyticsPageVisit = useCallback(
+        (type: string, name: string, additionalProperties = {}): void => {
+            if (isTelemetryEnabled !== false) {
+                window.analytics?.page(type, name, additionalProperties);
+            }
+        },
+        [isTelemetryEnabled]
+    );
+
+    const analyticsTrack = useCallback(
+        (event: string, additionalProperties = {}): void => {
+            if (isTelemetryEnabled !== false) {
+                window.analytics?.track(event, additionalProperties);
+            }
+        },
+        [isTelemetryEnabled]
+    );
+
+    return { analyticsPageVisit, analyticsTrack };
+};
+```
+This function is using the React [useCallback]https://react.dev/reference/react/useCallback) hook to setup Segment analytics for the UI, and is passing in the `isTelemetryEnabled` flag as a dependency. 
 
 ## Verifying and validating data anonymisation
 
-## Verifying where telemetry data is sent
+## Verifying and validating collected data
 
 So where is the telemetry configured?
 ```
