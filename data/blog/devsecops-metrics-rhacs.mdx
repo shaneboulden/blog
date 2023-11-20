@@ -68,7 +68,7 @@ Fortunately we can detect Log4Shell in CI pipelines, deployment-time admission c
     ![violations 1](/static/images/build-time/violations1.png)
 </Zoom>
 
-A little-known capability of RHACS is that it also supports *build-time* notifications. This means that when a `roxctl image check` is performed during a CI build pipelines, we can get notifications about any policy failures.
+A little-known capability of RHACS is that it also supports *build-time* notifications. This means that when a `roxctl image check` is performed during a CI build pipelines, we can get notifications about any policy failures. Build-time notifications are sent when the `--send-notifications` flag is used together with `roxctl image check` to scan a container image.
 
 So now via RHACS, I have metrics available for:
 - build-time, via `roxctl image check --send-notifications`.
@@ -383,3 +383,4 @@ Here I can see that the message didn't explicitly show me a "DEPLOY" lifecycle s
 Fantastic - now I have the foundations of a system to generate metrics on critical CVE detection frequencies, and generate metrics I can use to provide meaningful feedback to security, development and operations teams.
 
 ## Wrapping up
+In this article I explored Red Hat Advanced Cluster Security for Kubernetes (RHACS)
