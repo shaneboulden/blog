@@ -1,9 +1,9 @@
 ---
 title: DevSecOps metrics and RHACS 
-date: '2023-11-20'
+date: '2023-11-21'
 tags: ['rhacs','stackrox', 'cicd', 'build', 'kubernetes', 'security']
-draft: true
-summary: "Core to any DevSecOps program is measurement and metrics. How many critical CVEs are being caught in development, compared with production? How early are we identifying critical CVEs? In this article I'll look at Red Hat Advanced Cluster Security for Kubernetes (RHACS) build-time notifications, and how we can start to use these to support DevSecOps metrics."
+draft: false
+summary: "Core to any DevSecOps program is measurement and metrics. How many critical CVEs are being caught in development, compared with production? How many critical CVEs were detected in builds this week? In this article I'll look at Red Hat Advanced Cluster Security for Kubernetes (RHACS) build-time notifications, and how we can start to use these to support DevSecOps metrics."
 ---
 Measurement and metrics are core to DevSecOps programs. DevSecOps thrives on continous improvement, and adapting processes and workflows to new circumstances. Metrics provide feedback that helps improve development and operations, and helps teams to better collaborate and understand where bottlenecks are occurring and resolve them. Metrics also help us to understand how teams are adapting to new processes and workflows, and how users are interacting with software.
 
@@ -23,7 +23,7 @@ In 2021 DORA also introduced a new fifth metric - [reliability](https://cloud.go
 
 These metrics don't directly answer risk and security questions, though it is implicit. If we patch a critical CVE this is captured in the deployment frequency and lead time for changes, and maybe also the time to restore the service. I'd like to propose another metric though that more explicitly looks at risk - **Critical CVE detection frequency**. This is the number of critical  important CVEs detected throughout the application lifecycle. 
 
-I've chosen "critical CVEs" because they've shown to be exploited in the wild at higher rates. The [Red Hat Product Security risk report for 2022](https://www.redhat.com/en/resources/product-security-risk-report-2022) showed that 10% of critical-rated security issues were exploited in the wild, compared with 0.4% for overall security issues.
+I've chosen "critical CVEs" because they've shown to be exploited in the wild at higher rates. The [Red Hat Product Security risk report for 2022](https://www.redhat.com/en/resources/product-security-risk-report-2022) showed that 10% of critical-rated security issues were exploited in the wild, compared with 0.4% for overall security issues. Additionally, analysis by the Australian Signals Directorate (ASD) of [cybercrime reporting over 2022-2023](https://www.cyber.gov.au/about-us/reports-and-statistics/asd-cyber-threat-report-july-2022-june-2023) also identified that Log4Shell (CVE-2021-44228) and ProxyLogin (CVE-2021-26855) were by far the most commonly exploited vulnerabilities, both of which are assessed as critical.
 
 We could use this metric in a number of ways.
 
@@ -32,17 +32,15 @@ We could use this metric in a number of ways.
 - **Critical CVE detection frequency at deployment** Critical CVE detection rates at the point code runs on the platform (after CI)
 - **Critical CVE detection frequency at runtime** Critical CVEs detected once code has been deployed. This is the last stage in the application lifeycle we can detect critical CVEs, and any detections at this point represent significant risks to the organisation.
 
-Comparing critical CVE detection rates at different stages in the application lifecycle provides us insights into DevSecOps adoption and collaboration. Higher CVE detection rates earlier in the application lifecycle indicates a 
+Comparing critical CVE detection rates at different stages in the application lifecycle provides us insights into DevSecOps adoption and collaboration. Higher critical CVE detection rates later in the application lifecycle (deployment / runtime) indicates that pipeline-based scanning of CVEs isn't being implemented, or is available but isn't being adopted. Higher critical CVE detection rates earlier in the lifecycle (build / development) indicates that these tools are available and being adopted.
 
-Let's look at a practical application of this metric. Back in late 2021 [Log4Shell](https://www.cyber.gov.au/about-us/advisories/2021-007-log4j-vulnerability-advice-and-mitigations) was disclosed - a flaw in the Java log4j library that was nearly ubiquitous across Java applications, and trivial to exploit.
-
-Let's assume we can build Log4Shell CVE scanning into CI pipelines, deployment-time admission control and at runtime. If we focus initially on build-time critical CVE detection rates, we'd hope to see a trend similar to this.
+Let's look at a practical application of this metric. Back in late 2021 [Log4Shell](https://www.cyber.gov.au/about-us/advisories/2021-007-log4j-vulnerability-advice-and-mitigations) was disclosed - a flaw in the Java log4j library that was nearly ubiquitous across Java applications, and trivial to exploit. Let's assume we can build Log4Shell CVE scanning into CI pipelines, deployment-time admission control and at runtime. If we focus initially on build-time critical CVE detection rates, we'd hope to see a trend similar to this:
 
 <Zoom>
     ![trend-line 1](/static/images/build-time/trend1.png)
 </Zoom>
 
-In this example we saw a ramp-up in build-time CVE scan detections which quickly fell off, and eventually trended towards 'zero'. This is great - a trend-line like this would indicate that teams are using CVE scanning tools available throughout CI pipelines, and acting on critical CVE detections.
+In this example we can see a ramp-up in build-time CVE scan detections which quickly fell off, and eventually trended towards 'zero'. This is great - a trend-line like this would indicate that teams are using CVE scanning tools available throughout CI pipelines, and acting on critical CVE detections.
 
 What if we see a trend-line like this?
 
@@ -146,7 +144,7 @@ There's a few important things to notice about this policy. Firstly, it applies 
 ```
 This means that `roxctl image check` will flag this policy in the output of vulnerable container images. It also means that the RHACS admission controller will flag vulnerable workloads at deployment.
 
-This is also has enforcement actions set for both the 'BUILD' and 'DEPLOY' lifecycle stages. This is shown here:
+This policy also has enforcement actions set for both the 'BUILD' and 'DEPLOY' lifecycle stages. This is shown here:
 ```json
     "enforcementActions": [
         "FAIL_BUILD_ENFORCEMENT",
@@ -380,7 +378,9 @@ Here I can see that the message didn't explicitly show me a "DEPLOY" lifecycle s
 - A notification was generated
 - The notification was not a 'BUILD' stage notification
 
-Fantastic - now I have the foundations of a system to generate metrics on critical CVE detection frequencies, and generate metrics I can use to provide meaningful feedback to security, development and operations teams.
+Fantastic - now I have the foundations of a system to generate metrics on 'critical CVE detection rate' frequencies, and generate metrics I can use to provide meaningful feedback to security, development and operations teams.
 
 ## Wrapping up
-In this article I explored Red Hat Advanced Cluster Security for Kubernetes (RHACS)
+In this article I introduced 'critical CVE detection rates' as a metric for DevSecOps adoption and feedback. I also explored Red Hat Advanced Cluster Security for Kubernetes (RHACS) build- and deployment-time notifications and using this as a foundation to generate data for this metric. If you have a data analysis platform available, you can get started using these notifications.
+
+The workflow I showed here though generates a lot of data that we don't use. I'm not going to use individal CVE detections during a CI build in an investigation, and this data will simply be discarded. In a future article I'll look at a workflow to inject these metrics instead into a time-series databasem, and provide analysis using open source tools, rather than keeping this superfluous data.
