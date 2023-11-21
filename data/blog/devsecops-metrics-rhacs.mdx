@@ -22,9 +22,9 @@ In 2021 DORA also introduced a new fifth metric - [reliability](https://cloud.go
 - Use of automation to reduce manual work and alert fatigue
 - Defined playbooks to respond to issues
 
-These metrics don't directly answer risk and security questions, though it is implicit. If we patch a critical CVE this is captured in the deployment frequency and lead time for changes, and maybe also the time to restore the service. I'd like to propose another metric though that more explicitly looks at risk - **Critical CVE detection frequency**. This is the number of critical CVEs detected throughout the application lifecycle. 
+These metrics don't directly answer risk and security questions, though it is implicit. If we patch a critical CVE this is captured in the deployment frequency and lead time for changes, and maybe also the time to restore the service. I'd like to propose another metric though that more explicitly looks at risk - the **critical CVE detection frequency**. This is the number of critical CVEs detected throughout the application lifecycle. 
 
-I've chosen "critical CVEs" because they've shown to be exploited in the wild at higher rates. The [Red Hat Product Security risk report for 2022](https://www.redhat.com/en/resources/product-security-risk-report-2022) showed that 10% of critical-rated security issues were exploited in the wild, compared with 0.4% for overall security issues. Additionally, analysis by the Australian Signals Directorate (ASD) of [cybercrime reporting over 2022-2023](https://www.cyber.gov.au/about-us/reports-and-statistics/asd-cyber-threat-report-july-2022-june-2023) also identified that Log4Shell (CVE-2021-44228) and ProxyLogin (CVE-2021-26855) were by far the most commonly exploited vulnerabilities, both of which are assessed as critical.
+I've chosen **critical** CVEs because they've shown to be exploited in the wild at higher rates. The [Red Hat Product Security risk report for 2022](https://www.redhat.com/en/resources/product-security-risk-report-2022) showed that 10% of critical-rated security issues were exploited in the wild, compared with 0.4% for overall security issues. Additionally, analysis by the Australian Signals Directorate (ASD) of [cybercrime reporting over 2022-2023](https://www.cyber.gov.au/about-us/reports-and-statistics/asd-cyber-threat-report-july-2022-june-2023) also identified that Log4Shell (CVE-2021-44228) and ProxyLogin (CVE-2021-26855) were by far the most commonly exploited vulnerabilities, both of which are assessed as critical.
 
 We could use this metric in a number of ways.
 
@@ -191,7 +191,7 @@ This is then reflected in the policy JSON representation:
 ```
 
 ### Generating metrics
-Now that I have a webhook integration created and notifications attached, I can start to look at generating the data I need to measure and report on **critical CVE detection frequencies**. If I run a `roxctl image check` and pass the `--send-notifications` flag, it will generate a build-time notification for any detections:
+Now that I have a webhook integration created and notifications attached, I can start to look at generating the data I need to measure and report on the critical CVE detection frequency. If I run a `roxctl image check` and pass the `--send-notifications` flag, it will generate a build-time notification for any detections:
 ```bash
 $ roxctl -e "rhacs:443" --insecure-skip-tls-verify image check --send-notifications --image quay.io/smileyfritz/log4shell-app:v0.5
 ```
@@ -382,6 +382,6 @@ Here I can see that the message didn't explicitly show me a "DEPLOY" lifecycle s
 Fantastic - now I have the foundations of a system to generate metrics on 'critical CVE detection rate' frequencies, and generate metrics I can use to provide meaningful feedback to security, development and operations teams.
 
 ## Wrapping up
-In this article I introduced 'critical CVE detection rates' as a metric for DevSecOps adoption and feedback. I also explored Red Hat Advanced Cluster Security for Kubernetes (RHACS) build- and deployment-time notifications and using this as a foundation to generate data for this metric. If you have a data analysis platform available, you can get started using these notifications.
+In this article I introduced the **critical CVE detection frequency** as a metric for DevSecOps adoption and feedback, that supports the DevOps Research and Assessment (DORA) metrics. I also explored Red Hat Advanced Cluster Security for Kubernetes (RHACS) build- and deployment-time notifications and using this as a foundation to generate data for this metric. If you have a data analysis platform available, you can get started using these notifications.
 
-The workflow I showed here though generates a lot of data that we don't use. I'm not going to use individal CVE detections during a CI build in an investigation, and this data will simply be discarded. In a future article I'll look at a workflow to inject these metrics instead into a time-series databasem, and provide analysis using open source tools, rather than keeping this superfluous data.
+The workflow I showed here generates a lot of data that we don't use - I'm not going to use individal CVE detections during a CI build in an investigation, and this data will simply be discarded. In a future article I'll look at a workflow to inject these metrics instead into a time-series database, and provide analysis using open source tools, rather than keeping this superfluous data.
