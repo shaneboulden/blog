@@ -12,9 +12,9 @@
       
   <item>
     <guid>https://stb.id.au/blog/devsecops-metrics-rhacs</guid>
-    <title>DevSecOps metrics and RHACS</title>
+    <title>A new metric for DevSecOps adoption</title>
     <link>https://stb.id.au/blog/devsecops-metrics-rhacs</link>
-    <description>Core to any DevSecOps program is measurement and metrics. How many critical CVEs are being caught in development, compared with production? How many critical CVEs were detected in builds this week? In this article I&#39;ll look at Red Hat Advanced Cluster Security for Kubernetes (RHACS) build-time notifications, and how we can start to use these to support DevSecOps metrics.</description>
+    <description>Core to any DevSecOps program is measurement and metrics. How many releases did we perform this week? How did that compare with last week? What was the lead time for changes? In this article I want to introduce a new metric for DevSecOps adoption, and how we can start to measure this throughout the cloud-native application lifecycle.</description>
     <pubDate>Tue, 21 Nov 2023 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>rhacs</category><category>stackrox</category><category>cicd</category><category>build</category><category>kubernetes</category><category>security</category>
