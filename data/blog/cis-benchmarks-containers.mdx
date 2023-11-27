@@ -1,0 +1,343 @@
+---
+title: Exploring the CIS benchmarks and containers 
+date: '2023-11-28'
+tags: ['cis', 'benchmarks', 'containers','scap','security','kubernetes']
+draft: false
+summary: "The Center for Internet Security (CIS) Benchmarks provide a system hardening profile for servers and applications. What parts of the benchmark apply to containers? And how do we use them?"
+---
+The [Center for Internet Security (CIS) Benchmarks](https://www.cisecurity.org/cis-benchmarks) provide prescriptive configuration recommendations. They're commonly used to provide consistent hardening to a server fleet or a set of applications, and are distributed free of charge in PDF format for non-commercial use.
+
+These controls provide a consistent, validated baseline for system hardening for servers. For example, the CIS Benchmark for Red Hat Enterprise Linux (RHEL) specifies a number of controls that need to be implemented for a system to be compliant, for example:
+- Installing the `sudo` package
+- Configuring password policies
+- Configuring SSH options
+
+Containers differ from servers though. I don't need `sudo` in a container - in fact, it's better *not* to have it - but it's one of the required checks in the CIS benchmark. I also shouldn't have SSH exposed inside a container, presenting another attack surface. So how are the CIS Benchmarks relevant for containers, if at all?
+
+## CIS Benchmarks for Red Hat Enterprise Linux (RHEL)
+Red Hat has provided the CIS Benchmark for Red Hat Enterprise Linux (RHEL) with the `scap-security-guide` RPM since RHEL 8.3. This provides a number of capabilities for organisations to adopt the CIS Benchmark for RHEL:
+- An SCAP [Extensible Configuration Checklist Description Format (XCCDF)](https://csrc.nist.gov/projects/security-content-automation-protocol/specifications/xccdf), that can be used to scan systems for compliance with the benchmark
+- An Ansible playbook that can be used to remediate systems that have drifted
+- Integration with the RHEL Anaconda installer, allowing you to provision a system with the CIS Benchmark for RHEL already implemented.
+
+### Using OpenSCAP tools to scan a system
+Let's use the [OpenSCAP](https://www.open-scap.org/) tooling available with Red Hat Enterprise Linux (RHEL) to scan a system using the CIS benchmark. Firstly, you'll need to install the `scap-security-guide` and `openscap-scanner` RPMs:
+```
+$ sudo yum install scap-security-guide openscap-scanner
+```
+The `scap-security-guide` RPM provides Ansible playbooks, SCAP profiles (in XML format), and kickstart snippets, which can be used to remediate, scan and provision systems hardened against the CIS Benchmarks. Here's a listing of the Ansible playbooks and Kickstart snippets for the CIS Benchmarks, as well as the SCAP datastream file containing the XCCDF profiles.
+```
+$ rpm -ql scap-security-guide
+...
+/usr/share/scap-security-guide/ansible/rhel9-playbook-cis.yml
+/usr/share/scap-security-guide/ansible/rhel9-playbook-cis_server_l1.yml
+/usr/share/scap-security-guide/ansible/rhel9-playbook-cis_workstation_l1.yml
+/usr/share/scap-security-guide/ansible/rhel9-playbook-cis_workstation_l2.yml
+...
+/usr/share/scap-security-guide/kickstart/ssg-rhel9-cis-ks.cfg
+/usr/share/scap-security-guide/kickstart/ssg-rhel9-cis_server_l1-ks.cfg
+/usr/share/scap-security-guide/kickstart/ssg-rhel9-cis_workstation_l1-ks.cfg
+/usr/share/scap-security-guide/kickstart/ssg-rhel9-cis_workstation_l2-ks.cfg
+...
+/usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
+...
+```
+You can see the CIS Benchmark profiles available by using the `oscap` tool to inspect the `ssg-rhel9-ds.xml` SCAP datastream file:
+```
+# oscap info /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
+Document type: Source Data Stream
+Imported: 2023-08-17T23:50:04
+
+Stream: scap_org.open-scap_datastream_from_xccdf_ssg-rhel9-xccdf.xml
+Generated: (null)
+Version: 1.3
+Checklists:
+        Ref-Id: scap_org.open-scap_cref_ssg-rhel9-xccdf.xml
+WARNING: Datastream component 'scap_org.open-scap_cref_security-data-oval-v2-RHEL9-rhel-9.oval.xml.bz2' points out to the remote 'https://access.redhat.com/security/data/oval/v2/RHEL9/rhel-9.oval.xml.bz2'. Use '--fetch-remote-resources' option to download it.
+WARNING: Skipping 'https://access.redhat.com/security/data/oval/v2/RHEL9/rhel-9.oval.xml.bz2' file which is referenced from datastream
+                Status: draft
+                Generated: 2023-08-17
+                Resolved: true
+                Profiles:
+                        ...
+                        Title: CIS Red Hat Enterprise Linux 9 Benchmark for Level 2 - Server
+                                Id: xccdf_org.ssgproject.content_profile_cis
+                        Title: CIS Red Hat Enterprise Linux 9 Benchmark for Level 1 - Server
+                                Id: xccdf_org.ssgproject.content_profile_cis_server_l1
+                        Title: CIS Red Hat Enterprise Linux 9 Benchmark for Level 1 - Workstation
+                                Id: xccdf_org.ssgproject.content_profile_cis_workstation_l1
+                        Title: CIS Red Hat Enterprise Linux 9 Benchmark for Level 2 - Workstation
+                                Id: xccdf_org.ssgproject.content_profile_cis_workstation_l2
+                        ...
+```
+There's four CIS Benchmarks shipped with Red Hat Enterprise Linux (RHEL), and I'm going to perform a scan using the `CIS Red Hat Enterprise Linux 9 Benchmark for Level 2 - Server` profile. I can simply use the `oscap` CLI to kick this off:
+```
+# oscap xccdf eval --profile xccdf_org.ssgproject.content_profile_cis --results-arf /tmp/rhel-results.xml /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
+```
+You should start seeing the CIS Benchmark controls evaluated on the system:
+```
+...
+--- Starting Evaluation ---
+
+Title   Install AIDE
+Rule    xccdf_org.ssgproject.content_rule_package_aide_installed
+Ident   CCE-90843-4
+Result  fail
+
+Title   Build and Test AIDE Database
+Rule    xccdf_org.ssgproject.content_rule_aide_build_database
+Ident   CCE-83438-2
+Result  fail
+
+Title   Configure AIDE to Verify the Audit Tools
+Rule    xccdf_org.ssgproject.content_rule_aide_check_audit_tools
+Ident   CCE-87757-1
+Result  fail
+
+Title   Configure Periodic Execution of AIDE
+Rule    xccdf_org.ssgproject.content_rule_aide_periodic_cron_checking
+Ident   CCE-83437-4
+Result  fail
+
+Title   Configure System Cryptography Policy
+Rule    xccdf_org.ssgproject.content_rule_configure_crypto_policy
+Ident   CCE-83450-7
+Result  pass
+```
+Once the scan is complete, the results will be listed in [Asset Reporting Format (ARF)](https://csrc.nist.gov/projects/security-content-automation-protocol/specifications/arf):
+```xml
+# head /tmp/rhel-results.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<arf:asset-report-collection xmlns:arf="http://scap.nist.gov/schema/asset-reporting-format/1.1" xmlns:core="http://scap.nist.gov/schema/reporting-core/1.1" xmlns:ai="http://scap.nist.gov/schema/asset-identification/1.1">
+  <core:relationships xmlns:arfvocab="http://scap.nist.gov/specifications/arf/vocabulary/relationships/1.0#">
+    <core:relationship type="arfvocab:createdFor" subject="xccdf1">
+      <core:ref>collection1</core:ref>
+    </core:relationship>
+    <core:relationship type="arfvocab:isAbout" subject="xccdf1">
+      <core:ref>asset0</core:ref>
+    </core:relationship>
+  </core:relationships>
+```
+You can use the `oscap` CLI to generate a HTML report from the results, and I've added mine [here](/static/resources/rhel-results.html) for you to inspect.
+```
+oscap xccdf generate report arf-results.xml > results.html
+```
+<Zoom>
+![rhel4](/static/images/scap/rhel4.png)
+</Zoom>
+
+<Zoom>
+![rhel2](/static/images/scap/rhel1.png)
+</Zoom>
+
+<Zoom>
+![rhel3](/static/images/scap/rhel2.png)
+</Zoom>
+
+<Zoom>
+![rhel1](/static/images/scap/rhel3.png)
+</Zoom>
+
+## CIS Benchmarks and containers
+If the CIS Benchmark applies to RHEL, does it then also apply to RHEL-based containers? I would argue for a lot of the controls the answer is a resounding 'no'. Let's explore!
+
+I can use the `oscap-podman` tool to perform a CIS scan of a container image, similar to how we scanned a RHEL system. To scan a Red Hat Universal Base Image (UBI) with `oscap-podman`, I first need to pull it down:
+```
+$ sudo -i
+# podman pull registry.access.redhat.com/ubi9:latest
+```
+As this is a RHEL-based image, I'm going to use the CIS L2 benchmark for RHEL for this scan:
+```
+# oscap info /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
+Profiles:
+...
+                        Title: CIS Red Hat Enterprise Linux 9 Benchmark for Level 2 - Server
+                                Id: xccdf_org.ssgproject.content_profile_cis
+```
+
+I can then grab the image ID and perform a scan, using the same SCAP content we used to scan a RHEL system:
+```
+# podman images | grep ubi9
+registry.access.redhat.com/ubi9/ubi                                   latest                2a2c2b7af8db  4 months ago   217 MB
+
+# oscap-podman 2a2c2b7af8db xccdf eval --results-arf /tmp/results.xml --profile xccdf_org.ssgproject.content_profile_cis /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
+```
+When the scan completes, you should have an SCAP results file available in Asset Reporting Format (ARF), the same as the RHEL scan above:
+```xml
+# head /tmp/results.xml
+
+<?xml version="1.0" encoding="UTF-8"?>
+<arf:asset-report-collection xmlns:arf="http://scap.nist.gov/schema/asset-reporting-format/1.1" xmlns:core="http://scap.nist.gov/schema/reporting-core/1.1" xmlns:ai="http://scap.nist.gov/schema/asset-identification/1.1">
+  <core:relationships xmlns:arfvocab="http://scap.nist.gov/specifications/arf/vocabulary/relationships/1.0#">
+    <core:relationship type="arfvocab:createdFor" subject="xccdf1">
+      <core:ref>collection1</core:ref>
+    </core:relationship>
+    <core:relationship type="arfvocab:isAbout" subject="xccdf1">
+      <core:ref>asset0</core:ref>
+    </core:relationship>
+  </core:relationships>
+```
+You can then use the `oscap` tool to create a HTML report, also like I've done above:
+```
+# oscap xccdf generate report /tmp/results.xml > arf-report.html
+```
+Let's dig through the results.
+
+Firstly, you can see that a lot of the **System Settings** are reported as `notapplicable`. This is because these CIS Benchmark configuration checks are not relevant inside a container environment. Disk partitioning doesn't make sense inside a container environment, neither does installing the Advanced Intrusion Detection Environment (AIDE), and watching for changed files. The `Configure SSH to use System Crypto Policy` check is passing here - but we should remove `sshd` from the container and make sure it's **not** exposing SSH!
+
+<Zoom>
+![results1](/static/images/scap/results1.png)
+</Zoom>
+
+Digging further through the results, we can also see that the GNOME checks are all reported as `notapplicable`, as are the `sudo` rules. This container image doesn't have `sudo` installed:
+```
+$ podman run registry.access.redhat.com/ubi9:latest sudo
+Error: crun: executable file `sudo` not found in $PATH: No such file or directory: OCI runtime attempted to invoke a command that was not found
+```
+Which is great - because there's no reason I should really need to run `sudo` inside a container.
+
+<Zoom>
+![results2](/static/images/scap/results2.png)
+</Zoom>
+
+We can also see that all of the `auditd` checks are also listed as not applicable - because `auditd` doesn't run in the container, but on the OpenShift node.
+
+<Zoom>
+![results3](/static/images/scap/results3.png)
+</Zoom>
+
+... and the same for the GRUB2 and Syslog configuration:
+
+<Zoom>
+![results4](/static/images/scap/results4.png)
+</Zoom>
+
+SELinux checks are also listed as `notapplicable`. OpenShift enforces SELinux policy at the nodes, and SELinux has no place in the container.
+
+I would suggest that the only checks it really makes sense to implement from the CIS Benchmark would be the checks validating that certain packages are not installed. You can see some examples here: 
+
+<Zoom>
+![results5](/static/images/scap/results5.png)
+</Zoom>
+
+You could use `oscap-podman` to do this with a customised SCAP profile, like we've done here. Or, you could create a new policy in Red Hat Advanced Cluster Security for Kubernetes (RHACS) that checks this at deployment and build-time, and can be integrated with CI/CD pipelines via `roxctl`. For example, here's a policy that checks whether the `dnsmasq` package is present in a container image:
+
+<Zoom>
+![dnsmasq1](/static/images/scap/dnsmasq1.png)
+</Zoom>
+
+<Zoom>
+![dnsmasq2](/static/images/scap/dnsmasq2.png)
+</Zoom>
+
+<Zoom>
+![dnsmasq3](/static/images/scap/dnsmasq3.png)
+</Zoom>
+
+<Zoom>
+![dnsmasq4](/static/images/scap/dnsmasq4.png)
+</Zoom>
+
+Here's a JSON representation of this policy, which you can import directly into a Red Hat Advanced Cluster Security for Kubernetes (RHACS) instance:
+```json
+{
+    "policies": [
+        {
+            "id": "6cf986c6-6356-43a8-932d-afcb1f580acb",
+            "name": "dnsmasq package in image",
+            "description": "Alert on deployments with the dnsmasq package present",
+            "rationale": "Removing dnsmasq is one of the CIS Benchmark controls for Red Hat Enterprise Linux (RHEL)",
+            "remediation": "Run `sudo dnf erase dnsmasq` in the image build for production containers.",
+            "disabled": false,
+            "categories": [
+                "Security Best Practices"
+            ],
+            "lifecycleStages": [
+                "BUILD",
+                "DEPLOY"
+            ],
+            "eventSource": "NOT_APPLICABLE",
+            "exclusions": [
+                {
+                    "name": "",
+                    "deployment": {
+                        "name": "master-etcd-openshift-master-.*",
+                        "scope": {
+                            "cluster": "",
+                            "namespace": "kube-system",
+                            "label": null
+                        }
+                    },
+                    "image": null,
+                    "expiration": null
+                },
+                {
+                    "name": "",
+                    "deployment": {
+                        "name": "token-refresher",
+                        "scope": {
+                            "cluster": "",
+                            "namespace": "openshift-monitoring",
+                            "label": null
+                        }
+                    },
+                    "image": null,
+                    "expiration": null
+                },
+                {
+                    "name": "",
+                    "deployment": {
+                        "name": "csi-azuredisk-node-win",
+                        "scope": {
+                            "cluster": "",
+                            "namespace": "kube-system",
+                            "label": null
+                        }
+                    },
+                    "image": null,
+                    "expiration": null
+                }
+            ],
+            "scope": [],
+            "severity": "MEDIUM_SEVERITY",
+            "enforcementActions": [
+                "FAIL_BUILD_ENFORCEMENT",
+                "SCALE_TO_ZERO_ENFORCEMENT",
+                "UNSATISFIABLE_NODE_CONSTRAINT_ENFORCEMENT"
+            ],
+            "notifiers": [],
+            "lastUpdated": "2023-11-27T12:16:51.003715212Z",
+            "SORTName": "",
+            "SORTLifecycleStage": "",
+            "SORTEnforcement": false,
+            "policyVersion": "1.1",
+            "policySections": [
+                {
+                    "sectionName": "",
+                    "policyGroups": [
+                        {
+                            "fieldName": "Image Component",
+                            "booleanOperator": "OR",
+                            "negate": false,
+                            "values": [
+                                {
+                                    "value": "dnsmasq="
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "mitreAttackVectors": [],
+            "criteriaLocked": false,
+            "mitreVectorsLocked": false,
+            "isDefault": false
+        }
+    ]
+}
+```
+
+## Wrapping up
+In this article I've looked at the Center for Internet Security (CIS) Benchmarks. I looked at how to use the OpenSCAP tooling and SCAP datastreams provided with Red Hat Enterprise Linux (RHEL) to scan a system against a benchmark, and create reports. 
+
+I also looked at whether the benchmarks are applicable for container images. I think the answer is 'no' for a lot of controls, with the exception of those looking at package installation. I showed an example of a Red Hat Advanced Cluster Security for Kubernetes (RHACS) policy that can detect package installation during CI/CD pipeline builds or at deployment time.

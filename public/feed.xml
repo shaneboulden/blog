@@ -7,9 +7,19 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Tue, 21 Nov 2023 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Tue, 28 Nov 2023 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/cis-benchmarks-containers</guid>
+    <title>Exploring the CIS benchmarks and containers</title>
+    <link>https://stb.id.au/blog/cis-benchmarks-containers</link>
+    <description>The Center for Internet Security (CIS) Benchmarks provide a system hardening profile for servers and applications. What parts of the benchmark apply to containers? And how do we use them?</description>
+    <pubDate>Tue, 28 Nov 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>cis</category><category>benchmarks</category><category>containers</category><category>scap</category><category>security</category><category>kubernetes</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/devsecops-metrics-rhacs</guid>
     <title>A new metric for DevSecOps adoption</title>
