@@ -214,10 +214,14 @@ We can also see that all of the `auditd` checks are also listed as not applicabl
 
 SELinux checks are also listed as `notapplicable`. OpenShift enforces SELinux policy at the nodes, and SELinux has no place in the container.
 
+<Zoom>
+![results5](/static/images/scap/results5.png)
+</Zoom>
+
 I would suggest that the only checks it really makes sense to implement from the CIS Benchmark would be the checks validating that certain packages are not installed. You can see some examples here: 
 
 <Zoom>
-![results5](/static/images/scap/results5.png)
+![results6](/static/images/scap/results6.png)
 </Zoom>
 
 You could use `oscap-podman` to do this with a customised SCAP profile, like we've done here. Or, you could create a new policy in Red Hat Advanced Cluster Security for Kubernetes (RHACS) that checks this at deployment and build-time, and can be integrated with CI/CD pipelines via `roxctl`. For example, here's a policy that checks whether the `dnsmasq` package is present in a container image:
