@@ -43,8 +43,8 @@ $ rpm -ql scap-security-guide
 ...
 ```
 You can see the CIS Benchmark profiles available by using the `oscap` tool to inspect the `ssg-rhel9-ds.xml` SCAP datastream file:
-```
-# oscap info /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
+```yaml
+$ oscap info /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
 Document type: Source Data Stream
 Imported: 2023-08-17T23:50:04
 
@@ -147,8 +147,8 @@ $ sudo -i
 # podman pull registry.access.redhat.com/ubi9:latest
 ```
 As this is a RHEL-based image, I'm going to use the CIS L2 benchmark for RHEL for this scan:
-```
-# oscap info /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
+```yaml
+$ oscap info /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
 Profiles:
 ...
                         Title: CIS Red Hat Enterprise Linux 9 Benchmark for Level 2 - Server
