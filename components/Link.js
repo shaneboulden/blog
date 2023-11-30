@@ -7,7 +7,9 @@ const CustomLink = ({ href, ...rest }) => {
 
   if (isInternalLink) {
     return (
-      <Link href={href}>
+      <Link 
+        href={href}
+        className="text-primary-800 hover:text-primary-900 dark:!text-primary-600 dark:hover:!text-primary-500">
         <a {...rest} />
       </Link>
     )
@@ -17,7 +19,7 @@ const CustomLink = ({ href, ...rest }) => {
     return <a href={href} {...rest} />
   }
 
-  return <a target="_blank" rel="noopener noreferrer" href={href} {...rest} />
+  return <a target="_blank" rel="noopener noreferrer" className="text-primary-800 hover:text-primary-900 dark:!text-primary-600 dark:hover:!text-primary-500" href={href} {...rest} />
 }
 
 export default CustomLink
