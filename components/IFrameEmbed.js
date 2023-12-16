@@ -7,7 +7,7 @@ const IFrameEmbed = ({ src }) => (
       height="480"
       width="100%"
       src={ src }
-      style={{ border: '0px', overflow: 'hidden' }}
+      style={{ border: '0px', overflow: 'hidden', scrolling: 'no' }}
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
       allowFullScreen
       title="Embedded webpage"
