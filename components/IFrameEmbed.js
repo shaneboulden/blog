@@ -2,7 +2,9 @@ import React from "react";
 import PropTypes from "prop-types";
 
 const IFrameEmbed = ({ src }) => (
-  <div className="iframe-embedded">
+  <div className="iframe-embedded" 
+  style={{ border: '0px', padding: '0px', overflow: 'hidden', scrolling: 'no' }}
+  >
     <iframe
       height="480"
       width="100%"
