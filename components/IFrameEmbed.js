@@ -4,7 +4,6 @@ import PropTypes from "prop-types";
 const IFrameEmbed = ({ src }) => (
   <div className="iframe-embedded">
     <iframe
-      width="853"
       height="480"
       src={ src }
       style={{ border: '0px', overflow: 'hidden' }}
