@@ -1,16 +1,16 @@
 ---
 title: Building a screensaver for your video calls with open source
-date: '2023-12-20'
+date: '2023-12-17'
 tags: ['collaboration','video','screensaver','msteams','gmeet','zoom','obs']
 draft: false
 images: ['/static/images/linkedin-banners/video-screensaver.png']
 summary: "This article looks at how you can build a screensaver for your video calls. It works across all video calling platforms and the best part is - it's all open source!"
 ---
-I like to leave my video on when in a work video call. Frequently though, I may need to stop the video temporarily - maybe there's a cat who has wandered into the frame, or a small child come to tell me that the cat has wandered into the office. How do you disable the video, yet still let people know that it's only temporary?
+I like to leave my video on when in a work video call. Frequently though, I may need to stop the video temporarily - maybe there's a cat who has wandered into the office, or a small child come to tell me that the cat has wandered into the office. How do you disable the video, yet still let people know that it's only temporary?
 
-My answer - the video call screensaver!
+My answer - the video call screensaver! Take a look at it in-action here.
 
-## TODO - add youtube embed
+<YoutubeEmbed embedId="Bm1XhzFuLkA" />
 
 I'm going to use [OBS Studio](https://obsproject.com/) to pull together this effect. OBS Studio, or just OBS, is an open source streaming and recording platform. I use it to record videos, and use it in all my video calls. OBS will allow us to swap between different "scenes" and show the screensaver on-demand.
 
@@ -19,7 +19,7 @@ Let's get started!
 ## OBS installation and initial configuration
 Firstly you'll need to install OBS. You can find a link to the downloads page here: [https://obsproject.com/download](https://obsproject.com/download)
 
-I'm on Fedora, so I first need to enable RPMFusion. You can do this using DNF:
+I'm on Fedora, so I first need to enable RPMFusion. You can do this using `dnf`:
 ```
 sudo dnf install -y \
   https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
@@ -51,7 +51,7 @@ Select the device that you'd like to use and change the resolution to the highes
 ## Creating a bouncing logo website
 To create the scenesaver effect we're going to create a website showing a bouncing logo, and then create this as a source within OBS.
 
-Firstly fork the repo hosted at https://github.com/shaneboulden/bouncing_logo, and clone your fork:
+Fork the repo hosted at [https://github.com/shaneboulden/bouncing_logo](https://github.com/shaneboulden/bouncing_logo) and clone your fork:
 ```
 git clone git@github.com:username/bouncing_logo.git
 ```
@@ -148,4 +148,6 @@ You can now enter a video call and set the video source for the OBS Virtual Came
   ![call2](/static/images/obs/call2.png)
 </Zoom>
 
-Now you can switch the scene between the screensaver and your camera. I usually leave OBS open on a separate screen, and you can see a quick video here switching between my video and the screensaver.
+Now you can switch the scene between the screensaver and your camera. I usually leave OBS open on a separate screen, and switch between the different scenes during a call (Google Meet, Teams, etc).
+
+I hope that you found this tutorial on building a screensaver for your video calls useful. Let me know in the comments how you go building your own, or any other tips you have for using OBS.
