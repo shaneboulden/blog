@@ -7,6 +7,7 @@ import TOCInline from './TOCInline'
 import Pre from './Pre'
 import Quote from './Quote'
 import YoutubeEmbed from './YoutubeEmbed'
+import IFrameEmbed from './IFrameEmbed'
 
 import Zoom from 'react-medium-image-zoom'
 import 'react-medium-image-zoom/dist/styles.css'
@@ -18,6 +19,7 @@ export const MDXComponents = {
   pre: Pre,
   Quote,
   YoutubeEmbed,
+  IFrameEmbed,
   Zoom,
   wrapper: ({ components, layout, ...rest }) => {
     const Layout = require(`../layouts/${layout}`).default
