@@ -7,7 +7,7 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Wed, 20 Dec 2023 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Sun, 17 Dec 2023 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
   <item>
@@ -15,7 +15,7 @@
     <title>Building a screensaver for your video calls with open source</title>
     <link>https://stb.id.au/blog/screensaver-video-calls</link>
     <description>This article looks at how you can build a screensaver for your video calls. It works across all video calling platforms and the best part is - it&#39;s all open source!</description>
-    <pubDate>Wed, 20 Dec 2023 00:00:00 GMT</pubDate>
+    <pubDate>Sun, 17 Dec 2023 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>collaboration</category><category>video</category><category>screensaver</category><category>msteams</category><category>gmeet</category><category>zoom</category><category>obs</category>
   </item>
