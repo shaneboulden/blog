@@ -25,6 +25,20 @@ I've previously covered how you could [automate this test](/blog/automating-e8-a
 
 The question from this team was - "how do we perform this same assessment for OpenShift and Kubernetes?" They wanted to know how they could [functionally verify](/blog/functional-verification-ansible) OpenShift and Kubernetes security controls; and `kacti` was born.
 
+## How Kacti works
+Kacti [functionally verifies](/blog/functional-verification-ansible) Kubernetes security controls. It does this by attempting to deploy known-bad container images or misconfigured deployments to OpenShift and Kubernetes clusters. If the image successfully deploys, `kacti` marks this as a **failure** - an admission controller should have blocked this.
+
+I've spent a lot of time working with the [StackRox](https://stackrox.io) open source project, and I wanted to integrate this closely with `kacti`. At the moment the only admission controller explicitly supported by `kacti` is the StackRox admission controller and its approach to enforcement. 
+
+This means that if the known-bad container image is blocked, or the replicas are scaled to 'zero' in the deployment spec, `kacti` marks this as a **success**.
+
+## Kacti trials
+When a ship is newly constructed or comes out of a significant refit period it will go through "sea trials", or a "shakedown". This is a series of trials to test the vessel's seaworthiness - testing its speed, maneuverability, safety equipment, etc. It's conducted prior to commissioning and acceptance.
+
+In a similar way, kacti uses `trials` to validate Kubernetes and OpenShift admission control. How does the admission controller perform - does it block workloads containing critical CVEs, or trying to expose SSH? Does it permit valid workloads to be accepted by the cluster?
+
+Each trial represents a distinct test, validating whether the container image / configuration is blocked, or accepted by the Kubernetes cluster. Trials consist of a Kubernetes API under test (currently only Deployments are supported), a name and description, a namespace, and an image.
+
 ## Kacti goals
 ### Easy to use
 It's critical that `kacti` is easy to use. Speaking with the security team I knew that they didn't have time to manage dependencies, and manage the entire lifecycle around this tool. It needed to be drop-in, simple to use, and easy to get started. 
@@ -40,20 +54,6 @@ If I want to just dump a container image into a platform I can do a `kubectl run
 I've followed [Sigstore](https://www.sigstore.dev/) development for a while, and the Stacklok [Minder](https://stacklok.com/minder) and [Trusty](https://stacklok.com/trusty) releases, and I really like the approach to supply-chain security.
 
 Kacti uses the Supply-chain Levels for Software Artifacts (SLSA) golang releaser to publish releases, and this allows you to validate releases. You can find the docs [here](https://kacti.dev/docs/supply-chain-security/verifying-binaries) for validation. 
-
-## How Kacti works
-Kacti [functionally verifies](/blog/functional-verification-ansible) Kubernetes security controls. It does this by attempting to deploy known-bad container images or misconfigured deployments to OpenShift and Kubernetes clusters. If the image successfully deploys, `kacti` marks this as a **failure** - an admission controller should have blocked this.
-
-I've spent a lot of time working with the [StackRox](https://stackrox.io) open source project, and I wanted to integrate this closely with `kacti`. At the moment the only admission controller explicitly supported by `kacti` is the StackRox admission controller and its approach to enforcement. 
-
-This means that if the known-bad container image is blocked, or the replicas are scaled to 'zero' in the deployment spec, `kacti` marks this as a **success**.
-
-## Kacti trials
-When a ship is newly constructed or comes out of a significant refit period it will go through "sea trials", or a "shakedown". This is a series of trials to test the vessel's seaworthiness - testing its speed, maneuverability, safety equipment, etc. It's conducted prior to commissioning and acceptance.
-
-In a similar way, kacti uses `trials` to validate Kubernetes and OpenShift admission control. How does the admission controller perform - does it block workloads containing critical CVEs, or trying to expose SSH? Does it permit valid workloads to be accepted by the cluster?
-
-Each trial represents a distinct test, validating whether the container image / configuration is blocked, or accepted by the Kubernetes cluster. Trials consist of a Kubernetes API under test (currently only Deployments are supported), a name and description, a namespace, and an image.
 
 ## Getting started with kacti
 If you have an OpenShift or Kubernetes cluster available you can get started with `kacti`.
