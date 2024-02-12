@@ -1,0 +1,145 @@
+---
+title: Introducing Kacti
+date: '2024-02-12'
+tags: ['kacti','kubernetes','security','verification','openshift','containers']
+images: ['/static/images/linkedin-banners/kacti-banner.png']
+draft: false
+summary: "Over the last few months I have been busily building out the Kacti open source project. This is an intro to the project, its goals and roadmap, and a quick-start tutorial."
+---
+
+It's been a few months since I posted a blog, and I think high time to introduce some of the things I've been working on. One of those is [kacti](https://kacti.dev); an open source Kubernetes security project I kicked off recently.
+
+In this article I'm going to introduce `kacti` and some of the problem sets that the project is looking to solve. I also want to take a look at how you can get started, and some of the roadmap items I have planned. Let's take a look!
+
+![Kacti logo](/static/images/kacti/kacti-logo.png)
+
+## Kacti genesis
+
+A couple of years ago I met with the security and compliance team of a large organisation in Australia. The Australian Cyber Security Centre (ACSC) had recently published guidance on Essential Eight assessment, and we were discussing this guidance and how to adopt it.
+
+One of the Essential Eight strategies is [Application Control](https://www.cyber.gov.au/acsc/view-all-content/publications/implementing-application-control), and the assessment guide includes a small test you can use to assess implementation:
+
+<Quote quote="To check if application control is implemented within the user profile directory, attempt to run a benign executable file inside the directory. The executables tested should cover .exe, .com, .dll, .ocx, .ps1, .bat, .vbs, .js, .msi, .mst, .msp, .chm, .hta, and .cpl. If any of the executables run within the user profile directory or operating system temporary folders, application control is ineffective." />
+
+I've previously covered how you could [automate this test](/blog/automating-e8-assessments) on Red Hat Enterprise Linux (RHEL) virtual machines and servers, using Ansible.
+
+The question from this team was - "how do we perform this same assessment for OpenShift and Kubernetes?" They wanted to know how they could [functionally verify](/blog/functional-verification-ansible) OpenShift and Kubernetes security controls; and `kacti` was born.
+
+## Kacti goals
+### Easy to use
+It's critical that `kacti` is easy to use. Speaking with the security team I knew that they didn't have time to manage dependencies, and manage the entire lifecycle around this tool. It needed to be drop-in, simple to use, and easy to get started. 
+
+Core to this is having great docs. Too many times I've used software that was poorly documented, and I know the frustration. I've created docs over at at [kacti.dev](https://kacti.dev), and used the awesome [Docusarus](https://docusaurus.io/) library to adopt a 'docs as code' strategy.
+
+### Support for declarative and imperative use cases
+One thing I really like about Kubernetes is support for both imperative and declarative use cases.
+
+If I want to just dump a container image into a platform I can do a `kubectl run` or `kubectl create deploy --image=`. But, if I want more control and want to describe what the deployment should look like, I can create a deployment spec. I think it's important that `kacti` aligns with this.
+
+### Supply-chain security built-in
+I've followed [Sigstore](https://www.sigstore.dev/) development for a while, and the Stacklok [Minder](https://stacklok.com/minder) and [Trusty](https://stacklok.com/trusty) releases, and I really like the approach to supply-chain security.
+
+Kacti uses the Supply-chain Levels for Software Artifacts (SLSA) golang releaser to publish releases, and this allows you to validate releases. You can find the docs [here](https://kacti.dev/docs/supply-chain-security/verifying-binaries) for validation. 
+
+## How Kacti works
+Kacti [functionally verifies](/blog/functional-verification-ansible) Kubernetes security controls. It does this by attempting to deploy known-bad container images or misconfigured deployments to OpenShift and Kubernetes clusters. If the image successfully deploys, `kacti` marks this as a **failure** - an admission controller should have blocked this.
+
+I've spent a lot of time working with the [StackRox](https://stackrox.io) open source project, and I wanted to integrate this closely with `kacti`. At the moment the only admission controller explicitly supported by `kacti` is the StackRox admission controller and its approach to enforcement. 
+
+This means that if the known-bad container image is blocked, or the replicas are scaled to 'zero' in the deployment spec, `kacti` marks this as a **success**.
+
+## Kacti trials
+When a ship is newly constructed or comes out of a significant refit period it will go through "sea trials", or a "shakedown". This is a series of trials to test the vessel's seaworthiness - testing its speed, maneuverability, safety equipment, etc. It's conducted prior to commissioning and acceptance.
+
+In a similar way, kacti uses `trials` to validate Kubernetes and OpenShift admission control. How does the admission controller perform - does it block workloads containing critical CVEs, or trying to expose SSH? Does it permit valid workloads to be accepted by the cluster?
+
+Each trial represents a distinct test, validating whether the container image / configuration is blocked, or accepted by the Kubernetes cluster. Trials consist of a Kubernetes API under test (currently only Deployments are supported), a name and description, a namespace, and an image.
+
+## Getting started with kacti
+If you have an OpenShift or Kubernetes cluster available you can get started with `kacti`.
+
+The only requirement for Kubernetes auth (for now) is that you can create deployments. You can test this using `kubectl` on OpenShift and Kubernetes:
+```
+$ kubectl auth can-i create deploy
+```
+You can install `kacti` from the Github repo using the script below:
+```
+$ curl -Lo kacti https://github.com/shaneboulden/kacti/releases/latest/download/kacti-linux-amd64 && \
+      sudo mv kacti /usr/local/bin/kacti && \
+      sudo chmod 0755 /usr/local/bin/kacti
+```
+Ok, let's create a test, or `trial`. I want to verify that Log4Shell-vulnerable images are blocked from my cluster - Kubernetes admission control should block and all container images vulnerable to Log4Shell, and not permit any vulnerable images to be deployed.
+
+You can functionally test this using a known-vulnerable image:
+```
+$ kacti trials --deploy --namespace kacti --image quay.io/smileyfritz/log4shell-app:v0.5 log4shell
+```
+Let's take a closer look at this command:
+* This is using the `trials` API for `kacti`, which is currently the only one supported.
+* `kacti` will create a deployment (`--deploy`). Currently `kacti` only supports Kubernetes deployments, though I'd like to support pods also at some point.
+* The deployment will be created in the `kacti` namespace.
+* The image referenced in the deployment will be `quay.io/smileyfritz/log4shell-app:v0.5`. This image is known to be vulnerable to Log4Shell.
+* The name of the test is `log4shell`.
+
+If this image is successfully deployed, `kacti` will return a message and a non-zero return code:
+```
+$ kacti trials --deploy --namespace kacti --image quay.io/smileyfritz/log4shell-app:v0.5 log4shell
+ -> Failed, Deployment was created successfully and scaled up
+
+$ echo $?
+1
+```
+Ok, let's now enforce the StackRox / Red Hat Advanced Cluster Security for Kubernetes (RHACS) Log4Shell policy:
+
+<Zoom>
+![Log4Shell enforcement 1](/static/images/kacti/log4shell1.png)
+</Zoom>
+
+<Zoom>
+![Log4Shell enforcement 2](/static/images/kacti/log4shell2.png)
+</Zoom>
+
+If you run the trial again, you should see that it now succeeds - the workload was scaled down!
+```
+$ kacti trials --deploy --namespace kacti --image quay.io/smileyfritz/log4shell-app:v0.5 log4shell
+ -> Success, Deployment scaled to zero replicas
+
+$ echo $?
+0
+```
+
+## Roadmap
+I haven't created an 'official' `kacti` roadmap, but here's some of my thoughts and some of the things I'd like to build out.
+
+### Tekton tasks
+`kacti` is designed to integrate with continuous integration / continuous delivery (CI/CD) pipelines. It returns a non-zero return code if any of the `trials` fails, and a 'zero' otherwise.
+
+At the moment you need to build your own Tekton task to integrate this with pipelines, and I'd like to create and support a Tekton task over at the [Tekton catalog](https://github.com/tektoncd/catalog/)
+
+### More integration with StackRox
+At the moment `kacti` supports the StackRox admission controller, but I'd like to look at extending this integration:
+* Does StackRox generate a violation when `kacti` trial fails? You should be able to specify a StackRox endpoint to `kacti trials --deploy -e` and have Kacti validate if an alert was generated.
+* Does StackRox block CVEs during development? Kacti should be able to functionally verify that CVEs and misconfiguration are captured during development by `roxctl`.
+
+### Official Kacti images
+Deploying known-bad container images into clusters comes with risks. I'd like to provide trusted images from the Kacti project you can run directly from the `kacti` CLI. These should be signed using Sigstore and have provenance available in the public-good Rekor ledger.
+
+I'd also like to document StackRox Cosign integrations here, so that you can verify Kacti images via the admission controller.
+
+### Support for more commands
+Currently the only command supported by `kacti` is `trials`. Another command I want to support is `generate` - creating templates for misconfigured deployment spec, or generating a pod spec expected to fail. I'm really interested in your ideas too :)
+
+### Support for runtime security controls and Living off the Land (LOTL)
+Living off the Land (LOTL) techniques are increasingly used by threat actors to evade detection. At the time of writing it's the first article on the Australian Cyber Security Centre (ACSC) web page.
+
+![ACSC LOTL](/static/images/kacti/acsc-lotl.png)
+
+I've previously covered [containers and LOTL in another article](/blog/living-off-the-land-containers), and I'd like to build some of these controls directly into `kacti`.
+
+## Next steps
+Kacti is clearly in its early days, and I'm continuing to build out capabilities and some of these roadmap items. I'm really interested in your feedback:
+* Notice something broken? Please [create an issue](https://github.com/shaneboulden/kacti/issues)
+* Want to see something new? Please create a [discussion thread](https://github.com/shaneboulden/kacti/discussions)
+* Have some code you'd like to contribute? I'm eagerly [awaiting your PR](https://github.com/shaneboulden/kacti/pulls) :)
+
+PS. `kacti` is actually an acronym - let me know in the comments if you can guess what it stands for...

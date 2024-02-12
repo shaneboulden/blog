@@ -7,9 +7,19 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Sun, 17 Dec 2023 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Mon, 12 Feb 2024 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/meet-kacti</guid>
+    <title>Introducing Kacti</title>
+    <link>https://stb.id.au/blog/meet-kacti</link>
+    <description>Over the last few months I have been busily building out the Kacti open source project. This is an intro to the project, its goals and roadmap, and a quick-start tutorial.</description>
+    <pubDate>Mon, 12 Feb 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>kacti</category><category>kubernetes</category><category>security</category><category>verification</category><category>openshift</category><category>containers</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/screensaver-video-calls</guid>
     <title>Building a screensaver for your video calls with open source</title>
@@ -232,7 +242,7 @@
 
   <item>
     <guid>https://stb.id.au/blog/access-and-agents</guid>
-    <title>Access &amp; Agents</title>
+    <title>Access & Agents</title>
     <link>https://stb.id.au/blog/access-and-agents</link>
     <description>Many organisations take the same approach to securing virtual machines, which I call &#39;Access &amp; Agents&#39;. While effective for virtual machines and other legacy infrastructure, this approach doesn&#39;t translate across to containers and Kubernetes, and this article looks at why.</description>
     <pubDate>Sat, 19 Mar 2022 00:00:00 GMT</pubDate>
@@ -328,6 +338,16 @@
     <pubDate>Wed, 18 Aug 2021 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>compliance</category><category>risk</category><category>security</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/stacklok-minder-openshift</guid>
+    <title>undefined</title>
+    <link>https://stb.id.au/blog/stacklok-minder-openshift</link>
+    undefined
+    <pubDate>Thu, 01 Jan 1970 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    undefined
   </item>
 
     </channel>
