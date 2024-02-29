@@ -14,7 +14,7 @@ I think that the home lab is the cornerstone of a technology professional. It's 
 
 I've run [OpenShift](https://openshift.com) in a lot of virtualised environments now. Recently though, I wanted to deep-dive into OpenShift Virtualization, and nested virt wasn't going to cut it. I needed metal!
 
-As always, a few AI-generated memes related to this article. The prompt for these was "Can you createa a meme for me based on the fact 'I need metal' in my home lab, contrasting heavy metal bands and my bare-metal server?". I think they're getting better?
+As always, a few AI-generated memes related to this article. The prompt for these was "Can you create a a meme for me based on the fact 'I need metal' in my home lab, contrasting heavy metal bands and my bare-metal server?". I think they're getting better?
 
 <Zoom>
 ![metal2](/static/images/lab/meme3.jpg)
@@ -100,8 +100,6 @@ In this article I'm going to use PXE to boot the discovery ISO provided by the A
 <Zoom>
 ![assisted1](/static/images/lab/assisted1.png)
 </Zoom>
-
-I've specified a name for the cluster and a base domain. I'm going to use DNS-based load balancing for this lab cluster instead of an external load balancing, and I'll cover a bit later how to set this up.
 
 <Zoom>
 ![assisted2](/static/images/lab/assisted2.png)
@@ -213,7 +211,7 @@ At this point my pre-flight checks are all green, and my cluster is ready to go.
 
 Now there's nothing to do but sit back and wait! When the cluster is ready to go, the Assisted Installer web UI will let me know, and provide some further guidance on cluster configuration.
 
-#### Setting up DNS load-balancing
+#### Setting up DNS access
 
 At this stage my cluster is provisioned and the Assisted Installer web UI has been updated. But, I can't access the cluster yet. The Assisted Installer has provided me a link to the web console, but I need to setup some DNS entries first.
 
