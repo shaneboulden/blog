@@ -2,9 +2,9 @@
 title: OpenShift Virtualization Lab Build
 date: '2024-03-06'
 tags: ['openshift','dell','r620','poweredge','metal','kubernetes','virtualization','kvm']
-images: ['/static/images/linkedin-banners/openshift-virt.png']
+images: ['/static/images/linkedin-banners/openshift-virt-lab.png']
 draft: false
-summary: "A quick look at my OpenShift Virtualization lab build."
+summary: "A detailed look at my OpenShift Virtualization lab build."
 ---
 In the [last article](/blog/openshift-on-an-r620) I introduced how I've setup OpenShift in my home lab. I went through the deployment architecture, including DNS provided via Route53 and networking with the Ubiquiti UDM Pro, and how I've installed OpenShift on a Dell PowerEdge R620 using the OpenShift Assisted Installer.
 
@@ -442,6 +442,16 @@ mydb=> select * from payment;
 (2 rows)
 ```
 I can also see that the Drools business logic is being reflected in the database - every fifth coffee for a user is free!
+
+If I open the OpenShift topology I can see the application architecture reflected.
+
+<Zoom>
+![app-console1](/static/images/lab/app-console1.png)
+</Zoom>
+
+<Zoom>
+![app-console2](/static/images/lab/app-console2.png)
+</Zoom>
 
 ### Wrapping up
 In this article I looked at how I've configured OpenShift Virtualization in my home lab. This allows me to deploy and manage containers and virtual machines on a single server, using the Kubernetes API, and bringing the benefits of declarative resource management to VMs.
