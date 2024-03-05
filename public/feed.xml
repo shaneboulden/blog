@@ -7,9 +7,29 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Mon, 12 Feb 2024 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Wed, 06 Mar 2024 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/openshift-virt-lab</guid>
+    <title>OpenShift Virtualization Lab Build</title>
+    <link>https://stb.id.au/blog/openshift-virt-lab</link>
+    <description>A quick look at my OpenShift Virtualization lab build.</description>
+    <pubDate>Wed, 06 Mar 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>dell</category><category>r620</category><category>poweredge</category><category>metal</category><category>kubernetes</category><category>virtualization</category><category>kvm</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/openshift-on-an-r620</guid>
+    <title>OpenShift on an R620</title>
+    <link>https://stb.id.au/blog/openshift-on-an-r620</link>
+    <description>Can you install OpenShift and OpenShift Virtualization in your home lab? The answer is a definitive *yes*</description>
+    <pubDate>Thu, 29 Feb 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>dell</category><category>r620</category><category>poweredge</category><category>metal</category><category>kubernetes</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/meet-kacti</guid>
     <title>Introducing Kacti</title>
@@ -338,16 +358,6 @@
     <pubDate>Wed, 18 Aug 2021 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>compliance</category><category>risk</category><category>security</category>
-  </item>
-
-  <item>
-    <guid>https://stb.id.au/blog/stacklok-minder-openshift</guid>
-    <title>undefined</title>
-    <link>https://stb.id.au/blog/stacklok-minder-openshift</link>
-    undefined
-    <pubDate>Thu, 01 Jan 1970 00:00:00 GMT</pubDate>
-    <author>dev@stb.id.au (Shane Boulden)</author>
-    undefined
   </item>
 
     </channel>
