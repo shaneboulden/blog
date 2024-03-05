@@ -1,0 +1,341 @@
+---
+title: OpenShift Virtualization Lab Build
+date: '2024-03-06'
+tags: ['openshift','dell','r620','poweredge','metal','kubernetes','virtualization','kvm']
+images: ['/static/images/linkedin-banners/openshift-virt.png']
+draft: false
+summary: "A quick look at my OpenShift Virtualization lab build."
+---
+In the [last article](/blog/openshift-on-an-r620) I introduced how I've setup OpenShift in my home lab. I went through the deployment architecture, including DNS provided via Route53 and networking with the Ubiquiti UDM Pro, and how I've installed OpenShift on a Dell PowerEdge R620 using the OpenShift Assisted Installer.
+
+The initial reason for this metal lab build was to get started with OpenShift Virtualization. In this article I wanted to closer look at how OpenShift Virtualization is configured in my lab and get a few VMs up and running.
+
+## OpenShift Virtualization intro
+Firstly some clarity on spelling and grammar. I'm Australian, so I usually spell the word 'virtualisation'. But, I recognise that the capability name is 'OpenShift Virtualization' (with a 'z'). So for this blog:
+- When I use 'Virtualization', I'm talking about the 'OpenShift Virtualization' capability built-in to OpenShift
+- When I use 'virtualisation', I'm talking generally about virtual machines and workload virtualisation.
+
+With that cleared up, let's crack on! 
+
+OpenShift has supported virtualisation since the 4.2 release, wayyy back in October 2019. Back then it was called 'Container Native Virtualization', and was initially released in a technology preview with OpenShift 4.2. In OpenShift 4.5, this capability was renamed 'OpenShift Virtualization' and graduated to generally available (GA), full suppport. You can see this in the [OpenShift 4.5 release notes](https://docs.openshift.com/container-platform/4.5/release_notes/ocp-4-5-release-notes.html#ocp-4-5-virtualization-ga).
+
+OpenShift Virtualization allows you to run containers alongside virtual machines. There's a few reasons I want to do this in my lab:
+
+- *Run containers and VMs side-by-side, using a single control plane*.
+- *Declaratively managing virtual machines.* Often managing VMs becomes a 'click ops' activity, particularly for on-premises capabilities. Managing VMs on OpenShift means that you can use the Kubernetes API to describe a VM state, and 
+- *VM governance*.
+- *Apply network policy consistently to workloads*.
+
+// add more info on how OpenShift Virt works. Kube virt running qemu pods as containers, which is then running the workload on KVM.
+
+## Validating the OpenShift Virtualization deployment with CirrOS
+OpenShift Virtualization was installed alongside my cluster on my R620 in the last article, via the Assisted Installer. This was the option I enabled during the cluster installation, in the Assisted Installer.
+
+// add image of OpenShift virt selection
+
+I can simply use the UI to check that the operator is up, and the 'Virtualization' menu appears in the OpenShift console.
+
+// add image of virt operator
+
+// add image of console menu
+
+A few years ago now I was building OpenStack clusters. OpenStack was (and is) complex - there were a lot of APIs that needed to be functioning correctly to provision and run virtual workloads, and validating these was an important task.
+
+This is where CirrOS comes in. As you might have guessed, CirrOS is named for the light, wispy 'cirrus' clouds that form high in the atmosphere. CirrOS is a lightweight, cloud OS designed to test cloud infrastructure. It provides fast startup times (so we can 'fail fast'), small image sizes, and includes tools commonly found in cloud environments (like `cloud-init`). You shouldn't really run any workloads inside a CirrOS image, but if I can deploy the image and connect to a virtual machine, I know that all of the APIs I need to provision more complex workloads are available. You can find the CirrOS source on [GitHub](https://github.com/cirros-dev/cirros)
+
+// image cirrus clouds
+
+I'm going to provision a CirrOS workload to validate the OpenShift Virtualization is working correctly. The first step here is to create a new boot source for CirrOS.
+
+CirrOS images are hosted at [https://download.cirros-cloud.net/](https://download.cirros-cloud.net/) and the latest version is [0.6.2](https://download.cirros-cloud.net/0.6.2/). My R620 is using two Intel E5 processors, so I need the x86 image.
+
+// add image of CirrOS downloads
+
+Once I have the image I can create a [data volume](https://github.com/kubevirt/containerized-data-importer/blob/main/doc/datavolumes.md). Data Volumes(DV) are simply an abstraction on top of a Persistent Volume Claims(PVC). The DV will monitor and orchestrate the import/upload/clone of the data into the PVC. I'm going to use the `virtctl` CLI to upload the image and create a volume. You can find the `virtctl` download link in the OpenShift Virtualization dashboard within the platform: 
+
+// add image
+
+I can then use the `virtctl image-upload dv` sub-command to upload the CirrOS image...
+```
+$ oc project openshift-virtualization-os-images
+$ virtctl image-upload dv cirros --force-bind \
+ --insecure --size=200Mi --image-path=./cirros-0.6.2-x86_64-disk.img
+```
+And see the image uploading:
+```
+PVC openshift-virtualization-os-images/cirros not found
+DataVolume openshift-virtualization-os-images/cirros created
+Waiting for PVC cirros upload pod to be ready...
+Pod now ready
+Uploading data to https://cdi-uploadproxy-openshift-cnv.apps.lab.openshift.blueradish.net
+
+ 20.44 MiB / 20.44 MiB [==============================================================================] 100.00% 0s
+
+Uploading data completed successfully, waiting for processing to complete, you can hit ctrl-c without interrupting the progress
+Processing completed successfully
+Uploading /mnt/c/Users/shane/Downloads/cirros-0.6.2-x86_64-disk.img completed successfully
+```
+Now that the image is uploaded I can create a bootable volume from the data volume (PVC). First take a look at the bootable volumes in the `openshift-virtualization-os-images` project. In my case, the OpenShift Virtualization operator has already created a number of out-of-the-box volumes I can use.
+
+<Zoom>
+![boot1](/static/images/virt-lab/bootvol1.png)
+</Zoom>
+
+Select 'Add Volume' and 'Use existing volume' for the source type. Select the PVC that we just uploaded (`cirros`), and the existing StorageClass. The CirrOS image is only 20 MB, so I've set the disk size to 200 MiB just to be sure it will provision. 
+
+<Zoom>
+![boot2](/static/images/virt-lab/bootvol2.png)
+</Zoom>
+
+You'll find an existing 'Volume metadata' preference for `cirros`, and can then specify a default instance type. I've chosen the `Red Hat Provided` -> `U series` -> `u1.nano` type.
+
+<Zoom>
+![boot3](/static/images/virt-lab/bootvol3.png)
+</Zoom>
+
+Select 'Save' and the bootable volume will be created.
+
+Now that I have a bootable volume I can start creating a CirrOS VM. I'm going to select 'Virtual Machines', 'Create Virtual Machine' and select 'From volume'. Note I'm doing everything in the `cirros` project now.
+
+<Zoom>
+![vm1](/static/images/virt-lab/vm1.png)
+</Zoom>
+
+For the volume I'm going to select the CirrOS bootable volume I just created.
+
+<Zoom>
+![vm2](/static/images/virt-lab/vm2.png)
+</Zoom>
+
+The instance type is already select for me ('U' series), and the VM has been given a name and a storage class. The last thing for me to do is configure an SSH key for access.
+
+<Zoom>
+![vm3](/static/images/virt-lab/vm3.png)
+</Zoom>
+
+<Zoom>
+![vm4](/static/images/virt-lab/vm4.png)
+</Zoom>
+
+When I select 'Create virtual machine' my VM will boot, and I will see it go through the `provisioning` and then `starting` and `running` phases.
+
+<Zoom>
+![vm5](/static/images/virt-lab/vm4.png)
+</Zoom>
+
+<Zoom>
+![vm6](/static/images/virt-lab/vm4.png)
+</Zoom>
+
+If I select the 'Open web console' link I can see the VM running, and can test login works. Because this is just a test image (and not designed for production), CirrOS simply prints the login credentials in the console:
+
+<Zoom>
+![vm7](/static/images/virt-lab/vm7.png)
+</Zoom>
+
+I can also test that SSH key injection has worked using the `virtctl` CLI. If I navigate back to the VM overview, select the 'Details' tab and scroll down I can see the `virtctl` command to login to the workstation:
+
+<Zoom>
+![access1](/static/images/virt-lab/access1.png)
+</Zoom>
+
+<Zoom>
+![access2](/static/images/virt-lab/access2.png)
+</Zoom>
+
+Note that I need to change the user from `fedora` to `cirros`:
+```
+$ virtctl -n cirros ssh cirros@cirros-relative-sloth
+$ whoami
+cirros
+```
+Awesome! I've just used the CirrOS image to *functionally verify* that OpenShift Virtualization has been successfully installed on my R620. Specifically:
+
+- I created a new data volume, verifying that image upload works
+- I created a boot volume for the CirrOS image, verifying that I can create custom image volumes
+- I created a VM from the boot volume and tested that it provisions successfully, runs, and I can login to it via SSH using `virtctl`. I also showed that the VM is running on the OVN-Kubernetes network.
+
+## Provisioning a workload
+
+Now that I've verified my OpenShift Virtualization install using CirrOS I can provision something more meaningful. I'm going to provision a PostgreSQL database in a Red Hat Enterprise Linux (RHEL) 9 server, running on OpenShift Virtualization, and then connect to it from a container workload.
+
+This is a diagram of what my application will look like.
+
+<Zoom>
+![diagram](/static/images/virt-lab/diagram.png)
+</Zoom>
+
+
+### Provisioning a RHEL 9 PostgreSQL database on OpenShift Virtualization
+
+I'm going to step through the same provisioning process for CirrOS to create the database VM, but select a RHEL 9 bootable volume instead. Once the VM is up and running I'm going to copy the `virtctl` command like I did for the CirrOS test workload.
+
+<Zoom>
+![rhelvm1](/static/images/virt-lab/rhelvm1.png)
+</Zoom>
+
+<Zoom>
+![rhelvm2](/static/images/virt-lab/rhelvm2.png)
+</Zoom>
+
+<Zoom>
+![rhelvm3](/static/images/virt-lab/rhelvm3.png)
+</Zoom>
+
+```
+$ virtctl -n app-deploy ssh cloud-user@rhel-9-silent-gayal
+The authenticity of host 'vmi/rhel-9-silent-gayal.app-deploy (<no hostip for proxy command>)' can't be established.
+ED25519 key fingerprint is SHA256:o6AXd0jsFpSdZcwLbU7grE6Q3r9GqfccSShevxQEb/M.
+This key is not known by any other names
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added 'vmi/rhel-9-silent-gayal.app-deploy' (ED25519) to the list of known hosts.
+Register this system with Red Hat Insights: insights-client --register
+Create an account or view all your systems at https://red.ht/insights-dashboard
+[cloud-user@rhel-9-silent-gayal ~]$
+```
+I can then register my server and start the PostgreSQL install:
+```
+sudo -i
+# subscription-manager register
+Registering to: subscription.rhsm.redhat.com:443/subscription
+Username: 
+Password:
+The system has been registered with ID: a71519af-5134-49eb-a5e8-3cf4b8f2be8b
+The registered system name is: rhel-9-silent-gayal
+```
+Install PostgreSQL via the `dnf` module.
+```
+dnf module install -y postgresql:15/server
+```
+Initialise PostgreSQL.
+```
+postgresql-setup --initdb
+```
+Update `/var/lib/pgsql/data/postgres.conf`:
+```
+password_encryption = scram-sha-256
+listen_addresses = '*'
+```
+Update `/var/lib/pgsql/data/pg_hba.conf`:
+```
+host    all             all             127.0.0.1/32            scram-sha-256
+host    all             all             0.0.0.0/0               scram-sha-256
+```
+Start and enable postgresql
+```
+systemctl enable postgresql --now
+```
+Login
+```
+su - postgres
+psql
+```
+Create the database user
+```
+postgres=# CREATE USER user1 WITH PASSWORD 'pass123' CREATEROLE CREATEDB;
+```
+Create the `mydb` database:
+```
+psql -U user1 -h 127.0.0.1 -d postgres
+postgres=> CREATE DATABASE mydb;
+\q
+```
+Test the connection
+```
+# psql -U user1 -h 127.0.0.1 -d mydb
+mydb=>
+```
+### Exposing the VM internally
+I also need to create a service exposing the PostgreSQL ports from the VM running in OpenShift Virtualization. The easiest way to do this is simply using the VM name, though you might like to label multiple VMs and use the Kubernetes service to reverse-proxy them:
+```yaml
+$  oc create -n app-deploy -f - << EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-vmi
+spec:
+  selector:
+    vm.kubevirt.io/name: rhel-9-silent-gayal
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+EOF
+```
+
+### Provisioning a container workload (that connects to the VM database)
+
+Great! Now we have a PostgreSQL database running in a VM on OpenShift (via OpenShift Virtualization). The next step is creating a workload to connect into the database.
+
+Firstly I need a secret hosting credentials for the database.
+```
+oc create secret -n app-deploy generic --from-literal=psql-user=user1 --from-literal=psql-pass=pass123 psql-credentials
+```
+Now we can create a configmap holding the hostname (service) and database name:
+```yaml
+$ oc create -n app-deploy -f - << EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: postgres-configmap
+data:
+    postgres-host: postgres-vmi
+    postgres-dbname: mydb
+EOF
+```
+And now I can create the deployment:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coffee-pickles
+  namespace: app-deploy
+  labels:
+    app: coffee-pickles
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: coffee-pickles
+  template:
+    metadata:
+      labels:
+        app: coffee-pickles
+    spec:
+      containers:
+      - name: coffee-pickles
+        image: quay.io/smileyfritz/coffee-pickles:v0.10
+        ports:
+        - containerPort: 8080
+        env:
+        - name: PSQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: psql-credentials
+              key: psql-user
+        - name: PSQL_PASS
+          valueFrom:
+            secretKeyRef:
+              name: psql-credentials
+              key: psql-pass
+        - name: PSQL_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: postgres-configmap
+              key: postgres-host
+        - name: PSQL_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: postgres-configmap
+              key: postgres-dbname
+```
+Once the application is up and running I'm going to expose it via a service and route.
+```
+$ oc expose deploy/coffee-pickles --name coffee-svc --port 8080
+$ oc expose svc/coffee-svc
+
+$ oc get routes
+NAME         HOST/PORT                                                 PATH   SERVICES     PORT   TERMINATION   WILDCARD
+coffee-svc   coffee-svc-app-deploy.apps.lab.openshift.blueradish.net          coffee-svc   8080                 None
+```
