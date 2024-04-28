@@ -1,0 +1,292 @@
+---
+title: Phishing-resistant MFA for OpenShift
+date: '2024-04-29'
+tags: ['openshift','phishing','resistant','mfa','keycloak','kubernetes']
+images: ['/static/images/linkedin-banners/openshift-mfa.png']
+draft: false
+summary: "Phishing-resistant multi-factor authentication is a critical security control in 2024, and this article takes you through configuring it for OpenShift with Keycloak"
+---
+Imagine that you're a system administrator at a large organisation. You're a level-3 support engineer, and tickets only make it to you when they're complex, or there are existing issues with delivery. You're used to being pulled into meetings at short-notice, having to very quickly understand a problem set and create a solution, before moving onto the next problem.
+
+Between all these incidents and tickets you start getting notifications like this on your phone (image source: [Microsoft](https://learn.microsoft.com/en-us/entra/identity/authentication/how-to-mfa-additional-context))
+
+![push notification](/static/images/mfa/location.png)
+
+Not just one notification, but *lots* of these notifications start appearing over the next few hours. So many that it becomes difficult to even use your phone!
+
+After trying to restart your phone, and dutifully click 'deny' for many hours while in video calls, you accidentally click 'allow' just once. The flood of notifications stops, though you now have a much bigger problem.
+
+##  MFA fatigue
+This scenario, while contrived, demonstrates the challenges organisations face mitigating multi-factor authentication (MFA) bypass. Multi-factor authentication (MFA) is a core mitigation strategy used in organisations - it's one of the ASD Essential Eight strategies - and mitigates some techniques like credential stuffing. But, it doesn't solve all forms of credential theft, and this scenario highlights MFA fatigue. 
+
+MFA fatigue has been used in a number of high-profile attacks over the years, including the [Lapsus$ breach of Uber](https://www.darkreading.com/cyberattacks-data-breaches/uber-breach-external-contractor-mfa-bombing-attack). It targets an inherently human condition - we make mistakes when we are tired. It only takes one 'allow' prompt mistakenly clicked late at night to allow threat actors access to an account. 
+
+## Phishing-resistant MFA
+
+Phishing-resistant MFA is designed to specifically thwart these types of MFA bypass and MFA fatigue attacks. It uses 'security keys' to provide the additional factor required for a login.
+
+Security keys are small devices that connect to your computer or phone, allowing you to authenticate by physically touching the key or providing biometrics. Because only the user has physical access to the device, and it doesn't support push notifications, it inherently mitigates many of these MFA bypass techniques.
+
+Phishing-resistant MFA is now integrated into cybersecurity guidance provided by leading security agencies. The US Cybersecurity & Infrastructure Security Agency (CISA) has created a comprehensive guide to [implementing phishing-resistant MFA](https://www.cisa.gov/sites/default/files/publications/fact-sheet-implementing-phishing-resistant-mfa-508c.pdf). Phishing-resistant MFA was also introduced to the Australian Signals Directorate's "Essential Eight" framework in the [November 2023 update](https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model-changes). The Essential Eight now requires that organisations adopt phishing-resistant MFA to reach maturity level two.
+
+## OpenShift and phishing-resistant MFA
+In this article I'm going to configure OpenShift to use phishing-resistant MFA. Before I get into the details, you can see a video showing the complete login flow here:
+
+<YoutubeEmbed embedId="0s6lpja-hV8" />
+
+## Technologies
+There's a few core technologies I'm going to use to support this, and they're (nearly all) open source!
+
+### OpenShift
+I'm going to use my lab OpenShift cluster running on a Dell R620, which I documented in a [previous article](/blog/openshift-on-an-r620). 
+
+### FIDO2-compatible security key
+The FIDO alliance developed [FIDO Authentication standards](https://fidoalliance.org/fido2/) to make it simpler for consumers and service provides to deploy and manage public-key cryptography. One of these standards - FIDO2 - enables users to leverage common devices to easily authenticate to online services in both mobile and desktop environments.
+
+FIDO2 is comprised of two standardised components. It involves a Web API (WebAuthn), and a client to authenticator protocol (CTAP). The two work together to support login using security keys. CTAP is an application layer protocol used for communication between a client (browser) or a platform (operating system) and an external authenticator.
+
+I've chosen the YubiKey as the 'external authenticator'. You can see it in the above video, and it's FIDO2-certified by the FIDO alliance validating conformance and interoperability (image source: [yubikey](https://www.yubico.com/products/)). I like the Yubikey because, while the hardware and integral firmware isn't open source, all of the supporting desktop applications, libraries and mobile apps are.
+
+![yubikey](/static/images/mfa/yubikey.jpg)
+
+### Red Hat build of Keycloak and WebAuthn
+I covered Keycloak in an article [last year](/blog/keycloak-user-create), looking at some user creation auth flows that Keycloak can support. In this article I'm using the Keycloak built-in support for webauthn to support login using FIDO2 keys to a webpage, provided by OpenShift.
+
+I'm also using the  the [Red Hat build of Keycloak](https://access.redhat.com/products/red-hat-build-of-keycloak) for this article. This is a hardened and supported build of the open source [Keycloak](https://www.keycloak.org/) project from Red Hat, and is provided with every OpenShift subscription. 
+
+### OpenShift cluster authentication operator and OpenID Connect
+OpenShift includes a built-in OAuth server. Developers and administrators obtain OAuth access tokens to authenticate themselves to the API. You can use the cluster authentication operator to configure an OpenID Connect provider (Keycloak), that will be used to authenticate users.
+
+## Installing Keycloak
+You can download the Red Hat Build of Keycloak (RHBK) from the [Red Hat downloads page](https://access.redhat.com/downloads/). Simply select the 'Download' button next to the 'Red Hat build of Keycloak 22.0.10 Server'.
+
+<Zoom>
+![rhbk download](/static/images/mfa/downloads.png)
+</Zoom>
+Once you've downloaded the RHBK zip-file you can follow the [Getting started](https://access.redhat.com/documentation/en-us/red_hat_build_of_keycloak/22.0/html-single/getting_started_guide/index) guide to configure a development server.
+
+## Configuring Let's Encrypt certificates
+I don't want to have to configure additional trust bundles for OpenShift, so instead I'm going to use Let's Encrypt certificates for Keycloak.
+
+Because my domain is hosted at Route53 I'm going to use the [certbot](https://certbot.eff.org/) [route53 plugin](https://certbot-dns-route53.readthedocs.io/en/stable/) to request trusted certificates for the domain. The first step here is to create a Python virtual environment and install certbot and the plugin:
+```
+virtualenv certbot-venv
+source ~/certbot-venv/bin/activate
+pip3 install certbot certbot_dns_route53==0.22.2
+```
+I can then create a certificate for my domain using the IAM permissions I've explicitly setup for certbot:
+```
+AWS_PROFILE=certbot certbot certonly --logs-dir /home/user/certbot/log --config-dir /home/user/certbot/config --work-dir /home/user/certbot/work -d keycloak.blueradish.net --dns-route53 -m shane.boulden@gmail.com --agree-tos --non-interactive
+```
+This will create a certificate `fullchain.pem` and a private key `privkey.pem`. You can simply configure these in the keycloak.conf file on your server or at startup:
+```
+/opt/rhbk-22.0.8/bin/kc.sh start --db postgres --db-url-host 127.0.0.1 --db-username keycloak --db-password keycloak --hostname keycloak.blueradish.net --https-certificate-file=/opt/rhbk-22.0.8/conf/fullchain.pem  --https-certificate-key-file=/opt/rhbk-22.0.8/conf/privkey.pem
+```
+
+## Configuring Keycloak
+
+Once you've installed Keycloak and got your certificates the next step is configuring the Keycloak server. I've simply created a new realm inside Keycloak called **OpenShift**.
+
+<Zoom>
+![openshift realm](/static/images/mfa/realm.png)
+</Zoom>
+
+Inside this realm I've created a new authentication flow named `browser-webauthn`. 
+
+<Zoom>
+![browser-webauthn](/static/images/mfa/webauthn.png)
+</Zoom>
+
+This is an auth flow I copied from the `browser` built-in auth flow, and added steps that require that users present a WebAuthn device to successfully authenticate.
+
+<Zoom>
+![steps 1](/static/images/mfa/steps1.png)
+</Zoom>
+
+<Zoom>
+![steps 2](/static/images/mfa/steps2.png)
+</Zoom>
+
+Inside the realm I've also created an OpenID Connect client for `openshift`. I've added the complete JSON for this client here for reference (with credentials removed)
+
+<Zoom>
+![openshift client](/static/images/mfa/client.png)
+</Zoom>
+
+```json
+{
+  "clientId": "openshift",
+  "name": "OpenShift",
+  "description": "",
+  "rootUrl": "",
+  "adminUrl": "",
+  "baseUrl": "",
+  "surrogateAuthRequired": false,
+  "enabled": true,
+  "alwaysDisplayInConsole": false,
+  "clientAuthenticatorType": "client-secret",
+  "secret": "*********************",
+  "redirectUris": [
+    "https://oauth-openshift.apps.lab.openshift.blueradish.net/*"
+  ],
+  "webOrigins": [
+    "https://oauth-openshift.apps.lab.openshift.blueradish.net"
+  ],
+  "notBefore": 0,
+  "bearerOnly": false,
+  "consentRequired": false,
+  "standardFlowEnabled": true,
+  "implicitFlowEnabled": false,
+  "directAccessGrantsEnabled": true,
+  "serviceAccountsEnabled": false,
+  "publicClient": false,
+  "frontchannelLogout": true,
+  "protocol": "openid-connect",
+  "attributes": {
+    "client.secret.creation.time": "***************",
+    "oauth2.device.authorization.grant.enabled": "false",
+    "backchannel.logout.revoke.offline.tokens": "false",
+    "use.refresh.tokens": "true",
+    "oidc.ciba.grant.enabled": "false",
+    "backchannel.logout.session.required": "true",
+    "client_credentials.use_refresh_token": "false",
+    "acr.loa.map": "{}",
+    "require.pushed.authorization.requests": "false",
+    "tls.client.certificate.bound.access.tokens": "false",
+    "display.on.consent.screen": "false",
+    "token.response.type.bearer.lower-case": "false"
+  },
+  "authenticationFlowBindingOverrides": {
+    "browser": "1417b2c3-574c-49f1-999b-9f9c64f2047a"
+  },
+  "fullScopeAllowed": true,
+  "nodeReRegistrationTimeout": -1,
+  "defaultClientScopes": [
+    "web-origins",
+    "acr",
+    "roles",
+    "profile",
+    "email"
+  ],
+  "optionalClientScopes": [
+    "address",
+    "phone",
+    "offline_access",
+    "microprofile-jwt"
+  ],
+  "access": {
+    "view": true,
+    "configure": true,
+    "manage": true
+  }
+}
+```
+You can see that there's a line in the above JSON showing authentication flow overrides:
+```json
+"authenticationFlowBindingOverrides": {
+    "browser": "1417b2c3-574c-49f1-999b-9f9c64f2047a"
+  },
+```
+This means that I've set the `browser-webauthn` flow to be used for this OpenShift client, which you can also see visually here:
+
+<Zoom>
+![auth flow overrides](/static/images/mfa/auth-flow-overrides.png)
+</Zoom>
+
+## Creating Keycloak users
+Now that I have a realm, client and auth flow that supports WebAuthn created, I need some users. I've created a single user `lab-admin` within Keycloak. Keycloak provides user actions when a user logs in, and I've used the built-in `Webauthn register` action requiring them to register a webauthn device on first login.
+
+<Zoom>
+![first login](/static/images/mfa/first-login.png)
+</Zoom>
+
+I've also set this user's credentials. When they login, they'll first be prompted for a username / password, and then need to provide a security key. I could also create a passwordless login without the username / password, but I'll save this for another article 🙂
+
+<Zoom>
+![user password reset](/static/images/mfa/pwreset.png)
+</Zoom>
+
+## Configuring the OpenShift authentication operator
+
+Lastly, we need to configure the OpenShift authentication operator to use our newly-configured Keycloak server as an identity provider. Since Keycloak supports OpenID Connect - and we've created an OpenID Connect client - this is pretty straight-forward.
+
+You can edit the cluster OAuth configuration via the UI.
+
+<Zoom>
+![oauth1](/static/images/mfa/oauth1.png)
+</Zoom>
+
+Simply specify the client ID and secret from the Keycloak realm. The `issuer` can be found at the Keycloak OpenID Connect configuration endpoint:
+
+```json
+$ curl -s https://keycloak.blueradish.net:8443/realms/OpenShift/.well-known/openid-configuration | jq
+{
+  "issuer": "https://keycloak.blueradish.net:8443/realms/OpenShift",
+  "authorization_endpoint": "https://keycloak.blueradish.net:8443/realms/OpenShift/protocol/openid-connect/auth",
+  "token_endpoint": "https://keycloak.blueradish.net:8443/realms/OpenShift/protocol/openid-connect/token",
+  "introspection_endpoint": "https://keycloak.blueradish.net:8443/realms/OpenShift/protocol/openid-connect/token/introspect",
+  ...
+}
+```
+
+<Zoom>
+![oauth2](/static/images/mfa/oauth2.png)
+</Zoom>
+
+At this point you should see the OpenShift built-in OAuth server is being reconfigured by the authentication operator:
+```
+$ oc get co 
+NAME                                       VERSION   AVAILABLE   PROGRESSING   DEGRADED   SINCE   MESSAGE
+authentication                             4.15.9    False       True          False      2s      OAuthServerRouteEndpointAccessibleControllerAvailable: Get "https://oauth-openshift.apps.lab7.openshift.blueradish.net/healthz": EOF
+baremetal                                  4.15.9    True        False         False      21h
+cloud-controller-manager                   4.15.9    True        False         False      21h
+cloud-credential                           4.15.9    True        False         False      22h
+cluster-autoscaler                         4.15.9    True        False         False      21h
+```
+
+## Putting it all together
+
+Ok! Once the cluster authentication operator is back you should see a new login option in OpenShift:
+
+<Zoom>
+![new login](/static/images/mfa/new-login.png)
+</Zoom>
+
+You'll be redirected to Keycloak, and can enter your new user credentials:
+
+<Zoom>
+![kc creds](/static/images/mfa/kc-creds.png)
+</Zoom>
+
+Once you successfully authenticate you should be prompted to register a security. You can see in the images below that I've setup a Yubikey device on my Windows client.
+
+<Zoom>
+![key setup1](/static/images/mfa/key-setup1.png)
+</Zoom>
+
+<Zoom>
+![key setup2](/static/images/mfa/key-setup2.png)
+</Zoom>
+
+<Zoom>
+![key setup3](/static/images/mfa/key-setup3.png)
+</Zoom>
+
+<Zoom>
+![key setup4](/static/images/mfa/key-setup4.png)
+</Zoom>
+
+Once the security key is enrolled your user will be logged into OpenShift. You can verify that the user's security key has been registered and saved through the Keycloak admin console.
+
+<Zoom>
+![ocp login](/static/images/mfa/ocp-login.png)
+</Zoom>
+
+<Zoom>
+![kc verify](/static/images/mfa/kc-admin.png)
+</Zoom>
+
+## Wrapping up
+Social engineering and credentials-based attacks are not going anywhere anytime soon. Phishing-resistant multi-factor authentication can help to mitigate MFA bypass attacks, like "MFA fatigure".
+
+Let me know in the comments how you go setting this up in your own environment or lab.

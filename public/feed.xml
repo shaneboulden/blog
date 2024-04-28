@@ -7,14 +7,24 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Wed, 06 Mar 2024 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Mon, 29 Apr 2024 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/openshift-mfa</guid>
+    <title>Phishing-resistant MFA for OpenShift</title>
+    <link>https://stb.id.au/blog/openshift-mfa</link>
+    <description>Phishing-resistant multi-factor authentication is a critical security control in 2024, and this article takes you through configuring it for OpenShift with Keycloak</description>
+    <pubDate>Mon, 29 Apr 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>phishing</category><category>resistant</category><category>mfa</category><category>keycloak</category><category>kubernetes</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/openshift-virt-lab</guid>
     <title>OpenShift Virtualization Lab Build</title>
     <link>https://stb.id.au/blog/openshift-virt-lab</link>
-    <description>A quick look at my OpenShift Virtualization lab build.</description>
+    <description>A detailed look at my OpenShift Virtualization lab build.</description>
     <pubDate>Wed, 06 Mar 2024 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>openshift</category><category>dell</category><category>r620</category><category>poweredge</category><category>metal</category><category>kubernetes</category><category>virtualization</category><category>kvm</category>
@@ -262,7 +272,7 @@
 
   <item>
     <guid>https://stb.id.au/blog/access-and-agents</guid>
-    <title>Access & Agents</title>
+    <title>Access &amp; Agents</title>
     <link>https://stb.id.au/blog/access-and-agents</link>
     <description>Many organisations take the same approach to securing virtual machines, which I call &#39;Access &amp; Agents&#39;. While effective for virtual machines and other legacy infrastructure, this approach doesn&#39;t translate across to containers and Kubernetes, and this article looks at why.</description>
     <pubDate>Sat, 19 Mar 2022 00:00:00 GMT</pubDate>
