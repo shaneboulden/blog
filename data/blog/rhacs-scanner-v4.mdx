@@ -1,0 +1,201 @@
+---
+title: Getting started with RHACS Scanner V4
+date: '2024-06-16'
+tags: ['scanner','v4','security','openshift','stackrox','rhacs','vulnerability','management']
+images: ['/static/images/linkedin-banners/rhacs-scanner-v4.png']
+draft: true
+summary: "Red Hat Advanced Cluster Security for Kubernetes (RHACS) v4.4 introduces a new container image scanning capability. This article takes a closer look at Scanner v4 and how it compares with the previous RHACS scanning capability."
+---
+Red Hat Advanced Cluster Security for Kubernetes (RHACS) v4.4 is now out, and includes a really interesting new feature in technology preview - [Scanner V4](https://docs.openshift.com/acs/4.4/release_notes/44-release-notes.html#vulnerability-scanner-v4-that-uses-upstream-claircore_release-notes-44).
+
+In this article I'll take a closer look at Scanner V4, and look at how it differs from the existing StackRox Scanner. Let's dive in!
+
+## Exploring Scanner V4
+The RHACS [Scanner V4](https://docs.openshift.com/acs/4.4/release_notes/44-release-notes.html#vulnerability-scanner-v4-that-uses-upstream-claircore_release-notes-44) is based on [ClaireCore](https://github.com/quay/claircore). ClairCore is the engine that sits behind the Clair v4 scanner, the latest iteration of the Clair container scanner, originally created by CoreOS.
+
+Clair scans each container layer and provides a notification of vulnerabilities that may be a threat, based on the Common Vulnerabilities and Exposures database (CVE) and similar databases from Red Hat ®, Ubuntu, and Debian. Since layers can be shared between many containers, introspection is vital to build an inventory of packages and match that against known CVEs.
+
+Clair v4 utilizes the ClairCore library as its engine for examining contents and reporting vulnerabilities. At a high level you can consider Clair a service wrapper to the functionality provided in the ClairCore library. If you want to read more about ClairCore there's an [entire book](https://quay.github.io/claircore/introduction.html) dedicated to the topic.
+
+You can see an example here showing how Clair v4 essentially provides a service wrapper around the ClairCore engine.
+
+<Zoom>
+![clairv4](/static/images/scannerv4/clairv4_arch.png)
+</Zoom>
+
+In the same way, StackRox (RHACS) also provides a service wrapper around the ClairCore engine. This means that RHACS now provides two scanners - the collloquially named "StackRox Scanner" (based on Clair v2) and Scanner V4, based on ClairCore.
+
+Because of this move to ClairCore, Scanner V4 introduces new capabilities for image scanning in Red Hat Advanced Cluster Security for Kubernetes:
+
+- **New supported programming languages**: Scanner V4 now supports Go binaries. If the binaries are built with module support (`go.mod`) then the dependencies of the binary are also analyzed.
+
+- **New supported operating systems**: Scanner V4 introduces support for Amazon Linux 2023, Alpine Linux 3.19, SLES 15, openSUSE Leap 15.1, Photon OS and Oracle Linux.
+
+- **New CVE sources**: Scanner V4 also introduces a new source for vulnerability data, [OSV.dev](https://osv.dev). OSV.dev is an open source vulnerability database created by Google Security in 2021, with the goal of making it easier to track CVEs and vulnerabilities across open source packages.
+
+The use of [OSV](https://osv.dev) (Open Source Vulnerabilties) is a pretty exciting change. OSV automates a lot of analysis that typically happens behind-the-scenes for open source package vulnerability analysis. 
+
+OSV does this by providing both the commits that introduce and fix bugs in the package. If that information is not available, OSV requires providing a reproduction test case and steps to generate an application build, and then it performs bisection to find these commits in an automated fashion. OSV takes care of the rest of the analysis to figure out impacted commit ranges (accounting for cherry picks) and versions/tags.
+
+There's a great diagram here from the [Google Security blog](https://security.googleblog.com/2021/02/launching-osv-better-vulnerability.html) on how OSV works.
+
+![osv1](/static/images/scannerv4/osv1.png)
+
+## Getting started with Scanner V4
+The Red Hat Advanced Cluster Security for Kubernetes (RHACS) operator exposes settings for Scanner V4, which you can use to enable this alongside the StackRox Scanner (based on Clair v2).
+
+<details>
+    <summary><strong>What is a Red Hat technology preview?</strong></summary>
+    <p>Scanner V4 is a Red Hat Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</details>
+
+You can find the complete list of Scanner V4 configuration items documented [here](https://docs.openshift.com/acs/4.4/installing/installing_ocp/install-central-config-options-ocp.html#scannerv4-settings_install-central-config-options-ocp).
+
+When you deploy a RHACS Central v4.4 instance it will configure settings for Scanner v4:
+
+```yaml
+scannerV4:
+    db:
+      persistence:
+        persistentVolumeClaim:
+          claimName: scanner-v4-db
+    indexer:
+      scaling:
+        autoScaling: Enabled
+        maxReplicas: 5
+        minReplicas: 2
+        replicas: 3
+    matcher:
+      scaling:
+        autoScaling: Enabled
+        maxReplicas: 5
+        minReplicas: 2
+        replicas: 3
+    scannerComponent: Default
+```
+However, Scanner V4 is not yet enabled, as the `scannerComponent` is set to `Default`. Changing this to `Enabled` will deploy the scanner v4 components, and configure RHACS Central to use this as the default.
+
+```yaml
+scannerV4:
+    db:
+      persistence:
+        persistentVolumeClaim:
+          claimName: scanner-v4-db
+    indexer:
+      scaling:
+        autoScaling: Enabled
+        maxReplicas: 5
+        minReplicas: 2
+        replicas: 3
+    matcher:
+      scaling:
+        autoScaling: Enabled
+        maxReplicas: 5
+        minReplicas: 2
+        replicas: 3
+    scannerComponent: Enabled
+```
+Once you've made this change, you should see the Scanner v4 components deploying to the cluster.
+
+<Zoom>
+![scannerv4-deploy](/static/images/scannerv4/deploy1.png)
+</Zoom>
+
+After enabling the Scanner V4 component you may find that some of the pods are stuck in a `Pending` state. This is likely due to insufficient memory / CPU for the Scanner v4 indexers, which you can see below:
+
+<Zoom>
+![scannerv4-limits](/static/images/scannerv4/deploy2.png)
+</Zoom>
+
+There's a couple of ways to resolve this:
+
+### Scaling nodes vertically and horizontally
+You can scale OpenShift nodes vertically by updating the machineset. Here I've changed the worker nodes from the AWS `m6i.xlarge` size to `m6i.2xlarge`. 
+
+```bash
+$ oc get machineset cluster1-fwbxz-worker-ap-southeast-2c -o json | jq -r '.spec.template.spec.providerSpec.value.instanceType'
+m6i.2xlarge
+```
+Once updated, if you scale the machineset to zero-replicas and back again the changes will take effect.
+
+```bash
+$ oc scale machineset cluster1-fwbxz-worker-ap-southeast-2c --replicas 0
+```
+You can also scale the nodes horizontally in the same step:
+```bash
+oc scale machineset cluster1-fwbxz-worker-ap-southeast-2c --replicas 2
+```
+
+### Configuring Scanner V4 resource requests
+You can also resolve this issue by updating the Scanner V4 resource requests. 
+
+The default resource requests are created by the RHACS Central operator, and are pretty heavy. You can see an example here for the `scanner-v4-indexer` containers:
+```yaml
+containers:
+- resources:
+    limits:
+        cpu: '2'
+        memory: 3Gi
+    requests:
+        cpu: '1'
+        memory: 1500Mi
+```
+The RHACS Central operator exposes a [number of settings](https://docs.openshift.com/acs/4.4/installing/installing_ocp/install-central-config-options-ocp.html#scannerv4-settings_install-central-config-options-ocp) you can use to tune these resource requests, and deploy Scanner V4 on smaller clusters.
+
+You can see the resources / limits summarised in the following table:
+
+| Parameter | Description |
+| --- | --- |
+| scannerV4.db.resources.limits | Use this parameter to override the default resource limits for Scanner V4 DB. |
+| scannerV4.db.resources.requests | Use this parameter to override the default resource requests for Scanner V4 DB. |
+| scannerV4.indexer.resources.limits | Use this parameter to override the default resource limits for the Scanner V4 Indexer. |
+| scannerV4.indexer.resources.requests | Use this parameter to override the default resource requests for the Scanner V4 Indexer. |
+| scannerV4.matcher.resources.limits | Use this parameter to override the default resource limits for the Scanner V4 Matcher. |
+| scannerV4.matcher.resources.requests | Use this parameter to override the default resource requests for the Scanner V4 Matcher. |
+
+## Scanner V4 initialization
+Once you've updated either the ScannerV4 configuration or scaled the nodes, you should see all Scanner v4 pods deploy.
+
+<Zoom>
+![scannerv4-up](/static/images/scannerv4/deploy3.png)
+</Zoom>
+
+It's not quite ready to use though. If you try running an image scan you'll see an error like below:
+```
+ERROR:	checking image failed after 3 retries: could not check build-time alerts: rpc error: code = Internal desc = image enrichment error: error scanning image: quay.io/argoproj/argocd:v2.9.17 error: scanning "quay.io/argoproj/argocd:v2.9.17" with scanner "Scanner V4": index and scan image report (reference: "quay.io/argoproj/argocd@sha256:42d7cef523701c74c5540d721b58615d8c8526bc1d7ef264df6670dd28c4be81"): get vulns: rpc error: code = FailedPrecondition desc = the matcher is not initialized: initial load for the vulnerability store is in progress
+```
+You can also see these errors reporting in the RHACS Central `System Health` dashboard.
+
+<Zoom>
+![health1](/static/images/scannerv4/health1.png)
+</Zoom>
+
+As the error highlights, the Scanner V4 `matcher` component is still initializing. You can see this in the `matcher` pod logs:
+```json
+{"level":"info","host":"scanner-v4-matcher-6948d79d87-zmrrj","component":"matcher/updater/vuln/Updater.Start","time":"2024-06-10T23:52:17Z","message":"completed update"}
+{"level":"info","host":"scanner-v4-matcher-6948d79d87-zmrrj","component":"matcher/updater/distribution/Updater.Start","time":"2024-06-10T23:52:26Z","message":"vulnerability updater is running, wait 15m0s and try again..."}
+```
+You should also be able to see the matcher applying CVE updates using the Red Hat OVAL sources:
+```json
+{"level":"info","host":"scanner-v4-matcher-6948d79d87-zmrrj","component":"matcher/updater/distribution/Updater.Start","time":"2024-06-11T00:22:01Z","message":"vulnerability updater is running, wait 15m0s and try again..."}
+{"level":"info","host":"scanner-v4-matcher-6948d79d87-zmrrj","component":"libvuln/OfflineImporter","updater":"RHEL7-rhel-7.2-eus","time":"2024-06-11T00:22:02Z","message":"fingerprint match, skipping"}
+{"level":"info","host":"scanner-v4-matcher-6948d79d87-zmrrj","component":"libvuln/OfflineImporter","updater":"RHEL8-storage-ceph-4-including-unpatched","time":"2024-06-11T00:22:02Z","message":"fingerprint match, skipping"}
+{"level":"info","host":"scanner-v4-matcher-6948d79d87-zmrrj","component":"libvuln/OfflineImporter","updater":"RHEL7-rhel-7.6-tus","time":"2024-06-11T00:22:03Z","message":"fingerprint match, skipping"}
+{"level":"info","host":"scanner-v4-matcher-6948d79d87-zmrrj","component":"libvuln/OfflineImporter","updater":"RHEL6-jboss-ws-5-including-unpatched","time":"2024-06-11T00:22:03Z","message":"fingerprint match, skipping"}
+{"level":"info","host":"scanner-v4-matcher-6948d79d87-zmrrj","component":"libvuln/OfflineImporter","updater":"RHEL9-rhel-9.2-eus","time":"2024-06-11T00:22:05Z","message":"fingerprint match, skipping"}
+{"level":"info","host":"scanner-v4-matcher-6948d79d87-zmrrj","component":"libvuln/OfflineImporter","updater":"RHEL7-satellite-6.8","time":"2024-06-11T00:22:05Z","message":"fingerprint match, skipping"}
+{"level":"info","host":"scanner-v4-matcher-6948d79d87-zmrrj","component":"libvuln/OfflineImporter","updater":"RHEL7-rhel-7.1-eus","time":"2024-06-11T00:22:06Z","message":"fingerprint match, skipping"}
+{"level":"info","host":"scanner-v4-matcher-6948d79d87-zmrrj","component":"libvuln/OfflineImporter","updater":"RHEL9-jboss-ws-5","time":"2024-06-11T00:22:06Z","message":"fingerprint match, skipping"}
+```
+If we give this about 45 minutes the `matcher` will have updated its CVE definitions and we can start using it.
+
+## Trying out Scanner V4
+Scanner V4 is now up-and-running now on this cluster. so let's give it a shot!
+
+One of the limitations with StackRox Scanner (based on Clair v2) was that it couldn't support Go binaries. Let's try out Scanner V4 and make sure we get a result for Go. You can initiate an image scan with `roxctl`:
+
+```
+$ export ROX_API_TOKEN=...
+$ roxctl -e "central-acs-central.apps.your-cluster.example.com:443" --insecure-skip-tls-verify image check --image quay.io/argoproj/argocd:v2.9.17
+```
+
