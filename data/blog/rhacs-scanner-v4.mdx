@@ -4,7 +4,7 @@ date: '2024-06-16'
 tags: ['scanner','v4','security','openshift','stackrox','rhacs','vulnerability','management']
 images: ['/static/images/linkedin-banners/rhacs-scanner-v4.png']
 draft: true
-summary: "Red Hat Advanced Cluster Security for Kubernetes (RHACS) v4.4 introduces a new container image scanning capability. This article takes a closer look at Scanner v4 and how it compares with the previous RHACS scanning capability."
+summary: "Red Hat Advanced Cluster Security for Kubernetes (RHACS) v4.4 introduces a new container image scanning capability, Scanner V4. This article takes a closer look at Scanner V4 and how it compares with the previous RHACS scanning capability."
 ---
 Red Hat Advanced Cluster Security for Kubernetes (RHACS) v4.4 is now out, and includes a really interesting new feature in technology preview - [Scanner V4](https://docs.openshift.com/acs/4.4/release_notes/44-release-notes.html#vulnerability-scanner-v4-that-uses-upstream-claircore_release-notes-44).
 
@@ -23,9 +23,29 @@ You can see an example here showing how Clair v4 essentially provides a service 
 ![clairv4](/static/images/scannerv4/clairv4_arch.png)
 </Zoom>
 
-In the same way, StackRox (RHACS) also provides a service wrapper around the ClairCore engine. This means that RHACS now provides two scanners - the collloquially named "StackRox Scanner" (based on Clair v2) and Scanner V4, based on ClairCore.
+In the same way, StackRox (RHACS) also provides a service wrapper around the ClairCore engine. This means that RHACS now provides two scanners - the colloquially named "StackRox Scanner" (based on Clair v2) and Scanner V4, based on ClairCore.
 
-Because of this move to ClairCore, Scanner V4 introduces new capabilities for image scanning in Red Hat Advanced Cluster Security for Kubernetes:
+The "StackRox Scanner" supported a number of programming languages and base image OS flavours, shown in the following tables.
+
+### Supported base images (StackRox Scanner)
+| Distribution | Version |
+| --- | --- |
+| Alpine Linux | alpine:3.2,alpine:3.3, alpine:3.4, alpine:3.5, alpine:3.6, alpine:3.7, alpine:3.8, alpine:3.9, alpine:3.10, alpine:3.11, alpine:3.12, alpine:3.13, alpine:3.14, alpine:3.15, alpine:3.16, alpine:3.17, alpine:3.18, alpine:edge |
+| Amazon Linux | amzn:2018.03, amzn:2 |
+| CentOS | centos:6, centos:7, centos:8 |
+| Debian | ebian:10, debian:11, debian:12, debian:unstable, distroless | 
+| Red Hat Enterprise Linux (RHEL) | rhel:6, rhel:7, rhel:8, rhel:9 |
+| Ubuntu | ubuntu:14.04, ubuntu:16.04, ubuntu:18.04, ubuntu:20.04, ubuntu:21.04, ubuntu:21.10, ubuntu:22.04, ubuntu:22.10, ubuntu:23.04, ubuntu:23.10. The following vulnerability sources are not updated by the vendor: ubuntu:12.04, ubuntu:12.10, ubuntu:13.04, ubuntu:14.10, ubuntu:15.04, ubuntu::15.10, ubuntu::16.10, ubuntu:17.04, ubuntu:17.10, ubuntu:18.10, ubuntu:19.04, ubuntu:19.10, ubuntu:20.1 |
+
+### Supported programming languages (StackRox Scanner)
+| Language | Artifact |
+| --- | --- |
+| Java | JAR / WAR / EAR |
+| JavaScript | Node.js / npm package.json |
+| Python | egg and wheel formats |
+| Ruby | gem |
+
+Because of the move to ClairCore, Scanner V4 introduces new capabilities for image scanning in Red Hat Advanced Cluster Security for Kubernetes:
 
 - **New supported programming languages**: Scanner V4 now supports Go binaries. If the binaries are built with module support (`go.mod`) then the dependencies of the binary are also analyzed.
 
@@ -41,6 +61,30 @@ There's a great diagram here from the [Google Security blog](https://security.go
 
 ![osv1](/static/images/scannerv4/osv1.png)
 
+This means that the supported base images and programming languages table now looks like this with Scanner V4:
+
+### Supported base images (Scanner V4)
+| Distribution | Version |
+| --- | --- |
+| Alpine Linux | alpine:3.2,alpine:3.3, alpine:3.4, alpine:3.5, alpine:3.6, alpine:3.7, alpine:3.8, alpine:3.9, alpine:3.10, alpine:3.11, alpine:3.12, alpine:3.13, alpine:3.14, alpine:3.15, alpine:3.16, alpine:3.17, alpine:3.18, alpine:3.19, alpine:edge |
+| Amazon Linux | amzn:2018.03, amzn:2, amzn:2023 |
+| CentOS | centos:6, centos:7, centos:8 |
+| Debian | ebian:10, debian:11, debian:12, debian:unstable, distroless | 
+| Oracle Linux | versions 5-9 |
+| Photon OS | 1.0, 2.0, 3.0 |
+| Red Hat Enterprise Linux (RHEL) | rhel:6, rhel:7, rhel:8, rhel:9 |
+| SUSE | SLES 11, 12, 15; openSUSE Leap 42.3, 15.0, 15.1; SUSE Linux | 
+| Ubuntu | ubuntu:14.04, ubuntu:16.04, ubuntu:18.04, ubuntu:20.04, ubuntu:21.04, ubuntu:21.10, ubuntu:22.04, ubuntu:22.10, ubuntu:23.04, ubuntu:23.10. The following vulnerability sources are not updated by the vendor: ubuntu:12.04, ubuntu:12.10, ubuntu:13.04, ubuntu:14.10, ubuntu:15.04, ubuntu::15.10, ubuntu::16.10, ubuntu:17.04, ubuntu:17.10, ubuntu:18.10, ubuntu:19.04, ubuntu:19.10, ubuntu:20.1 |
+
+### Supported programming languages (Scanner V4)
+| Language | Artifact |
+| --- | --- |
+| Go | Binaries: The standard library version used to build the binary is analyzed. If the binaries are built with module support (go.mod), then the dependencies are also analyzed. |
+| Java | JAR / WAR / EAR |
+| JavaScript | Node.js / npm package.json |
+| Python | egg and wheel formats |
+| Ruby | gem |
+
 ## Getting started with Scanner V4
 The Red Hat Advanced Cluster Security for Kubernetes (RHACS) operator exposes settings for Scanner V4, which you can use to enable this alongside the StackRox Scanner (based on Clair v2).
 
@@ -53,47 +97,47 @@ You can find the complete list of Scanner V4 configuration items documented [her
 
 When you deploy a RHACS Central v4.4 instance it will configure settings for Scanner v4:
 
-```yaml
+```yaml showLineNumbers
 scannerV4:
-    db:
-      persistence:
-        persistentVolumeClaim:
-          claimName: scanner-v4-db
-    indexer:
-      scaling:
-        autoScaling: Enabled
-        maxReplicas: 5
-        minReplicas: 2
-        replicas: 3
-    matcher:
-      scaling:
-        autoScaling: Enabled
-        maxReplicas: 5
-        minReplicas: 2
-        replicas: 3
-    scannerComponent: Default
+  db:
+    persistence:
+      persistentVolumeClaim:
+        claimName: scanner-v4-db
+  indexer:
+    scaling:
+      autoScaling: Enabled
+      maxReplicas: 5
+      minReplicas: 2
+      replicas: 3
+  matcher:
+    scaling:
+      autoScaling: Enabled
+      maxReplicas: 5
+      minReplicas: 2
+      replicas: 3
+  scannerComponent: Default
 ```
 However, Scanner V4 is not yet enabled, as the `scannerComponent` is set to `Default`. Changing this to `Enabled` will deploy the scanner v4 components, and configure RHACS Central to use this as the default.
 
-```yaml
+```yaml {18} showLineNumbers
 scannerV4:
-    db:
-      persistence:
-        persistentVolumeClaim:
-          claimName: scanner-v4-db
-    indexer:
-      scaling:
-        autoScaling: Enabled
-        maxReplicas: 5
-        minReplicas: 2
-        replicas: 3
-    matcher:
-      scaling:
-        autoScaling: Enabled
-        maxReplicas: 5
-        minReplicas: 2
-        replicas: 3
-    scannerComponent: Enabled
+  db:
+    persistence:
+      persistentVolumeClaim:
+        claimName: scanner-v4-db
+  indexer:
+    scaling:
+      autoScaling: Enabled
+      maxReplicas: 5
+      minReplicas: 2
+      replicas: 3
+  matcher:
+    scaling:
+      autoScaling: Enabled
+      maxReplicas: 5
+      minReplicas: 2
+      replicas: 3
+  scannerComponent: Enabled
 ```
 Once you've made this change, you should see the Scanner v4 components deploying to the cluster.
 
@@ -187,15 +231,94 @@ You should also be able to see the matcher applying CVE updates using the Red Ha
 {"level":"info","host":"scanner-v4-matcher-6948d79d87-zmrrj","component":"libvuln/OfflineImporter","updater":"RHEL7-rhel-7.1-eus","time":"2024-06-11T00:22:06Z","message":"fingerprint match, skipping"}
 {"level":"info","host":"scanner-v4-matcher-6948d79d87-zmrrj","component":"libvuln/OfflineImporter","updater":"RHEL9-jboss-ws-5","time":"2024-06-11T00:22:06Z","message":"fingerprint match, skipping"}
 ```
-If we give this about 45 minutes the `matcher` will have updated its CVE definitions and we can start using it.
+If we give this about 45 minutes the `matcher` will have updated its CVE definitions and we can start using it. If the `matcher` hasn't initialized after 45 mins you may need to bump up the limits for the pods via the RHACS Central CR. HEre's I've updated the `matcher` to allow it to use 4 cores and 10GB of RAM:
+```yaml {12-16} showLineNumbers
+scannerV4:
+  db:
+    persistence:
+      persistentVolumeClaim:
+        claimName: scanner-v4-db
+  indexer:
+    scaling:
+      autoScaling: Enabled
+      maxReplicas: 5
+      minReplicas: 2
+      replicas: 3
+  matcher:
+    resources:
+      limits:
+        cpu: 4
+        memory: 10Gi
+    scaling:
+      autoScaling: Enabled
+      maxReplicas: 5
+      minReplicas: 2
+      replicas: 3
+  scannerComponent: Enabled
+```
 
 ## Trying out Scanner V4
 Scanner V4 is now up-and-running now on this cluster. so let's give it a shot!
 
-One of the limitations with StackRox Scanner (based on Clair v2) was that it couldn't support Go binaries. Let's try out Scanner V4 and make sure we get a result for Go. You can initiate an image scan with `roxctl`:
-
+One of the limitations with StackRox Scanner (based on Clair v2) was that it couldn't support Go binaries. Let's try out Scanner V4 and make sure we get a result for Go. You can initiate an image scan and policy check with `roxctl`for the `quay.io/argoproj/argocd:v2.9.17` image:
 ```
 $ export ROX_API_TOKEN=...
 $ roxctl -e "central-acs-central.apps.your-cluster.example.com:443" --insecure-skip-tls-verify image check --image quay.io/argoproj/argocd:v2.9.17
 ```
+You should get a result like this:
+```
+Policy check results for image: quay.io/argoproj/argocd:v2.9.17
+(TOTAL: 3, LOW: 1, MEDIUM: 0, HIGH: 1, CRITICAL: 1)
 
++--------------------------------+----------+--------------+--------------------------------+-------------------------------------------------------------------------------+--------------------------------+
+|             POLICY             | SEVERITY | BREAKS BUILD |          DESCRIPTION           |                                   VIOLATION                                   |          REMEDIATION           |
++--------------------------------+----------+--------------+--------------------------------+-------------------------------------------------------------------------------+--------------------------------+
+| Rapid Reset: Denial of Service | CRITICAL |      -       |   Alert on deployments with    |                            - CVE-2023-44487 (CVSS                             | Upgrade vulnerable components  |
+|    Vulnerability in HTTP/2     |          |              |  images containing components  |                           5.3) (severity Moderate)                            |    or images to the latest     |
+|            Protocol            |          |              |    that are susceptible to     |                              found in component                               |            version.            |
+|                                |          |              |   a Denial of Service (DoS)    |                           'google.golang.org/grpc'                            |                                |
+|                                |          |              |    vulnerability for HTTP/2    |                               (version v1.56.2)                               |                                |
+|                                |          |              |            servers.            |                                                                               |                                |
++--------------------------------+----------+--------------+--------------------------------+-------------------------------------------------------------------------------+--------------------------------+
+|   Fixable Severity at least    |   HIGH   |      X       |   Alert on deployments with    |  - Fixable CVE-2023-47108 (CVSS 7.5) (severity Important) found in component  |  Use your package manager to   |
+|           Important            |          |              |  fixable vulnerabilities with  | 'go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc' |  update to a fixed version in  |
+|                                |          |              |   a Severity Rating at least   |                 (version v0.42.0), resolved by version 0.46.0                 |  future builds or speak with   |
+|                                |          |              |           Important            |                                                                               | your security team to mitigate |
+|                                |          |              |                                |                            - Fixable CVE-2023-5528                            |      the vulnerabilities.      |
+|                                |          |              |                                |                             (CVSS 8.8) (severity                              |                                |
+|                                |          |              |                                |                         Important) found in component                         |                                |
+|                                |          |              |                                |                         'k8s.io/kubernetes' (version                          |                                |
+|                                |          |              |                                |                        v1.24.17), resolved by version                         |                                |
+|                                |          |              |                                |                                    1.25.16                                    |                                |
+|                                |          |              |                                |                                                                               |                                |
+|                                |          |              |                                |                         - Fixable GHSA-m425-mq94-257g                         |                                |
+|                                |          |              |                                |                             (CVSS 7.5) (severity                              |                                |
+|                                |          |              |                                |                         Important) found in component                         |                                |
+|                                |          |              |                                |                           'google.golang.org/grpc'                            |                                |
+|                                |          |              |                                |                        (version v1.56.2), resolved by                         |                                |
+|                                |          |              |                                |                                version 1.56.3                                 |                                |
++--------------------------------+----------+--------------+--------------------------------+-------------------------------------------------------------------------------+--------------------------------+
+|   Ubuntu Package Manager in    |   LOW    |      -       |      Alert on deployments      |                          - Image includes component                           |    Run `dpkg -r --force-all    |
+|             Image              |          |              |     with components of the     |                            'apt' (version 2.4.12)                             |     apt apt-get && dpkg -r     |
+|                                |          |              |     Debian/Ubuntu package      |                                                                               |  --force-all debconf dpkg` in  |
+|                                |          |              |    management system in the    |                               - Image includes                                | the image build for production |
+|                                |          |              |             image.             |                           component 'dpkg' (version                           |          containers.           |
+|                                |          |              |                                |                               1.21.1ubuntu2.3)                                |                                |
++--------------------------------+----------+--------------+--------------------------------+-------------------------------------------------------------------------------+--------------------------------+
+```
+We can see that Scanner V4 has detected CVE-2023-44487 inside one of the Go binaries packaged inside this container image. Let's take a closer look at this image in the RHACS UI.
+
+<Zoom>
+![go1](/static/images/scannerv4/go1.png)
+</Zoom>
+
+<Zoom>
+![go2](/static/images/scannerv4/go2.png)
+</Zoom>
+
+Great! We can see from these images that Scanner V4 was used to analyze the container image, and was able to detect Go components. Importantly, Scanner V4 identified CVEs inside a Go binary packaged inside the container image. It identified that the file `/usr/local/bin/argocd` packaged inside the container image is vulnerable to CVE-2023-44487, and that this is fixed in version 1.56.3 of the `google.golang.org/grpc` dependency.
+
+## Wrapping up
+In this article I took a closer look at the new Scanner V4 introduced with Red Hat Advanced Cluster Security for Kubernetes (RHACS) v4.4. Scanner V4 is based on ClairCore and introduces support for Go and other programming languages.
+
+Let me know in the comments how you go trying it out for yourself!
