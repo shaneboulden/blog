@@ -13,7 +13,7 @@ In this article I'll take a closer look at Scanner V4, and look at how it differ
 ## Exploring Scanner V4
 The RHACS [Scanner V4](https://docs.openshift.com/acs/4.4/release_notes/44-release-notes.html#vulnerability-scanner-v4-that-uses-upstream-claircore_release-notes-44) is based on [ClaireCore](https://github.com/quay/claircore). ClairCore is the engine that sits behind the Clair v4 scanner, the latest iteration of the Clair container scanner, originally created by CoreOS.
 
-Clair scans each container layer and provides a notification of vulnerabilities that may be a threat, based on the Common Vulnerabilities and Exposures database (CVE) and similar databases from Red Hat ®, Ubuntu, and Debian. Since layers can be shared between many containers, introspection is vital to build an inventory of packages and match that against known CVEs.
+Clair scans each container layer and provides a notification of vulnerabilities that may be a threat, based on the Common Vulnerabilities and Exposures database (CVE) and similar databases from Red Hat, Ubuntu, and Debian. Since layers can be shared between many containers, introspection is vital to build an inventory of packages and match that against known CVEs.
 
 Clair v4 utilizes the ClairCore library as its engine for examining contents and reporting vulnerabilities. At a high level you can consider Clair a service wrapper to the functionality provided in the ClairCore library. If you want to read more about ClairCore there's an [entire book](https://quay.github.io/claircore/introduction.html) dedicated to the topic.
 
