@@ -3,8 +3,8 @@ title: Getting started with RHACS Scanner V4
 date: '2024-06-16'
 tags: ['scanner','v4','security','openshift','stackrox','rhacs','vulnerability','management']
 images: ['/static/images/linkedin-banners/rhacs-scanner-v4.png']
-draft: true
-summary: "Red Hat Advanced Cluster Security for Kubernetes (RHACS) v4.4 introduces a new container image scanning capability, Scanner V4. This article takes a closer look at Scanner V4 and how it compares with the previous RHACS scanning capability."
+draft: false
+summary: "Red Hat Advanced Cluster Security for Kubernetes (RHACS) v4.4 introduces a new container image scanning capability, Scanner V4. This article takes a closer look at Scanner V4 and how it compares with the existing RHACS scanning capability."
 ---
 Red Hat Advanced Cluster Security for Kubernetes (RHACS) v4.4 is now out, and includes a really interesting new feature in technology preview - [Scanner V4](https://docs.openshift.com/acs/4.4/release_notes/44-release-notes.html#vulnerability-scanner-v4-that-uses-upstream-claircore_release-notes-44).
 
@@ -90,7 +90,8 @@ The Red Hat Advanced Cluster Security for Kubernetes (RHACS) operator exposes se
 
 <details>
     <summary><strong>What is a Red Hat technology preview?</strong></summary>
-    <p>Scanner V4 is a Red Hat Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+    <p>Scanner V4 is a Red Hat Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+    <p>In other words, I wouldn't recommend using this in production. Try out Scanner V4 in a non-production environment while it's a Technology Preview. </p>
 </details>
 
 You can find the complete list of Scanner V4 configuration items documented [here](https://docs.openshift.com/acs/4.4/installing/installing_ocp/install-central-config-options-ocp.html#scannerv4-settings_install-central-config-options-ocp).
