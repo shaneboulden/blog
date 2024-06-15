@@ -232,7 +232,7 @@ You should also be able to see the matcher applying CVE updates using the Red Ha
 {"level":"info","host":"scanner-v4-matcher-6948d79d87-zmrrj","component":"libvuln/OfflineImporter","updater":"RHEL7-rhel-7.1-eus","time":"2024-06-11T00:22:06Z","message":"fingerprint match, skipping"}
 {"level":"info","host":"scanner-v4-matcher-6948d79d87-zmrrj","component":"libvuln/OfflineImporter","updater":"RHEL9-jboss-ws-5","time":"2024-06-11T00:22:06Z","message":"fingerprint match, skipping"}
 ```
-If we give this about 45 minutes the `matcher` will have updated its CVE definitions and we can start using it. If the `matcher` hasn't initialized after 45 mins you may need to bump up the limits for the pods via the RHACS Central CR. HEre's I've updated the `matcher` to allow it to use 4 cores and 10GB of RAM:
+If we give this about 45 minutes the `matcher` will have updated its CVE definitions and we can start using it. If the `matcher` hasn't initialized after 45 mins you may need to bump up the limits for the pods via the RHACS Central CR. Here I've updated the `matcher` to allow it to use up to 4 cores and 10GB of RAM:
 ```yaml {12-16} showLineNumbers
 scannerV4:
   db:
