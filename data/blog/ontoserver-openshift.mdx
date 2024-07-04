@@ -141,9 +141,9 @@ OpenShift uses a default service account inside each project to deploy applicati
 ```
 $ oc secrets link default regcred --for=pull
 ```
-Now that our secrets are created and linked we're ready to deploy Ontoserver. Firstly clone the repo with the helm charts:
+Now that our secrets are created and linked we're ready to deploy Ontoserver. Firstly clone the [repo](https://github.com/shaneboulden/ontoserver-openshift) with the helm charts:
 ```
-git clone ...
+git clone git@github.com:shaneboulden/ontoserver-openshift.git
 ```
 We've provided a default configuration in `values.yaml`. You can modify these values if you want to use a different `ontoserver` release, enable autoscaling, or use a different service account than `default`.
 ```yaml
