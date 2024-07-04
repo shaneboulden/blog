@@ -1,0 +1,300 @@
+---
+title: Ontoserver on OpenShift
+date: '2024-07-10'
+tags: ['openshift','ontoserver','csiro','aehrc','kubernetes']
+images: ['/static/images/linkedin-banners/ontoserver-openshift.png']
+draft: false
+summary: "Recently I've been involved in a project to run a healthcare data service on OpenShift. It's been really interesting learning about FHIR, SNOMED CT, and all manner of health-related application protocols and frameworks."
+---
+Recently I've been involved in a project to run a healthcare data service on OpenShift. It's been really interesting learning about "FHIR", "SNOMED CT", and all manner of health-related application protocols and frameworks.
+
+In this article I want to take a closer look at one digital health service - `Ontoserver` - and what it looks like deployed to OpenShift.
+
+## What is Ontoserver?
+
+[Ontoserver](https://ontoserver.csiro.au/site/) is an application developed by the Australian e-Health Research Centre (AEHRC). AEHRC is a part of the [Commonwealth Scientific and Industrial Research Organisation (CSIRO)](https://www.csiro.au/en/), Australia's national science agency.
+
+Ontoserver is described as a 'Next-gen FHIR terminology server', and its key features include 'Deep SNOMET CT and LOINC features', and that it can syndicate with [NCTS](https://www.healthterminologies.gov.au/tools/national-syndication-server/).
+
+If you're like me, you probably also had this expression when you first saw those terms.
+
+![meme](https://giphy.com/embed/RsDFTZQe5eVjQ4T5DA)
+
+### FHIR
+Let's start with 'FHIR'. Fast Health Interoperatibility Resources (FHIR) is a standard for exchanging healthcare information between computer systems. FHIR development started in 2012, in response to increasing need for healthcare providers, patients, and clinical practitioners to share data. 
+
+You might see FHIR also written as "HL7 FHIR". This is because the FHIR standard was created and maintained by Health Level Seven International (HL7), a not-for-profit organisation providing a comprehensive framework and related standards for the exchange, integration, sharing, and retrieval of electronic health information that supports clinical practice and the management, delivery and evaluation of health services.
+
+FHIR is implemented using a HTTP-based RESTful API, and a choice of JSON, XML or [RDF](https://en.wikipedia.org/wiki/Resource_Description_Framework) for data representation. 
+
+HL7 makes the FHIR specification available at [https://hl7.org/fhir/](https://hl7.org/fhir/), where you can browse the HL7 FHIR releases.
+
+<Zoom>
+![fhir1](/static/images/ontoserver/fhir1.png)
+</Zoom>
+
+<Zoom>
+![fhir2](/static/images/ontoserver/fhir2.png)
+</Zoom>
+
+You can also see example data representations. For example, here's an example showing a patient represented in JSON using the HL7 FHIR Release 5 specification.
+
+<Zoom>
+![fhir3](/static/images/ontoserver/fhir3.png)
+</Zoom>
+
+### SNOMED CT
+Ok, so we know that Ontoserver is associated with exchanging healthcare information, because it implements the HL7 FHIR specification. One of Ontoserver's other key features is "Deep SNOMET CT and LOINC features". What's SNOMED?
+
+SNOMED CT (Systematized Nomenclature of Medicine – Clinical Terms) is a clinical terminology system. It provides a way of encoding and representing clinical concepts and terms used in healthcare. 
+
+It probably helps here to look at an example. There's many ways that a healthcare provider could describe a response to treatment - did they tolerate it? Was their pain completely relieved, or only partially? Did they experience any side effects?
+
+SNOMED CT standardises and encodes these clinical descriptions:
+- 'Absent response to treatment'
+- 'Response to treatment, shows partial pain relief'
+- 'Slight response to treatment'
+
+SNOMED CT is created and maintained by [SNOMED International](https://www.snomed.org/). SNOMED International also produces and maintains 'maps' - associations between particular concepts or terms in one system and concepts or terms in another system that have the same (or similar) meaning. For example, there is a map available between SNOMED CT and ICD-10, the international standard for reporting diseases and health conditions, published by the World Health Organization (WHO).
+
+You can browse this mapping at [https://prod-mapping.ihtsdotools.org/#/](https://prod-mapping.ihtsdotools.org/#/).
+
+<Zoom>
+![icd1](/static/images/ontoserver/icd1.png)
+</Zoom>
+
+<Zoom>
+![icd2](/static/images/ontoserver/icd2.png)
+</Zoom>
+
+### LOINC
+What about LOINC?
+
+While SNOMED CT is focused on standardising clinical concepts and terms, Logical Observation Identifiers Names and Codes (LOINC) is all about laboratory test orders and results. 
+
+Again, an example really helps. Let's consider 'blood'. This is a pretty standard concept, but what about the measurements? 
+
+We could measure:
+- pH of Venous blood
+- pH of Arterial blood
+- Oxygen content in blood
+- Gold content in blood
+
+Each of these would be a separate LOINC observable entity that is standardised, and can be used by practitioners and exchanged across any system that supports LOINC and FHIR.
+
+### SNOMED CT and LOINC
+
+Ok, so we know that:
+- SNOMED CT is focused on standardising clinical concepts and terms
+- LOINC is focused on standardising measurements, lab test orders and results
+
+But, these two are inherently related. Why would a general practitioner (GP) talk generically about 'blood', without using measurements and tests to determine a patient's condition? There's clearly overlap and duplication here. 
+
+This is why the [LOINC Ontology](https://loincsnomed.org/) was introduced. This is a cooperative agreement between the Regenstrief Institute (RII) - who create and maintain LOINC - and SNOMED International, who create and maintain SNOMED CT. The organisations have agreed to work together to minimise duplication between LOINC and SNOMED CT, and help organisations use the two terminologies together.
+
+If you want to explore and see what LOINC and SNOMED CT look like together, you can browse the [LOINC Ontology here](https://browser.loincsnomed.org/).
+
+<Zoom>
+![loinc1](/static/images/ontoserver/loinc1.png)
+</Zoom>
+
+## Ontoserver on OpenShift
+Now we know:
+- Ontoserver implements the HL7 FHIR specification, allowing data to be exchanged with healthcare information systems using standard protocols like HTTP.
+- Ontoserver provides support for SNOMED CT and LOINC, standardising terminology for clinical concepts and results and measurements used in healthcare.
+
+Let's take a look at what it looks like on OpenShift! In this section I'm using [OpenShift Local](https://developers.redhat.com/products/openshift-local/overview), which you can install on your laptop.
+
+Ontoserver is provided as a container image, making it ideal for an OpenShift deployment. The Australian e-Health Research Centre (AEHRC) provides example deployments for Kubernetes and other platforms available at [https://github.com/aehrc/ontoserver-deploy/](https://github.com/aehrc/ontoserver-deploy/), and we've modified these for OpenShift, which you can check out at [].
+
+Initially this deployment only focuses on helm, based on the charts provided by AEHRC. In future articles I'll look at expanding on this to use OpenShift GitOps to manage the Ontoserver application.
+
+You'll need a licence to use Ontoserver, which is available CSIRO [here](https://ontoserver.csiro.au/site/contact-us/ontoserver-contact-form/). Once you have a license you'll be provided a username and password for [quay.io](https://quay.io), where the AEHRC Ontoserver container images are hosted.
+
+Let's firstly create a new OpenShift project to host the Ontoserver instance:
+```
+$ oc new-project adha-onto
+Now using project "adha-onto" on server "https://api.crc.testing:6443".
+
+You can add applications to this project with the 'new-app' command. For example, try:
+
+    oc new-app rails-postgresql-example
+
+to build a new example application in Ruby. Or use kubectl to deploy a simple Kubernetes application:
+
+    kubectl create deployment hello-node --image=registry.k8s.io/e2e-test-images/agnhost:2.43 -- /agnhost serve-hostname
+```
+
+Login using the credentials provided by CSIRO to access the images:
+```
+$ podman login --authfile=auth.json  quay.io
+username: user
+password: 
+
+Login Succeeded!
+```
+You can now create secret inside the `adha-onto` project from the `auth.json` file.
+```
+$ oc create secret generic regcred --from-file=.dockerconfigjson=auth.json --type=kubernetes.io/dockerconfigjson
+```
+OpenShift uses a default service account inside each project to deploy applications, and you will need to link the secret to this service account:
+```
+$ oc secrets link default regcred --for=pull
+```
+Now that our secrets are created and linked we're ready to deploy Ontoserver. Firstly clone the repo with the helm charts:
+```
+git clone ...
+```
+We've provided a default configuration in `values.yaml`. You can modify these values if you want to use a different `ontoserver` release, enable autoscaling, or use a different service account than `default`.
+```yaml
+# Default values for ontoserver.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+
+image:
+  repository: quay.io/aehrc/ontoserver
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "ctsa-6"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Use the OpenShift `default`` serviceaccount created in each namespace by-default
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: false
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 8080
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+```
+Once you're happy with the configuration, use `helm` to install Ontoserver.
+```
+$ helm install ontoserver . --values values.yaml --wait --timeout=2m30s
+
+NAME: ontoserver
+LAST DEPLOYED: Wed Jun  5 10:43:55 2024
+NAMESPACE: adha-onto
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+```
+You can now list out the resources created, and access the ontoserver instance.
+```
+$ oc get pods,svc,routes,deploy -n adha-onto
+
+NAME                             READY   STATUS    RESTARTS   AGE
+pod/db-558754d7c9-cvf7g          1/1     Running   0          14s
+pod/ontoserver-87d5d89f7-zjlh4   1/1     Running   0          14s
+
+NAME                 TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+service/db           ClusterIP   172.30.45.179   <none>        5432/TCP   14s
+service/ontoserver   ClusterIP   172.30.108.81   <none>        8080/TCP   14s
+
+NAME                                  HOST/PORT                                                    PATH   SERVICES     PORT   TERMINATION   WILDCARD
+route.route.openshift.io/ontoserver   ontoserver-adha-onto.apps-crc.testing          ontoserver   8080   edge          None
+
+NAME                         READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/db           1/1     1            1           14s
+deployment.apps/ontoserver   1/1     1            1           14s
+```
+<Zoom>
+![ontoserver1](/static/images/ontoserver/ontoserver1.png)
+</Zoom>
+
+<Zoom>
+![ontoserver2](/static/images/ontoserver/ontoserver2.png)
+</Zoom>
+
+### Loading Data
+
+Now that Ontoserver is deployed we can load the SNOMED CT data. You either do this using the OpenShift console, or using `kubectl` or `oc` to access thr running pod and run the `/index.sh` script.
+```
+$ oc get pods -n adha-onto
+pod/db-fb6955967-n5pfd            1/1     Running   1          18h
+pod/ontoserver-7d9f8974d7-58zjs   1/1     Running   1          18h
+
+$ oc rsh pod/ontoserver-7d9f8974d7-58zjs
+~ $ /index.sh
+```
+<Zoom>
+![ontoserver3](/static/images/ontoserver/ontoserver3.png)
+</Zoom>
+
+### Accessing Ontoserver
+
+OpenShift provides a HAproxy-based ingress / router, and the helm chart has created an OpenShift route which supports 'edge' termination. This means that the router provides a HTTPS / 443 endpoint externally, and then uses HTTP / 8080 within the cluster for the application. Ontoserver also supports terminating HTTPS directly within the pod, and I'll look at this in another article.
+
+<Zoom>
+![route1](/static/images/ontoserver/route1.png)
+</Zoom>
+
+You can see the route created with `oc get routes`:
+```
+NAME                                  HOST/PORT                                                    PATH   SERVICES     PORT   TERMINATION   WILDCARD
+route.route.openshift.io/ontoserver   ontoserver-adha-onto.apps-crc.testing          ontoserver   8080   edge          None
+```
+Or, I can directly invoke a browser session:
+```
+$ firefox https://$(oc get route -n adha-onto -ojson | jq '.items[].spec.host')/fhir/CodeSystem
+```
+If you browse to this URL you can see that Ontoserver is deployed, and the SNOMED CT code system with the Australian clinical terms extension is loaded.
+
+<Zoom>
+![ontoserver4](/static/images/ontoserver/ontoserver4.png)
+</Zoom>
+
+## Wrap up
+In this article I've explored a digital health service - Ontoserver - and deploying it to OpenShift. I looked at HL7 FHIR, SNOMED CT, LOINC, and how Ontoserver implements these standards and specifications to support patient healthcare outcomes. 
+
+I also covered a basic deployment of Ontoserver on OpenShift. I looked at exposing the service using OpenShift routes, and loading data. In future articles I'll look at:
+- Implementing RBAC for Ontoserver on OpenShift using the [Red Hat Build of Keycloak](https://access.redhat.com/products/red-hat-build-of-keycloak/)
+- Supporting runtime security for Ontoserver using [Red Hat Advanced Cluster Security for Kubernetes (RHACS)](https://www.redhat.com/en/technologies/cloud-computing/openshift/advanced-cluster-security-kubernetes)
