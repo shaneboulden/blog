@@ -14,7 +14,7 @@ In this article I want to take a closer look at one digital health service - `On
 
 [Ontoserver](https://ontoserver.csiro.au/site/) is an application developed by the Australian e-Health Research Centre (AEHRC). AEHRC is a part of the [Commonwealth Scientific and Industrial Research Organisation (CSIRO)](https://www.csiro.au/en/), Australia's national science agency.
 
-Ontoserver is described as a 'Next-gen FHIR terminology server', and its key features include 'Deep SNOMET CT and LOINC features', and that it can syndicate with [NCTS](https://www.healthterminologies.gov.au/tools/national-syndication-server/).
+Ontoserver is described as a 'Next-gen FHIR terminology server', and its key features include 'Deep SNOMED CT and LOINC features', and that it can syndicate with [NCTS](https://www.healthterminologies.gov.au/tools/national-syndication-server/).
 
 If you're like me, you probably also had this expression when you first saw those terms.
 
@@ -109,7 +109,7 @@ Now we know:
 
 Let's take a look at what it looks like on OpenShift! In this section I'm using [OpenShift Local](https://developers.redhat.com/products/openshift-local/overview), which you can install on your laptop.
 
-Ontoserver is provided as a container image, making it ideal for an OpenShift deployment. The Australian e-Health Research Centre (AEHRC) provides example deployments for Kubernetes and other platforms available at [https://github.com/aehrc/ontoserver-deploy/](https://github.com/aehrc/ontoserver-deploy/), and we've modified these for OpenShift, which you can check out at [].
+Ontoserver is provided as a container image, making it ideal for an OpenShift deployment. The Australian e-Health Research Centre (AEHRC) provides example deployments for Kubernetes and other platforms available at [https://github.com/aehrc/ontoserver-deploy/](https://github.com/aehrc/ontoserver-deploy/), and we've modified these for OpenShift, which you can check out at [https://github.com/shaneboulden/ontoserver-openshift/](https://github.com/shaneboulden/ontoserver-openshift/).
 
 Initially this deployment only focuses on helm, based on the charts provided by AEHRC. In future articles I'll look at expanding on this to use OpenShift GitOps to manage the Ontoserver application.
 
