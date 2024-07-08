@@ -7,9 +7,49 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Mon, 29 Apr 2024 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Wed, 10 Jul 2024 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/ontoserver-openshift</guid>
+    <title>Ontoserver on OpenShift</title>
+    <link>https://stb.id.au/blog/ontoserver-openshift</link>
+    <description>Recently I&#39;ve been involved in a project to run a healthcare data service on OpenShift. It&#39;s been really interesting learning about FHIR, SNOMED CT, and all manner of health-related application protocols and frameworks.</description>
+    <pubDate>Mon, 08 Jul 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>ontoserver</category><category>csiro</category><category>aehrc</category><category>kubernetes</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/openshift-thales-akeyless</guid>
+    <title>Managing secrets on OpenShift with Thales and Akeyless</title>
+    <link>https://stb.id.au/blog/openshift-thales-akeyless</link>
+    <description>The ASD cyber threat report for 2022-2023 highlighted that compromised accounts or credentials are one of the main cyber incident types impacting Australian critical infrastructure. This article looks closer at credentials management on OpenShift, enabled by Thales CipherTrust and Akeyless.</description>
+    <pubDate>Thu, 20 Jun 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>thales</category><category>akeyless</category><category>secrets</category><category>credentials</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/rhacs-scanner-v4</guid>
+    <title>Getting started with RHACS Scanner V4</title>
+    <link>https://stb.id.au/blog/rhacs-scanner-v4</link>
+    <description>Red Hat Advanced Cluster Security for Kubernetes (RHACS) v4.4 introduces a new container image scanning capability, Scanner V4. This article takes a closer look at Scanner V4 and how it compares with the existing RHACS scanning capability.</description>
+    <pubDate>Sun, 16 Jun 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>scanner</category><category>v4</category><category>security</category><category>openshift</category><category>stackrox</category><category>rhacs</category><category>vulnerability</category><category>management</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/rhel-ai-ocp-virt</guid>
+    <title>RHEL AI on OpenShift Virtualization</title>
+    <link>https://stb.id.au/blog/rhel-ai-ocp-virt</link>
+    <description>This article looks at getting started with the new RHEL AI capabilities, on OpenShift Virtualization.</description>
+    <pubDate>Thu, 13 Jun 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>virtualization</category><category>rhel</category><category>artificial</category><category>intelligence</category><category>nvidia</category><category>gpu</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/openshift-mfa</guid>
     <title>Phishing-resistant MFA for OpenShift</title>

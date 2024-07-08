@@ -1,6 +1,6 @@
 ---
 title: Ontoserver on OpenShift
-date: '2024-07-10'
+date: '2024-07-08'
 tags: ['openshift','ontoserver','csiro','aehrc','kubernetes']
 images: ['/static/images/linkedin-banners/ontoserver-openshift.png']
 draft: false
@@ -98,10 +98,14 @@ If you want to explore and see what LOINC and SNOMED CT look like together, you 
 ![loinc1](/static/images/ontoserver/loinc1.png)
 </Zoom>
 
+### Other terminologies
+I've only covered two of the 'CodeSystems' supported by Ontoserver - SNOMED CT and LOINC. Ontoserver also supports arbitrary FHIR-based CodeSystems, not just SNOMED and LOINC. The [FHIR specification itself includes many of these](https://terminology.hl7.org/codesystems.html), and it also provides a mechanism to support the various [WHO ICD classifications](https://www.who.int/standards/classifications/classification-of-diseases), the [Human Phenotype Ontology](https://hpo.jax.org/), and the [Gene Ontology](https://geneontology.org/).
+
 ## Ontoserver on OpenShift
 Now we know:
 - Ontoserver implements the HL7 FHIR specification, allowing data to be exchanged with healthcare information systems using standard protocols like HTTP.
 - Ontoserver provides support for SNOMED CT and LOINC, standardising terminology for clinical concepts and results and measurements used in healthcare.
+- Ontoserver supports arbitrary FHIR-based code systems, including mechanisms to support ontologies like the Human Phenotype Ontology and the Gene Ontology.
 
 Let's take a look at what it looks like on OpenShift! In this section I'm using [OpenShift Local](https://developers.redhat.com/products/openshift-local/overview), which you can install on your laptop.
 
@@ -148,16 +152,12 @@ git clone git@github.com:shaneboulden/ontoserver-openshift.git
 We've provided a default configuration in `values.yaml`. You can modify these values if you want to use a different `ontoserver` release, enable autoscaling, or use a different service account than `default`.
 ```yaml
 # Default values for ontoserver.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
-
 replicaCount: 1
 
 
 image:
   repository: quay.io/aehrc/ontoserver
   pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
   tag: "ctsa-6"
 
 imagePullSecrets: []
@@ -166,49 +166,21 @@ fullnameOverride: ""
 
 # Use the OpenShift `default`` serviceaccount created in each namespace by-default
 serviceAccount:
-  # Specifies whether a service account should be created
   create: false
-  # Annotations to add to the service account
   annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
   name: ""
 
 podAnnotations: {}
 
 podSecurityContext: {}
-  # fsGroup: 2000
 
 securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
 
 service:
   type: ClusterIP
   port: 8080
 
 resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
-
-autoscaling:
-  enabled: false
-  minReplicas: 1
-  maxReplicas: 100
-  targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
 
 nodeSelector: {}
 
@@ -299,5 +271,9 @@ I also covered a basic deployment of Ontoserver on OpenShift. I looked at exposi
 - Implementing RBAC for Ontoserver on OpenShift using the [Red Hat Build of Keycloak](https://access.redhat.com/products/red-hat-build-of-keycloak/)
 - Supporting runtime security for Ontoserver using [Red Hat Advanced Cluster Security for Kubernetes (RHACS)](https://www.redhat.com/en/technologies/cloud-computing/openshift/advanced-cluster-security-kubernetes)
 - Using OpenShift GitOps to deploy and manage Ontoserver instances on OpenShift
+
+## Thanks
+
+A huge thanks to [Michael Lawley](https://www.linkedin.com/in/michaellawley/) at the Australian e-Health Research Center (AEHRC) for providing feedback on draft versions of this article. If you'd like to learn more about Ontoserver and the AEHRC you can contact the team at [https://ontoserver.csiro.au/site/contact-us/ontoserver-contact-form/](https://ontoserver.csiro.au/site/contact-us/ontoserver-contact-form/)
 
 Thanks for reading!
