@@ -1,0 +1,173 @@
+---
+title: Getting to grips with OpenShift and GPUs
+date: '2024-08-01'
+tags: ['openshift','gpus','nvidia','ai','llm','virtualization']
+images: ['/static/images/linkedin-banners/openshift-gpus.png']
+draft: true
+summary: ""
+---
+I am a huge proponent of AI and machine learning. In fact, the first published piece of research I ever created (actually, my only research) was a machine learning implementation. Specifically, it was an implementation of a "genetic algorithm" looking to learn the properties of a network. If you haven't come across genetic algorithms (are they still cool?) it's essentially a "chromosomal" representation of a problem space. That problem space could be anything - the parameters to design an antenna, the ingredients for a pizza, or in my case, the properties of a network.
+
+The chromosomal representation of the problem space is then 'evolved'. We perform 'crossover' and 'mutation' to genes in the chromosome, exactly how evolution happens in the real-world. The chromosomes are then selected for 'fitness', and the weakest are discarded. The "strongest" then survive and are further crossed-over and mutated until we are satisfied. 
+
+Genetic algorithms are (were?) a great solution to 'global optimisation' problems. That is to say, they don't get 'confused' by local minima and maxima. You can imagine an ant that finds a crumb of a donut. It immediately runs off and tells its friends, and they take the donut crumb back to the nest. There could have been an enormous hot dog right next to the donut crumb, but the ant doesn't care - it saw the crumb, and immediately reacted. Genetic algorithms don't get confused - they continue to explore the "global" problem space, attempting to find a "globally optimal" solution to a problem set.
+
+Here's a gratuitous poster about this research:
+...
+
+While I'm sure you, dear reader, would love to hear me wax lyrical about genetic algorithms, this isn't the article for that. And, if you're like me, then your Linkedin feed looks like this right now.
+
+#### LLMs so hot right now
+
+One of the critical enablers for large language models (LLMs) and other other data science techniques are graphical processing units (GPUs). Why? I'm sure I could write an entire article, but it only needs a few words
+
+#### meme - why use lot word
+
+The computationally expensive step of a lot of large language models is dense matrix multiplication. It turns out that showing 3D graphics on a PC also boils down to dense matrix mutiplication, and this is exactly what GPUs are designed to do.
+
+So how do you use GPUs on OpenShift? Let's take a look!
+
+### Lab deep dive
+
+For this lab I've found an old [NVIDIA P620](https://www.nvidia.com/content/dam/en-zz/Solutions/design-visualization/quadro-product-literature/quadro-pascal-p620-data-sheet-593981-us-nv-r3-web.pdf), which I picked up for $50 (I think my total lab build cost has finally cracked $350!). It only has 2GB of vRAM, and 512 CUDA cores, so it's not going to be powerful enough to train an LLM, or even serve out a model. But, it does provide a great lab environment to try out different GPU configurations and look at the differences between exposing GPUs to virtual machines (VMs) and containers. You can see the P620 in my lab here:
+
+<Zoom>
+![p620](/static/images/gpus/p620.png)
+</Zoom>
+
+There's two core components I need to start exposing this GPU to workloads on my [Single-node OpenShift deployment](/blog/openshift-on-an-620):
+
+- **Node Feature Discovery operator**. This is an operator that introspects nodes in my cluster and discovers features about them. Those 'features' could be CPU models, processor extensions (like Intel SGX), or GPUs.
+
+- **NVIDIA GPU operator**. The NVIDIA GPU operator performs a lot of the 'magic' to expose GPUs to my containers and VMs. It deploys and configures different drivers
+
+### Configuring the operators
+
+The first thing I need to do is install and configure the **node feature discovery operator** on my OpenShift cluster. You can find this in the OperatorHub, so go ahead and install it.
+
+<Zoom>
+![nfd1](/static/images/gpus/nfd1.png)
+</Zoom>
+
+Once the operator is installed you can create a Node Feature Discovery instance. 
+
+#### Image of creating instance
+
+The NFD instance will label your nodes with all sorts of interesting information. You can see some of them here:
+
+```yaml
+## Labels for the node
+```
+Let's make sure that the NVIDIA GPU was discovered. You can identify this by its PCI vendor ID, which for NVIDIA is `10de`.
+```yaml
+## PCI vendor ID
+```
+Ok great! The node feature discovery operator has identified that this node has an NVIDIA GPU available, and now we're ready to install the NVIDIA GPU operator. You can find the NVIDIA GPU operator in the OpenShift OperatorHub, so go head and install it:
+
+#### Image - NVIDIA GPU operator install
+
+Now that the operator is installed you can create a "cluster policy". This basically tells the operator how to handle nodes. Let's leave the defaults for now.
+
+#### Image of cluster policy.
+
+You should start seeing pods spinning up in the `nvidia-gpu-operator` namespace. Once they're all running, we're ready to expose the GPU to containers.
+
+### Exposing GPUs to containers
+Exposing GPUs to containers on OpenShift is relatively simple, because all of the heavy liting is performed by the Kubernetes scheduler. In fact, I don't need to do any additional platform configuration - I just need to add a request (or limit) to my workload.
+
+Firstly, let's check that my cluster can 'allocate' GPUs to workloads. If you run the following command it will show allocatable resources on the cluster:
+```
+
+```
+
+Great! We have 1 `nvidia.com/gpu` available. NVIDIA has a sample CUDA workload available to test, which you can see here:
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cuda-vectoradd
+spec:
+  restartPolicy: OnFailure
+  containers:
+  - name: cuda-vectoradd
+    image: "nvidia/samples:vectoradd-cuda11.2.1"
+    resources:
+      requests:
+        nvidia.com/gpu: 1
+```
+We've specified here a request for a `nvidia.com/gpu`. This tells the Kubernetes scheduler to run this workload on a node with a GPU available (I actually only have one node available...).
+
+If we create this pod on OpenShift I should see the following in the application logs:
+
+#### Image - pod logs
+
+Great! I've been able to allocate a GPU to my workload and verify that my pod can copy data to the CUDA device (GPU), and perform some basic operations. There are more complex things I can do with containers and GPUs, but I'll save those for another article ;)
+
+### Exposing GPUs to virtual machines
+
+Here's where things get interesting. While there's really only one way to expose GPUs to containers on OpenShift, there's several ways I could expose GPUs to VMs:
+- **Passing the entire GPU through to the VM.** Here, I simply pass the entire device through to the VM. There's no drivers used on the node - they're all configured inside the VM. In this case, the VFIO driver is configured on the OpenShift node, and the entire IOMMU group is passed into the VM.
+
+- **Passing a vGPU to the VM.** If I have a mediated device, I can carve it up into multiple "virtual GPUs", and only pass a 'slice' of the GPU into my VM. [A 'mediated device' means that it supports being carved up into "virtual GPUs".]
+
+Importantly, an OpenShift node can only support one 'mode' of GPU handling for VMs - either mediate devices (vGPUs), or passthrough. It can't do both. The way that we specify this is using labels on the node. 
+
+```yaml
+## GPU labels
+```
+In my case, the P620 doesn't support mediation, so my only option is passthrough. Let's label the node:
+```bash
+
+```
+Now we need to reconfigure the NVIDIA GPU operator. To support VM passthrough, the operator needs to setup the sandbox device plugin on my node. So let's enable the sandbox device plugin in the GPU operator settings:
+
+#### Image - configuring GPU operator for sandbox device plugin
+
+Great! You should now start seeing a set of **new** pods spinning up in the `nvidia-gpu-operator` namespace, one of which is the sandbox device plugin.
+
+#### Image - new pods
+
+The last step here is to create a VM, configure it to use the **entire** P620 GPU, and then validate that it's available within the VM.
+
+To do this I'm going to use a Windows VM. You can find a quickstart within OpenShift to create a bootable Windows source, which I've used to create a Windows 10 guest:
+
+#### Images - bootable Windows VM and quick start
+
+Let's configure this VM to use the Windows boot source and use the P620 GPU.
+
+#### Image - configure VM with GPU
+
+Now we're cooking! The final step here is to access the VM, install the NVIDIA drivers, and check that the GPU shows up correctly. I'm going to do this over RDP by using a nodeport service to export port 3389 inside the VM:
+```yaml
+
+```
+Wait - what's this error? 
+
+### Error - IOMMU
+
+Before I go into this in detail, I need to explain a little about IOMMU groups. Ok, I need to backup a little further than that and look at virtual memory. 
+
+A process on Linux (or Windows) thinks it owns the entire platform's memory address space. From 0x00 to 0xff, it thinks it owns the entire space. I think of this a bit like the "truman show". Like Truman, the process has no idea about the real world - it doesn't know how much memory it has available, just like Truman ... It's the job of the CPU and the Memory Management Unit (MMU) to translate the process's memory reads/writes into physical memory.
+
+IOMMU is similar, but it addresses devices. Like processes, devices have no idea how much physical memory is available on the system.
+
+For us, this means that the IOMMU is the smallest device that can be memory mapped, and the *entire IOMMU group* needs to be passed into the VM. It turns out that my P620 isn't just a GPU, it also has an audio driver. You can see this by enumerating all IOMMU groups on the node:
+
+```bash
+# evaluate IOMMU g
+
+```
+Now, the audio driver is currently using the intel_hda audio driver, and I need it to use the vfio driver. You can manually bind the GPU audio device to the vfio driver using the following commands:
+```
+
+```
+
+Great! Let's try creating the VM again.
+
+#### Image - successful VM creation
+
+#### Wikipedia image - IOMMU https://en.wikipedia.org/wiki/Input%E2%80%93output_memory_management_unit#/media/File:MMU_and_IOMMU.svg
+
+With this service configured, I can access the VM on port XXXXX and check that the drivers are working correctly inside the VM.
+
+#### Image - RDP / NVIDIA drivers
