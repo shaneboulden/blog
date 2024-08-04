@@ -1,35 +1,42 @@
 ---
-title: Getting to grips with OpenShift and GPUs
-date: '2024-08-01'
+title: Getting to grips with NVIDIA GPUs and OpenShift
+date: '2024-08-05'
 tags: ['openshift','gpus','nvidia','ai','llm','virtualization']
 images: ['/static/images/linkedin-banners/openshift-gpus.png']
-draft: true
-summary: ""
+draft: false
+summary: 'GPUs are the tools-of-the-trade for artificial intelligence and machine learning. In this article I look at how to use NVIDIA GPUs on OpenShift, and expose GPUs to both containers and virtual machines.'
 ---
-I am a huge proponent of AI and machine learning. In fact, the first published piece of research I ever created (actually, my only research) was a machine learning implementation. Specifically, it was an implementation of a "genetic algorithm" looking to learn the properties of a network. If you haven't come across genetic algorithms (are they still cool?) it's essentially a "chromosomal" representation of a problem space. That problem space could be anything - the parameters to design an antenna, the ingredients for a pizza, or in my case, the properties of a network.
+I was hooked the moment I was exposed to artificial intelligence and machine learning, and the [first published piece of research I ever created](https://ieeexplore.ieee.org/document/5586030) was a machine learning implementation. Specifically it was an implementation of a [genetic algorithm](https://en.wikipedia.org/wiki/Genetic_algorithm) looking to learn the properties of a network. If you haven't come across genetic algorithms, they use evolutionary pressures to 'evolve' a solution to a problem space, and are part of a broader category of [evolutionary algorithms](https://en.wikipedia.org/wiki/Evolutionary_algorithm). 
 
-The chromosomal representation of the problem space is then 'evolved'. We perform 'crossover' and 'mutation' to genes in the chromosome, exactly how evolution happens in the real-world. The chromosomes are then selected for 'fitness', and the weakest are discarded. The "strongest" then survive and are further crossed-over and mutated until we are satisfied. 
+Genetic algorithms start with a 'chromosomal' representation of a problem space. That problem space could be anything - the parameters to design an antenna, the ingredients for a pizza, or in my case, the properties of a network. The chromosomal representation of the problem space is then 'evolved'. We perform 'crossover' and 'mutation' to genes in the chromosome, exactly how evolution happens in the real-world. The chromosomes are then selected for 'fitness', and the weakest are discarded. The "strongest" then survive and are further crossed-over and mutated until we are satisfied.
 
-Genetic algorithms are (were?) a great solution to 'global optimisation' problems. That is to say, they don't get 'confused' by local minima and maxima. You can imagine an ant that finds a crumb of a donut. It immediately runs off and tells its friends, and they take the donut crumb back to the nest. There could have been an enormous hot dog right next to the donut crumb, but the ant doesn't care - it saw the crumb, and immediately reacted. Genetic algorithms don't get confused - they continue to explore the "global" problem space, attempting to find a "globally optimal" solution to a problem set.
+Genetic algorithms are a great solution to 'global optimisation' problems. That is to say, they don't get 'confused' by local minima and maxima. You can imagine an ant that finds a crumb of a donut. It immediately runs off and tells its friends, and they take the donut crumb back to the nest. There could have been an enormous hot dog right next to the donut crumb, but the ant doesn't care - it saw the crumb, and immediately thought it was the best thing around. 
 
-Here's a gratuitous poster about this research:
-...
+Genetic algorithms don't get confused by these local minima or maxima - they continue to explore the **global** problem space, attempting to find a **globally optimal** solution to a problem space. The Machine Learning, Signal Processing and Telecommunications Laboratory (MSTlab) shows this really well in the diagram here:
 
-While I'm sure you, dear reader, would love to hear me wax lyrical about genetic algorithms, this isn't the article for that. And, if you're like me, then your Linkedin feed looks like this right now.
+<Zoom>
+![pop](/static/images/gpus/genetic_int1.png)
+</Zoom>
 
-#### LLMs so hot right now
+You might be thinking - "That's great. But what are some 'real world' applications of genetic algorithms?" I think a great example of this is the 2006 NASA ST5 spacecraft antenna, shown here.
 
-One of the critical enablers for large language models (LLMs) and other other data science techniques are graphical processing units (GPUs). Why? I'm sure I could write an entire article, but it only needs a few words
+<Zoom>
+![antenna](/static/images/gpus/xband-antenna.jpg)
+</Zoom>
 
-#### meme - why use lot word
+This is a pretty weird-looking antenna, and it was created for a 2006 NASA mission called [Space Technology 5 (ST5)](https://science.nasa.gov/mission/space-technology-5/). ST5 was a test of ten new technologies aboard a group of microsatellites. This antenna was designed by a genetic algorithm to provide the best radiation pattern for NASA missions. I think it's pretty unlikely that an engineer would design an antenna that looks like this, though a genetic algorithm was able to probe the global problem space - without being confused by 'local maxima', or usual antenna designs - and create this weird, but globally optimal antenna design.
 
-The computationally expensive step of a lot of large language models is dense matrix multiplication. It turns out that showing 3D graphics on a PC also boils down to dense matrix mutiplication, and this is exactly what GPUs are designed to do.
+While I'm sure you, dear reader, would love to hear me 'wax lyrical' about genetic algorithms, this isn't the article for that. And, if you're like me, then your social media feeds look like this right now.
+
+![mugatu](/static/images/gpus/mugatu.jpg)
+
+One of the critical enablers for large language models (LLMs) and other other AI/ML techniques are graphical processing units (GPUs). The reason for this is that the computationally expensive step of a lot of large language models is dense matrix multiplication. It turns out that showing 3D graphics on a PC also boils down to dense matrix mutiplication, and this is exactly what GPUs are designed to do.
 
 So how do you use GPUs on OpenShift? Let's take a look!
 
 ### Lab deep dive
 
-For this lab I've found an old [NVIDIA P620](https://www.nvidia.com/content/dam/en-zz/Solutions/design-visualization/quadro-product-literature/quadro-pascal-p620-data-sheet-593981-us-nv-r3-web.pdf), which I picked up for $50 (I think my total lab build cost has finally cracked $350!). It only has 2GB of vRAM, and 512 CUDA cores, so it's not going to be powerful enough to train an LLM, or even serve out a model. But, it does provide a great lab environment to try out different GPU configurations and look at the differences between exposing GPUs to virtual machines (VMs) and containers. You can see the P620 in my lab here:
+For this lab I've found an old [NVIDIA P620](https://www.nvidia.com/content/dam/en-zz/Solutions/design-visualization/quadro-product-literature/quadro-pascal-p620-data-sheet-593981-us-nv-r3-web.pdf), which I picked up from [Australian Computer Traders](https://www.australiancomputertraders.com.au/). It only has 2GB of vRAM and 512 CUDA cores, so it's not going to be powerful enough to train an LLM, or even serve out a model. But, it does provide a great lab environment to try out different GPU configurations and look at the differences between exposing GPUs to virtual machines (VMs) and containers. You can see the P620 in my lab here:
 
 <Zoom>
 ![p620](/static/images/gpus/p620.png)
@@ -37,9 +44,9 @@ For this lab I've found an old [NVIDIA P620](https://www.nvidia.com/content/dam/
 
 There's two core components I need to start exposing this GPU to workloads on my [Single-node OpenShift deployment](/blog/openshift-on-an-620):
 
-- **Node Feature Discovery operator**. This is an operator that introspects nodes in my cluster and discovers features about them. Those 'features' could be CPU models, processor extensions (like Intel SGX), or GPUs.
+- **Node Feature Discovery operator**. This is an operator that introspects nodes in my cluster and discovers features about them. Those features could be CPU models, processor extensions (like Intel SGX), or GPUs.
 
-- **NVIDIA GPU operator**. The NVIDIA GPU operator performs a lot of the 'magic' to expose GPUs to my containers and VMs. It deploys and configures different drivers
+- **NVIDIA GPU operator**. The NVIDIA GPU operator performs a lot of the 'magic' to expose GPUs to my containers and VMs. It deploys and configures different drivers and device plugins required to provide access to the GPU from my workload running on OpenShift.
 
 ### Configuring the operators
 
@@ -49,38 +56,78 @@ The first thing I need to do is install and configure the **node feature discove
 ![nfd1](/static/images/gpus/nfd1.png)
 </Zoom>
 
-Once the operator is installed you can create a Node Feature Discovery instance. 
+Once the operator is installed you can create a Node Feature Discovery instance. The NFD instance will label your nodes with all sorts of interesting information. You can see some of them here:
 
-#### Image of creating instance
-
-The NFD instance will label your nodes with all sorts of interesting information. You can see some of them here:
-
-```yaml
-## Labels for the node
+``` yaml
+$ oc get node/lab8.blueradish.net -o yaml
+apiVersion: v1
+kind: Node
+metadata:
+  annotations:
+    capacity.topolvm.io/00default: "8348573368320"
+    capacity.topolvm.io/vg1: "8348573368320"
+    (snip)
+  labels:
+    ...
+    cpu-feature.node.kubevirt.io/vmx-shadow-vmcs: "true"
+    cpu-feature.node.kubevirt.io/vmx-store-lma: "true"
+    cpu-feature.node.kubevirt.io/vmx-true-ctls: "true"
+    cpu-feature.node.kubevirt.io/vmx-tsc-offset: "true"
+    cpu-feature.node.kubevirt.io/vmx-unrestricted-guest: "true"
+    cpu-feature.node.kubevirt.io/vmx-vintr-pending: "true"
+    cpu-feature.node.kubevirt.io/vmx-vmwrite-vmexit-fields: "true"
+    ...
+    feature.node.kubernetes.io/cpu-model.family: "6"
+    feature.node.kubernetes.io/cpu-model.id: "45"
+    feature.node.kubernetes.io/cpu-model.vendor_id: Intel
+    feature.node.kubernetes.io/cpu-pstate.status: passive
+    ...
+    feature.node.kubernetes.io/pci-102b.present: "true"
+    feature.node.kubernetes.io/pci-10de.present: "true"
+    feature.node.kubernetes.io/pci-14e4.present: "true"
+    ...
 ```
 Let's make sure that the NVIDIA GPU was discovered. You can identify this by its PCI vendor ID, which for NVIDIA is `10de`.
 ```yaml
-## PCI vendor ID
+$ oc get node/lab8.blueradish.net -o yaml | grep '10de'
+    nfd.node.kubernetes.io/feature-labels: cpu-cpuid.AESNI,cpu-cpuid.AVX,cpu-cpuid.AVXSLOW,cpu-cpuid.CMPXCHG8,cpu-cpuid.FLUSH_L1D,cpu-cpuid.FXSR,cpu-cpuid.FXSROPT,cpu-cpuid.IBPB,cpu-cpuid.LAHF,cpu-cpuid.MD_CLEAR,cpu-cpuid.OSXSAVE,cpu-cpuid.SPEC_CTRL_SSBD,cpu-cpuid.STIBP,cpu-cpuid.SYSCALL,cpu-cpuid.SYSEE,cpu-cpuid.VMX,cpu-cpuid.X87,cpu-cpuid.XSAVE,cpu-cpuid.XSAVEOPT,cpu-cstate.enabled,cpu-hardware_multithreading,cpu-model.family,cpu-model.id,cpu-model.vendor_id,cpu-pstate.status,cpu-pstate.turbo,kernel-config.NO_HZ,kernel-config.NO_HZ_FULL,kernel-selinux.enabled,kernel-version.full,kernel-version.major,kernel-version.minor,kernel-version.revision,memory-numa,pci-102b.present,pci-10de.present,pci-14e4.present,storage-nonrotationaldisk,system-os_release.ID,system-os_release.OPENSHIFT_VERSION,system-os_release.OSTREE_VERSION,system-os_release.RHEL_VERSION,system-os_release.VERSION_ID,system-os_release.VERSION_ID.major,system-os_release.VERSION_ID.minor
+    feature.node.kubernetes.io/pci-10de.present: "true"
 ```
 Ok great! The node feature discovery operator has identified that this node has an NVIDIA GPU available, and now we're ready to install the NVIDIA GPU operator. You can find the NVIDIA GPU operator in the OpenShift OperatorHub, so go head and install it:
 
-#### Image - NVIDIA GPU operator install
+<Zoom>
+![gpu-operator](/static/images/gpus/gpu-operator.png)
+</Zoom>
 
-Now that the operator is installed you can create a "cluster policy". This basically tells the operator how to handle nodes. Let's leave the defaults for now.
+Now that the operator is installed we can create a "cluster policy". This basically tells the NVIDIA GPU Operator how to handle nodes. Let's leave the defaults for now.
 
-#### Image of cluster policy.
+<Zoom>
+![cluster-policy](/static/images/gpus/cluster-policy.png)
+</Zoom>
 
 You should start seeing pods spinning up in the `nvidia-gpu-operator` namespace. Once they're all running, we're ready to expose the GPU to containers.
 
 ### Exposing GPUs to containers
-Exposing GPUs to containers on OpenShift is relatively simple, because all of the heavy liting is performed by the Kubernetes scheduler. In fact, I don't need to do any additional platform configuration - I just need to add a request (or limit) to my workload.
+Exposing GPUs to containers on OpenShift is relatively simple, because all of the heavy-lifting is performed by the Kubernetes scheduler. In fact, I don't need to do any additional platform configuration once I've installed the NVIDIA GPU Operator - I just need to add a request (or limit) to my workload!
 
-Firstly, let's check that my cluster can 'allocate' GPUs to workloads. If you run the following command it will show allocatable resources on the cluster:
+Firstly, let's check that my cluster can 'allocate' GPUs to workloads. If you've installed and configured the NVIDIA GPU Operator correctly you can run the following command to show allocatable resources on the cluster:
+```json
+$ oc get node lab8.blueradish.net -o json | jq '.status.allocatable'
+{
+  "cpu": "31500m",
+  "devices.kubevirt.io/kvm": "1k",
+  "devices.kubevirt.io/tun": "1k",
+  "devices.kubevirt.io/vhost-net": "1k",
+  "ephemeral-storage": "429835554922",
+  "hugepages-1Gi": "0",
+  "hugepages-2Mi": "0",
+  "memory": "114268188Ki",
+  "nvidia.com/gpu": "1",
+  "pods": "250"
+}
 ```
 
-```
-
-Great! We have 1 `nvidia.com/gpu` available. NVIDIA has a sample CUDA workload available to test, which you can see here:
+Ok, it looks like we have one `nvidia.com/gpu` available. NVIDIA has a sample CUDA workload available to test which you can see see here:
 ```yaml
 apiVersion: v1
 kind: Pod
@@ -95,11 +142,15 @@ spec:
       requests:
         nvidia.com/gpu: 1
 ```
-We've specified here a request for a `nvidia.com/gpu`. This tells the Kubernetes scheduler to run this workload on a node with a GPU available (I actually only have one node available...).
+We've specified here a request for a `nvidia.com/gpu`. This tells the Kubernetes scheduler to run this workload on a node with a GPU available (I actually only have one node available...). If we create this pod on OpenShift I should see the following in the application logs:
 
-If we create this pod on OpenShift I should see the following in the application logs:
+<Zoom>
+![pods-logs1](/static/images/gpus/pod-logs1.png)
+</Zoom>
 
-#### Image - pod logs
+<Zoom>
+![pods-logs2](/static/images/gpus/pod-logs2.png)
+</Zoom>
 
 Great! I've been able to allocate a GPU to my workload and verify that my pod can copy data to the CUDA device (GPU), and perform some basic operations. There are more complex things I can do with containers and GPUs, but I'll save those for another article ;)
 
@@ -108,66 +159,189 @@ Great! I've been able to allocate a GPU to my workload and verify that my pod ca
 Here's where things get interesting. While there's really only one way to expose GPUs to containers on OpenShift, there's several ways I could expose GPUs to VMs:
 - **Passing the entire GPU through to the VM.** Here, I simply pass the entire device through to the VM. There's no drivers used on the node - they're all configured inside the VM. In this case, the VFIO driver is configured on the OpenShift node, and the entire IOMMU group is passed into the VM.
 
-- **Passing a vGPU to the VM.** If I have a mediated device, I can carve it up into multiple "virtual GPUs", and only pass a 'slice' of the GPU into my VM. [A 'mediated device' means that it supports being carved up into "virtual GPUs".]
+- **Passing a vGPU to the VM.** If I have a mediated device I can carve it up into multiple "virtual GPUs" and only pass a 'slice' of the GPU into my VM. A 'mediated device' means that it supports being carved up into "virtual GPUs", like an NVIDIA A2 or A100.
 
 Importantly, an OpenShift node can only support one 'mode' of GPU handling for VMs - either mediate devices (vGPUs), or passthrough. It can't do both. The way that we specify this is using labels on the node. 
 
-```yaml
-## GPU labels
-```
+<Zoom>
+![gpu-modes](/static/images/gpus/gpu-modes.png)
+</Zoom>
+
 In my case, the P620 doesn't support mediation, so my only option is passthrough. Let's label the node:
 ```bash
-
+$ oc get node/lab8.blueradish.net -o yaml | grep 'passthrough'
+    nvidia.com/gpu.workload.config: vm-passthrough
 ```
-Now we need to reconfigure the NVIDIA GPU operator. To support VM passthrough, the operator needs to setup the sandbox device plugin on my node. So let's enable the sandbox device plugin in the GPU operator settings:
+Now we need to reconfigure the NVIDIA GPU operator. To support VM passthrough, the operator needs to setup the sandbox device plugin on my node. So let's enable the sandbox device plugin and configure the GPU operator to run sandbox workloads. In this case I only have a single node, so I can also specify that the 'default' should be `vm-passthrough`.
 
-#### Image - configuring GPU operator for sandbox device plugin
+<Zoom>
+![sandbox-config](/static/images/gpus/sandbox-config.png)
+</Zoom>
 
 Great! You should now start seeing a set of **new** pods spinning up in the `nvidia-gpu-operator` namespace, one of which is the sandbox device plugin.
 
-#### Image - new pods
+<Zoom>
+![sandbox-pods](/static/images/gpus/sandbox-pods.png)
+</Zoom>
 
-The last step here is to create a VM, configure it to use the **entire** P620 GPU, and then validate that it's available within the VM.
+The last step here is to create a VM, configure it to use the **entire** P620 GPU, and then validate that it's available within the VM. To do this I'm going to use a Windows VM. You can find a quickstart within OpenShift to create a bootable Windows source, which I've used to create a Windows 10 guest:
 
-To do this I'm going to use a Windows VM. You can find a quickstart within OpenShift to create a bootable Windows source, which I've used to create a Windows 10 guest:
+<Zoom>
+![quickstart](/static/images/gpus/quickstart.png)
+</Zoom>
 
-#### Images - bootable Windows VM and quick start
+This quickstart pipeline will create an OpenShift pipeline that:
+* Pulls down a stock Windows 10 ISO
+* Modifies it for OpenShift Virtualization
+* Creates a Windows VM
+* Creates a root disk from the VM
+* Cleans up imported files
 
-Let's configure this VM to use the Windows boot source and use the P620 GPU.
+You can see the pipeline run here:
 
-#### Image - configure VM with GPU
+<Zoom>
+![win-pipeline](/static/images/gpus/win-pipeline.png)
+</Zoom>
 
-Now we're cooking! The final step here is to access the VM, install the NVIDIA drivers, and check that the GPU shows up correctly. I'm going to do this over RDP by using a nodeport service to export port 3389 inside the VM:
-```yaml
+The boot source is then available for me to create a new Windows 10 VM:
 
+<Zoom>
+![win10-vm](/static/images/gpus/win10-vm.png)
+</Zoom>
+
+Let's configure this VM to use the P620 GPU.
+
+<Zoom>
+![vm-gpu1](/static/images/gpus/vm-gpu1.png)
+</Zoom>
+
+<Zoom>
+![vm-gpu2](/static/images/gpus/vm-gpu2.png)
+</Zoom>
+
+Now our VM can start booting! But wait - what's this error? 
+
+<Zoom>
+![vm-error](/static/images/gpus/vm-error.png)
+</Zoom>
+
+If you take a peek in the `virt-launcher` pod logs you might see something like this:
+```json
+{"component":"virt-launcher","level":"error","msg":"Unable to read from monitor: Connection reset by peer","pos":"qemuMonitorIORead:419","subcomponent":"libvirt","thread":"92","timestamp":"2024-08-02T06:50:42.048000Z"}
+{"component":"virt-launcher","level":"error","msg":"internal error: QEMU unexpectedly closed the monitor (vm='vms_windows-10-virtio-coffee-landfowl-76'): 2024-08-02T06:50:42.047729Z qemu-kvm: -device {\"driver\":\"vfio-pci\",\"host\":\"0000:42:00.0\",\"id\":\"ua-gpu-gpus-blue-reindeer-67\",\"bus\":\"pci.9\",\"addr\":\"0x0\"}: vfio 0000:42:00.0: group 4 is not viable","pos":"qemuProcessReportLogError:1925","subcomponent":"libvirt","thread":"92","timestamp":"2024-08-02T06:50:42.049000Z"}
+{"component":"virt-launcher","level":"info","msg":"Please ensure all devices within the iommu_group are bound to their vfio bus driver.","subcomponent":"libvirt","timestamp":"2024-08-02T06:50:42.049636Z"}
 ```
-Wait - what's this error? 
+What's group 4? And what does `Please ensure all devices within the iommu_group are bound to their vfio bus driver` mean?
 
-### Error - IOMMU
 
-Before I go into this in detail, I need to explain a little about IOMMU groups. Ok, I need to backup a little further than that and look at virtual memory. 
+### Exploring IOMMU groups and OpenShift Virtualization
+Before I go into this error in detail, I need to explain a little about IOMMU groups. Ok, I actually need to backup a little further than that and look at virtual memory. 
 
-A process on Linux (or Windows) thinks it owns the entire platform's memory address space. From 0x00 to 0xff, it thinks it owns the entire space. I think of this a bit like the "truman show". Like Truman, the process has no idea about the real world - it doesn't know how much memory it has available, just like Truman ... It's the job of the CPU and the Memory Management Unit (MMU) to translate the process's memory reads/writes into physical memory.
+A process on Linux (or Windows) thinks it owns the entire platform's memory address space. From 0x00000 to 0xffffff, it thinks it owns the entire space. I think of this a bit like the "truman show". The process has no idea know how much physical memory it has available, much like how Truman has no idea about the real world. It's the job of the CPU and the Memory Management Unit (MMU) to translate the process's memory reads/writes into physical memory.
 
-IOMMU is similar, but it addresses devices. Like processes, devices have no idea how much physical memory is available on the system.
+There's a great graphic here from [Wikipedia](https://en.wikipedia.org/wiki/Virtual_memory):
 
-For us, this means that the IOMMU is the smallest device that can be memory mapped, and the *entire IOMMU group* needs to be passed into the VM. It turns out that my P620 isn't just a GPU, it also has an audio driver. You can see this by enumerating all IOMMU groups on the node:
+<Zoom>
+![memory](/static/images/gpus/virtual_memory.png)
+</Zoom>
+
+What does this have to do with GPUs and our Windows virtual machine (VM) running on OpenShift? We want the VM to control the NVIDIA GPU, and this means providing direct access to the GPU from userspace (the VM). To do this, the NVIDIA driver within the VM needs to maintain a virtual address space, and IOMMU translates virtual address space to the device. We're also using the VFIO driver on the host, which is an IOMMU/device agnostic framework for exposing direct device access to userspace (our VM), in a secure, IOMMU protected environment.
+
+For us, this means that the IOMMU group is the smallest device that can be memory mapped, and the *entire IOMMU group* needs to be passed into the VM. It turns out that my P620 isn't just a GPU, it also has an audio device for the four mini-display port interfaces on the card. You can see this on my server if I enumerate IOMMU groups on the OpenShift node:
 
 ```bash
-# evaluate IOMMU g
+# cat ./list_iommu.sh
+#!/bin/bash
+for d in $(find /sys/kernel/iommu_groups/ -type l | sort -n -k5 -t/); do
+    n=${d#*/iommu_groups/*}; n=${n%%/*}
+    printf 'IOMMU Group %s ' "$n"
+    lspci -nns "${d##*/}"
+done;
+```
 
 ```
-Now, the audio driver is currently using the intel_hda audio driver, and I need it to use the vfio driver. You can manually bind the GPU audio device to the vfio driver using the following commands:
+# ./list_iommu.sh
+IOMMU Group 0 40:01.0 PCI bridge [0604]: Intel Corporation Xeon E5/Core i7 IIO PCI Express Root Port 1a [8086:3c02] (rev 07)
+IOMMU Group 1 40:03.0 PCI bridge [0604]: Intel Corporation Xeon E5/Core i7 IIO PCI Express Root Port 3a in PCI Express Mode [8086:3c08] (rev 07)
+IOMMU Group 2 40:05.0 System peripheral [0880]: Intel Corporation Xeon E5/Core i7 Address Map, VTd_Misc, System Management [8086:3c28] (rev 07)
+IOMMU Group 3 40:05.2 System peripheral [0880]: Intel Corporation Xeon E5/Core i7 Control Status and Global Errors [8086:3c2a] (rev 07)
+IOMMU Group 4 42:00.0 VGA compatible controller [0300]: NVIDIA Corporation GP107GL [Quadro P620] [10de:1cb6] (rev a1)
+IOMMU Group 4 42:00.1 Audio device [0403]: NVIDIA Corporation GP107GL High Definition Audio Controller [10de:0fb9] (rev a1)
+IOMMU Group 5 00:00.0 Host bridge [0600]: Intel Corporation Xeon E5/Core i7 DMI2 [8086:3c00] (rev 07)
+...
+```
+You can see here that IOMMU group 4 contains two devices - the GPU and an audio controller.
+```
+IOMMU Group 4 42:00.0 VGA compatible controller [0300]: NVIDIA Corporation GP107GL [Quadro P620] [10de:1cb6] (rev a1)
+IOMMU Group 4 42:00.1 Audio device [0403]: NVIDIA Corporation GP107GL High Definition Audio Controller [10de:0fb9] (rev a1)
+```
+The error before indicated that both of these devices need to be using the same driver, so let's explore that further.
+
+You can see here that the audio device is identified by '42:00.1', which really means '0000:42:00.1'. If I take a look in `/sys/bus/pci/devices/0000\:42:00.1/driver/module/drivers/pci` I can see that it's using the `snd_hda_intel` driver:
+```
+# ls -l /sys/bus/pci/devices/0000\:42\:00.1/driver/module/drivers/
+total 0
+lrwxrwxrwx. 1 root root 0 Jul 25 23:50 pci:snd_hda_intel -> ../../../bus/pci/drivers/snd_hda_intel
+```
+Hmm, ok. Which driver is the GPU using?
+```
+# ls -l /sys/bus/pci/devices/0000\:42\:00.0/driver/module/drivers/
+total 0
+lrwxrwxrwx. 1 root root 0 Jul 25 23:51 pci:vfio-pci -> ../../../bus/pci/drivers/vfio-pci
+```
+This is definitely the issue. The GPU is using the `vfio-pci` driver - required for pass-through - but the other device in the IOMMU group (the audio device) is using the `snd_hda_intel` driver. And to pass through the IOMMU group into the VM, both devices need to be using the same `vfio-pci` driver.
+
+I can manually unbind the NVIDIA audio device from the intel audio driver, and bind it to the `vfio-pci` driver.
+```bash
+echo -n "0000:42:00.1" > /sys/bus/pci/drivers/snd_hda_intel/unbind
+echo -n "vfio-pci" > /sys/bus/pci/devices/0000\:42\:00.1/driver_override
+echo -n "0000:42:00.1" > /sys/bus/pci/drivers/vfio-pci/bind
 ```
 
+Great! Let's try starting the VM again.
+
+<Zoom>
+![vm-working](/static/images/gpus/vm-working.png)
+</Zoom>
+
+Now we're cooking! The final step here is to access the VM, install the NVIDIA drivers, and check that the GPU shows up correctly. I'm going to do this over RDP by using a nodeport service to expose port 3389 inside the VM to a port on my OpenShift node:
+```yaml
+kind: Service
+apiVersion: v1
+metadata:
+  name: nodeport
+spec:
+  externalTrafficPolicy: Cluster
+  ports:
+    - name: nodeport
+      protocol: TCP
+      port: 3389
+      targetPort: 3389
+      nodePort: 31368
+  internalTrafficPolicy: Cluster
+  type: NodePort
+  selector:
+    vm.kubevirt.io/name: windows-10-virtio-coffee-landfowl-76
+status: {}
 ```
+You should see that the `virt-launcher` pod is now exposed by the service.
 
-Great! Let's try creating the VM again.
+<Zoom>
+![virt-launcher-svc](/static/images/gpus/virt-launcher-svc.png)
+</Zoom>
 
-#### Image - successful VM creation
+Now I can login using my credentials inside the VM and check that I can see the NVIDIA card:
 
-#### Wikipedia image - IOMMU https://en.wikipedia.org/wiki/Input%E2%80%93output_memory_management_unit#/media/File:MMU_and_IOMMU.svg
+![rdp1](/static/images/gpus/rdp1.png)
 
-With this service configured, I can access the VM on port XXXXX and check that the drivers are working correctly inside the VM.
+<Zoom>
+![rdp2](/static/images/gpus/rdp2.png)
+</Zoom>
 
-#### Image - RDP / NVIDIA drivers
+Success! I can now access my Windows virtual machine running on OpenShift Virtualization, and verify that the NVIDIA GPU has been passed-through to the VM correctly. This enables a lot of different workflows - GPU-accelerated desktop sessions, AI/ML model deployments, CAD modelling, and more.
+
+### Wrapping up
+
+In this article I looked at how to configure NVIDIA Graphical Processing Units (GPUs) on OpenShift, and expose these to both containers and virtual machines. This is critical to getting started with more complex deployments, like GPU-accelerated desktop sessions or building artificial intelligence and machine learning into applications.
+
+I'll explore some of these more advanced deployments and workflows in a later article. Stay tuned!
