@@ -12,7 +12,7 @@
       
   <item>
     <guid>https://stb.id.au/blog/openshift-gpus</guid>
-    <title>Getting-to-grips with NVIDIA GPUs and OpenShift</title>
+    <title>Get to grips with NVIDIA GPUs and OpenShift</title>
     <link>https://stb.id.au/blog/openshift-gpus</link>
     <description>GPUs are the tools-of-the-trade for artificial intelligence and machine learning. In this article I look at how to use NVIDIA GPUs on OpenShift, and expose GPUs to both containers and virtual machines.</description>
     <pubDate>Mon, 05 Aug 2024 00:00:00 GMT</pubDate>
