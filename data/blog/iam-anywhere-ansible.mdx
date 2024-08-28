@@ -1,0 +1,288 @@
+---
+title: Ansible and AWS IAM Roles Anywhere
+date: '2024-09-05'
+tags: ['ansible','aws','iam','anywhere','idm','security']
+images: ['/static/images/linkedin-banners/iam-anywhere.png']
+draft: false
+summary: "AWS IAM Roles Anywhere allows you to grant secure, temporary access to AWS services, for workloads anywhere. In this article I'm going to take a look at how you can use IAM Roles Anywhere together with Ansible."
+---
+Before I get into this article I firstly need to apologise.
+
+I lied. 
+
+I said that this article would be about creating GPU-accelerated Windows desktops on [OpenShift Virtualization](https://www.redhat.com/en/technologies/cloud-computing/openshift/virtualization). I had an incredibly interesting question during the week though, and I needed to write it down. It goes like this:
+
+"We use Ansible to orchestrate workloads on AWS. In the past we've used AWS access tokens, but we want to move towards temporary / short-lived credentials access to AWS resources."
+
+"If our Ansible appliance was hosted on AWS we could simply use AWS STS. But Ansible is on-premises.
+
+"What can we do?"
+
+I think this is the perfect opportunity to introduce AWS IAM Roles Anywhere, and how this fundamentally changes the security architecture for organisations using AWS resources.
+
+At the end of this article you'll have an understanding of:
+- How AWS IAM Roles Anywhere help you use short-lived credentials to access AWS resources, from anywhere
+- How to integrate Red Hat Identity Management (IDM) as a trust anchor for AWS IAM Roles Anywhere
+- How to use Ansible with certificates issued by Red Hat IDM together with AWS IAM Roles Anywhere to access Route53 resources using short-lived credentials
+
+[PS: If you want to see a sneak-peek of the GPU-accelerated Windows desktops on OpenShift Virtualization take a look in the video below]
+
+<YoutubeEmbed embedId="ZnWweDtv6dQ" />
+
+Let's dive in!
+
+## AWS IAM Roles Anywhere
+So what are IAM Roles Anywhere? Essentially it's a way for applications running *outside* of AWS to access temporary AWS credentials, and use those to access AWS services. This means that you can use the same IAM policies and roles for *native* AWS applications to access AWS resources, but now extending those capabilities to workload that might be on other cloud providers, or in your own datacentre.
+
+This means that we no longer need access keys. Access keys are horrible - they stick around forever, and they are the first target for threat actors who manage to compromise a workload inside your account. Using IAM Roles Anywhere means that we don't need to keep access keys around, and can instead use short-lived credentials.
+
+IAM Roles Anywhere relies on X.509 certificates to verify the identity of a workload running outside of AWS, and establish trust. At a high-level it might sound like you've simply swapped long-lived access tokens for long-lived x509 certificates / keys. But, that's not really the case.
+
+X.509 certificates have huge advantages over access keys:
+
+- Attributes that can be used to tie a certificate to a service
+- Ability to revoke or renew certificates
+- Standard APIs and accecss mechanisms for certificates
+- Secure storage mechanisms for X.509 certificates (TPM, etc)
+
+## AWS IAM Roles Anywhere with Red Hat Identity Management
+Ok, so we know that:
+- IAM Roles Anywhere allows workloads *outside* of AWS to assume IAM roles, just like if they were running on AWS
+- It uses x509 certificates for authentication and creates a trust anchor with a certificate authority (CA)
+
+One of the common CAs found in Red Hat Enterprise Linux (RHEL) environments is built-in to Red Hat Identity Management (IDM), based on the upstream FreeIPA project. IDM provides a complete Linux domain identity management solution, and can manage users, SSH keys, host-based access rules, and `sudo` rules. It can also issue and rotate certificates for services, hosts and users using the built-in `dogtag` certificate authority.
+
+## AWS IAM Roles Anywhere with Ansible - in action!
+Enough talk - let's dive in to this solution and see how we can use AWS IAM Roles Anywhere with Red Hat Identity Management and Ansible.
+
+I'm going to create a very simple Red Hat IDM server for this article. I already have DNS in my lab, and I don't want to manage that via IDM. I also don't need any replicas. This means I can create a 
+
+### Creating an AWS IAM Roles Anywhere Trust Anchor and additional IAM roles
+Now that we have an IDM server and a built-in `dogtag` CA created we can move to AWS configuration. There's a few things we need to do in AWS:
+
+- Create a trust anchor for AWS IAM Roles Anywhere
+- Create (or update) a role
+- Create a Roles Anywhere profiles
+
+You can navigate to `Roles Anywhere` here: https://ap-southeast-2.console.aws.amazon.com/rolesanywhere/ (changing your region accordingly)
+
+#### Roles Anywhere screenshot
+
+Once you're on the Roles Anywhere screen you can create a trust anchor using the IDM CA. You can find the CA on the IDM server at `/etc/ipa/ca.crt`, and you can simply upload this to the portal.
+
+#### Image of trust anchor created
+
+
+
+### Enrolling IDM clients and requesting a certificate for IAM Roles Anywhere
+Now that we have an IDM server available we can onboard our Ansible node as a client. Fortunately this is pretty straightforward - I can just install the `ipa-client` utility and point it at IDM.
+
+```
+# dnf install ipa-client -y
+# ipa-client-install --mkhomedir
+This program will set up IPA client.
+Version 4.11.0
+...
+```
+You'll get a few questions from the client during the config, and you can see examples of my responses below:
+```
+DNS discovery failed to determine your DNS domain
+Provide the domain name of your IPA server (ex: example.com): rock.lab
+Provide your IPA server name (ex: ipa.example.com): idm.rock.lab
+The failure to use DNS to find your IPA server indicates that your resolv.conf file is not properly configured.
+Autodiscovery of servers for failover cannot work with this configuration.
+If you proceed with the installation, services will be configured to always access the discovered server for all operations and will not fail over to other servers in case of failure.
+Proceed with fixed values and no DNS discovery? [no]: yes
+Do you want to configure chrony with NTP server or pool address? [no]:
+Client hostname: ansible.rock.lab
+Realm: ROCK.LAB
+DNS Domain: rock.lab
+IPA Server: idm.rock.lab
+BaseDN: dc=rock,dc=lab
+
+Continue to configure the system with these values? [no]: yes
+```
+Once the client configuration completes you should be able to see your new node in the IDM UI.
+
+#### image - IPA UI
+
+Ok, now we can start creating certificates! There is one subtle but very important point I need to make at this point. The default expiry for IDM certificates is *two years*, but I want short-lived and regularly rotated certificates that aren't valid longer than 60 days.
+
+You can configure this in IDM by modifying the certificate profile. Make sure that you have valid Kerberos credentials on the IDM server:
+```
+[idm ~]# kinit admin@ROCK.LAB
+```
+Now that you have valid credentials, you can extract the certificate profile:
+```bash
+ipa certprofile-show caIPAserviceCert --out=caIPAserviceCert.cfg
+-----------------------------------------------------------
+Profile configuration stored in file 'caIPAserviceCert.cfg'
+-----------------------------------------------------------
+  Profile ID: caIPAserviceCert
+  Profile description: Standard profile for network services
+  Store issued certificates: True
+```
+This file is pretty complicated, but you're only looking for two lines to change:
+```ini
+policyset.serverCertSet.2.constraint.params.range=70
+policyset.serverCertSet.2.default.params.range=61
+```
+Save and close the file and update the certificate profile.
+```
+# ipa certprofile-mod caIPAserviceCert --file=caIPAserviceCert.cfg
+  Profile ID: caIPAserviceCert
+  Profile description: Standard profile for network services
+  Store issued certificates: True
+```
+**Now** we can simply request a certificate from our IDM-enrolled Ansible node and the expiry should be set to 60 days. The best part is that `certmonger` will automatically track this certificate, and renew it via IDM before it expires. How good is that??
+```
+# mkdir /etc/iam-anywhere
+# ipa-getcert request -k /etc/iam-anywhere/private.key -f /etc/iam-anywhere/cert.crt
+
+# ipa-getcert list
+Number of certificates and requests being tracked: 1.
+Request ID '20240828020814':
+        status: NEED_KEY_GEN_PERMS
+        stuck: yes
+        key pair storage: type=FILE,location='/etc/iam-anywhere/private.key'
+        certificate: type=FILE,location='/etc/iam-anywhere/cert.crt'
+        CA: IPA
+        issuer:
+        subject:
+        issued: unknown
+        expires: unknown
+        pre-save command:
+        post-save command:
+        track: yes
+        auto-renew: yes
+```
+Hmm - that doesn't look right. Let's just make sure that SELinux is happy.
+```
+# ausearch -m avc -ts today
+----
+time->Wed Aug 28 12:08:14 2024
+type=PROCTITLE msg=audit(1724810894.358:385): proctitle=2F7573722F7362696E2F636572746D6F6E676572002D53002D70002F72756E2F636572746D6F6E6765722E706964002D6E002D6432
+type=SYSCALL msg=audit(1724810894.358:385): arch=c000003e syscall=257 success=no exit=-13 a0=ffffff9c a1=5579e6da5c50 a2=c2 a3=180 items=0 ppid=30513 pid=30542 auid=4294967295 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=(none) ses=4294967295 comm="certmonger" exe="/usr/sbin/certmonger" subj=system_u:system_r:certmonger_t:s0 key=(null)
+type=AVC msg=audit(1724810894.358:385): avc:  denied  { create } for  pid=30542 comm="certmonger" name="private.key" scontext=system_u:system_r:certmonger_t:s0 tcontext=system_u:object_r:etc_t:s0 tclass=file permissive=0
+```
+Looks like exactly the issue! `certmonger` doesn't like the SELinux labels on our new `/etc/iam-anywhere` directory. Let's update it and try again.
+```
+# semanage fcontext -a -t cert_t "/etc/iam-anywhere(/.*)?"
+# restorecon -vvFR /etc/iam-anywhere/
+Relabeled /etc/iam-anywhere from unconfined_u:object_r:etc_t:s0 to system_u:object_r:cert_t:s0
+```
+Let's resubmit the existing request to IDM and see if the certificate gets issued.
+```
+ipa-getcert list
+Number of certificates and requests being tracked: 1.
+Request ID '20240828020814':
+        status: NEED_KEY_GEN_PERMS
+        stuck: yes
+        key pair storage: type=FILE,location='/etc/iam-anywhere/private.key'
+        certificate: type=FILE,location='/etc/iam-anywhere/cert.crt'
+        CA: IPA
+        issuer:
+        subject:
+        issued: unknown
+        expires: unknown
+        pre-save command:
+        post-save command:
+        track: yes
+        auto-renew: yes
+
+# ipa-getcert resubmit -i '20240828020814'
+Resubmitting "20240828020814" to "IPA".
+
+# ipa-getcert list
+Number of certificates and requests being tracked: 1.
+Request ID '20240828021852':
+        status: MONITORING
+        stuck: no
+        key pair storage: type=FILE,location='/etc/iam-anywhere/private.key'
+        certificate: type=FILE,location='/etc/iam-anywhere/cert.crt'
+        CA: IPA
+        issuer: CN=Certificate Authority,O=ROCK.LAB
+        subject: CN=ansible.rock.lab,O=ROCK.LAB
+        issued: 2024-08-28 12:18:53 AEST
+        expires: 2024-10-28 12:18:53 AEST
+        dns: ansible.rock.lab
+        principal name: host/ansible.rock.lab@ROCK.LAB
+        key usage: digitalSignature,nonRepudiation,keyEncipherment,dataEncipherment
+        eku: id-kp-serverAuth,id-kp-clientAuth
+        pre-save command:
+        post-save command:
+        track: yes
+        auto-renew: yes
+```
+That looks *a lot* better. Now we can use this key/certificate to request short-lived credentials to access AWS services.
+
+### Creating an Ansible playbook
+
+There's been a lot of work to get to this point, but I think it's been worth it. Now we have:
+
+- A Red Hat Identity Management (IDM) server created with a built-in `dogtag` certificate authority, that we can use to issue certificates to hosts and services
+
+- Certificate profiles created that expire certificates issued by IDM after 60 days, and ensure that `certmonger` rotates these on enrolled hosts
+
+- An  trust anchor created for our on-premises Red Hat IDM server and AWS IAM Roles Anywhere
+
+- IAM roles and profiles created
+
+To use short-term credentials in our Ansible playbook, we just need to configure the `~/.aws/config` file with a credential helper for IAM Roles Anywhere:
+```ini
+# cat ~/.aws/config
+[default]
+region=ap-southeast-2
+credential_process = /usr/local/bin/aws_signing_helper credential-process --certificate /etc/iam-anywhere/cert.crt --private-key /etc/iam-anywhere/private.key    --trust-anchor-arn <your-trust-anchor-arn> --role-arn <your-role-arn<> --profile-arn <your-profile-arn>
+```
+Your playbook simply looks like:
+```yaml
+---
+- name: List Route 53 DNS Records
+  hosts: localhost
+  gather_facts: no
+  vars:
+    hosted_zone_id: "YOUR_HOSTED_ZONE_ID"  # Replace with your Hosted Zone ID
+
+  tasks:
+    - name: List all DNS records in the hosted zone
+      amazon.aws.route53_info:
+        hosted_zone_id: "{{ hosted_zone_id }}"
+        query: "record_sets"
+      register: route53_records
+
+    - name: Display DNS records
+      debug:
+        var: route53_records.resource_record_sets
+```
+And running the playbook should now "just work":
+```
+# ansible-playbook route53.yaml
+
+PLAY [List Route 53 DNS Records] ***************************************************************************************************************
+
+TASK [List all DNS records in the hosted zone] *************************************************************************************************
+ok: [localhost]
+
+TASK [Display DNS records] *********************************************************************************************************************
+ok: [localhost] => {
+    "route53_records.resource_record_sets": [
+        {
+            "name": "blueradish.net.",
+            "resource_records": [
+                {
+                    "value": "ns-1445.awsdns-52.org."
+                },
+                {
+                    "value": "ns-1833.awsdns-37.co.uk."
+                },
+                {
+                    "value": "ns-641.awsdns-16.net."
+                },
+                {
+                    "value": "ns-300.awsdns-37.com."
+                }
+            ],
+            "ttl": 172800,
+            "type": "NS"
+```
