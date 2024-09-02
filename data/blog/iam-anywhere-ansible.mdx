@@ -40,8 +40,8 @@ IAM Roles Anywhere relies on trusted X.509 certificates to verify the identity o
 
 - Attributes that can be used to tie a certificate to a service
 - Ability to revoke or renew certificates
-- Standard APIs and access mechanisms for certificates
-- Secure storage mechanisms for X.509 certificates (TPM, etc)
+- Standard APIs and access mechanisms for certificates (e.g. PKCS#11)
+- Secure storage mechanisms (TPM, HSM, etc)
 
 Ok, so we know that:
 - IAM Roles Anywhere allows workloads *outside* of AWS to assume IAM roles, just like if they were running on AWS
@@ -328,7 +328,7 @@ There's been a lot of work to get to this point, but I think it's been worth it.
 
 - Certificate profiles created that expire certificates issued by IDM after 60 days, and ensure that `certmonger` rotates these on enrolled hosts
 
-- An  trust anchor created for our on-premises Red Hat IDM server and AWS IAM Roles Anywhere
+- A  trust anchor created for our on-premises Red Hat IDM server and AWS IAM Roles Anywhere
 
 - IAM roles and profiles created
 
