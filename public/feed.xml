@@ -7,9 +7,19 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Mon, 05 Aug 2024 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Mon, 02 Sep 2024 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/iam-anywhere-ansible</guid>
+    <title>Ansible and AWS IAM Roles Anywhere</title>
+    <link>https://stb.id.au/blog/iam-anywhere-ansible</link>
+    <description>AWS IAM Roles Anywhere allows you to grant secure, temporary access to AWS services, for workloads anywhere. In this article I&#39;m going to take a look at how you can use IAM Roles Anywhere together with Ansible.</description>
+    <pubDate>Mon, 02 Sep 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>ansible</category><category>aws</category><category>iam</category><category>anywhere</category><category>idm</category><category>security</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/openshift-gpus</guid>
     <title>Get to grips with NVIDIA GPUs and OpenShift</title>

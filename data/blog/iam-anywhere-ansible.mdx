@@ -1,6 +1,6 @@
 ---
 title: Ansible and AWS IAM Roles Anywhere
-date: '2024-09-05'
+date: '2024-09-02'
 tags: ['ansible','aws','iam','anywhere','idm','security']
 images: ['/static/images/linkedin-banners/iam-anywhere.png']
 draft: false
@@ -10,7 +10,7 @@ Before I get into this article I firstly need to apologise.
 
 I lied. 
 
-I said that this article would be about creating GPU-accelerated Windows desktops on [OpenShift Virtualization](https://www.redhat.com/en/technologies/cloud-computing/openshift/virtualization). I had an incredibly interesting question during the week though, and I needed to write it down. It goes like this:
+[I said](/blog/openshift-gpus) that this article would be about creating GPU-accelerated Windows desktops on [OpenShift Virtualization](https://www.redhat.com/en/technologies/cloud-computing/openshift/virtualization). I had an incredibly interesting question during the week though, and I needed to write it down. It goes like this:
 
 "We use Ansible to orchestrate workloads on AWS. In the past we've used AWS access tokens, but we want to move towards temporary / short-lived credentials access to AWS resources."
 
@@ -18,7 +18,7 @@ I said that this article would be about creating GPU-accelerated Windows desktop
 
 "What can we do?"
 
-I think this is the perfect opportunity to introduce AWS IAM Roles Anywhere, and how this fundamentally changes the security architecture for organisations using AWS resources.
+I think this is the perfect opportunity to introduce [AWS IAM Roles Anywhere](https://docs.aws.amazon.com/rolesanywhere/latest/userguide/introduction.html), and how this fundamentally changes the security architecture for organisations using AWS resources.
 
 At the end of this article you'll have an understanding of:
 - How AWS IAM Roles Anywhere help you use short-lived credentials to access AWS resources, from anywhere
@@ -32,47 +32,145 @@ At the end of this article you'll have an understanding of:
 Let's dive in!
 
 ## AWS IAM Roles Anywhere
-So what are IAM Roles Anywhere? Essentially it's a way for applications running *outside* of AWS to access temporary AWS credentials, and use those to access AWS services. This means that you can use the same IAM policies and roles for *native* AWS applications to access AWS resources, but now extending those capabilities to workload that might be on other cloud providers, or in your own datacentre.
+What is **AWS IAM Roles Anywhere**? Essentially it's a way for applications running *outside* of AWS to access temporary AWS credentials, and use those to access AWS services. This means that you can use the same IAM policies and roles for *native* AWS applications to access AWS resources, but now extending those capabilities to workload that might be on other cloud providers, or in your own datacentre.
 
-This means that we no longer need access keys. Access keys are horrible - they stick around forever, and they are the first target for threat actors who manage to compromise a workload inside your account. Using IAM Roles Anywhere means that we don't need to keep access keys around, and can instead use short-lived credentials.
+This means that we no longer need access keys. Access keys are horrible - they stick around forever, and they are the first target for threat actors who manage to compromise a workload inside your account. Using IAM Roles Anywhere means that we don't ned to keep access keys around, and can instead use short-lived credentials.
 
-IAM Roles Anywhere relies on X.509 certificates to verify the identity of a workload running outside of AWS, and establish trust. At a high-level it might sound like you've simply swapped long-lived access tokens for long-lived x509 certificates / keys. But, that's not really the case.
-
-X.509 certificates have huge advantages over access keys:
+IAM Roles Anywhere relies on trusted X.509 certificates to verify the identity of a workload running outside of AWS and establish trust. At a high-level it might sound like you've simply swapped long-lived access tokens for long-lived x509 certificates / keys. But, that's not really the case. X.509 certificates have huge advantages over access keys:
 
 - Attributes that can be used to tie a certificate to a service
 - Ability to revoke or renew certificates
-- Standard APIs and accecss mechanisms for certificates
+- Standard APIs and access mechanisms for certificates
 - Secure storage mechanisms for X.509 certificates (TPM, etc)
 
-## AWS IAM Roles Anywhere with Red Hat Identity Management
 Ok, so we know that:
 - IAM Roles Anywhere allows workloads *outside* of AWS to assume IAM roles, just like if they were running on AWS
 - It uses x509 certificates for authentication and creates a trust anchor with a certificate authority (CA)
 
-One of the common CAs found in Red Hat Enterprise Linux (RHEL) environments is built-in to Red Hat Identity Management (IDM), based on the upstream FreeIPA project. IDM provides a complete Linux domain identity management solution, and can manage users, SSH keys, host-based access rules, and `sudo` rules. It can also issue and rotate certificates for services, hosts and users using the built-in `dogtag` certificate authority.
+Using IAM Roles Anywhere relies on organisations managing trusted X.509 certificates, and having public key infrastructure (PKI) available to do this.
 
-## AWS IAM Roles Anywhere with Ansible - in action!
+[FreeIPA](https://www.freeipa.org/) is a popular platform for PKI and certificate management in Linux environments, and is built-in to Red Hat Enterprise Linux (RHEL) via Red Hat Identity Management (IDM). IDM provides a complete Linux domain identity management solution, and can manage users, SSH keys, host-based access rules, and `sudo` rules. It can also issue and rotate certificates for services, hosts and users using the built-in `dogtag` certificate authority.
+
+Using Red Hat IDM in this solution allows us to easily rotate certificates / keys, and allow Ansible to exchange these for short-lived credentials via IAM Roles Anywhere. Here's a diagram:
+
+<Zoom>
+![ra-diagram](/static/images/roles-anywhere/ra-diagram.png)
+</Zoom>
+
+## Getting started with Ansible, Red Hat Identity Management and AWS IAM Roles Anywhere
+
 Enough talk - let's dive in to this solution and see how we can use AWS IAM Roles Anywhere with Red Hat Identity Management and Ansible.
 
-I'm going to create a very simple Red Hat IDM server for this article. I already have DNS in my lab, and I don't want to manage that via IDM. I also don't need any replicas. This means I can create a 
+I'm going to create a very simple Red Hat IDM (FreeIPA) server for this article. I already have DNS in my lab, and I don't want to manage that via IDM. I also don't need any replicas. This is straightforward with the `ipa-server-install` utility.
+
+Firstly add the required firewall rules and enable the RHEL 9 BaseOS and AppStream repositories. There's no need to directly attach a subscription assuming you are using [Red Hat Simple Content Access](https://access.redhat.com/articles/simple-content-access):
+```
+firewall-cmd --permanent --add-port={80/tcp,443/tcp,389/tcp,636/tcp,88/tcp,88/udp,464/tcp,464/udp,53/tcp,53/udp}
+
+subscription-manager repos --enable=rhel-9-for-x86_64-baseos-rpms
+subscription-manager repos --enable=rhel-9-for-x86_64-appstream-rpms
+```
+Now you can install the IDM server:
+```
+ipa-server-install --hostname=idm.rock.lab -n rock.lab -p <password> -a <password> -r ROCK.LAB
+```
+Once the install completes you should have a brand-new IDM server available:
+
+<Zoom>
+![idm-console-1](/static/images/roles-anywhere/idm-console-1.png)
+</Zoom>
+
+ We're primarily going to use the built-in [dogtag](https://www.dogtagpki.org/) CA services in this article, and you can check that CA has been created in the UI.
+
+<Zoom>
+![dogtag-1](/static/images/roles-anywhere/dogtag-1.png)
+</Zoom>
+
+<Zoom>
+![dogtag-2](/static/images/roles-anywhere/dogtag-2.png)
+</Zoom>
 
 ### Creating an AWS IAM Roles Anywhere Trust Anchor and additional IAM roles
-Now that we have an IDM server and a built-in `dogtag` CA created we can move to AWS configuration. There's a few things we need to do in AWS:
+Now that we have an IDM server and a built-in `dogtag` CA created we can move to AWS configuration. You can navigate to the `Roles Anywhere` console [here](https://ap-southeast-2.console.aws.amazon.com/rolesanywhere/) (changing your region accordingly).
 
-- Create a trust anchor for AWS IAM Roles Anywhere
-- Create (or update) a role
-- Create a Roles Anywhere profiles
+<Zoom>
+![ra-console](/static/images/roles-anywhere/ra-console.png)
+</Zoom>
 
-You can navigate to `Roles Anywhere` here: https://ap-southeast-2.console.aws.amazon.com/rolesanywhere/ (changing your region accordingly)
+ You can see that AWS gives us a handy set of 'Setup steps' we need to step through to configure IAM Roles Anywhere:
+- Create trust anchor (in our case, Red Hat IDM)
+- Configure roles
+- Use roles anywhere
 
-#### Roles Anywhere screenshot
+Let's start by creating a trust anchor with Red Hat IDM. You can find the CA on the IDM server at `/etc/ipa/ca.crt`, and you can simply upload this to the portal.
 
-Once you're on the Roles Anywhere screen you can create a trust anchor using the IDM CA. You can find the CA on the IDM server at `/etc/ipa/ca.crt`, and you can simply upload this to the portal.
+<Zoom>
+![ra-ca](/static/images/roles-anywhere/ra-ca.png)
+</Zoom>
 
-#### Image of trust anchor created
+ Now that we have a trust anchor we can create (or modify) existing roles to use the Roles Anywhere trust anchor. I have an existing AWS IAM policy which allows services to lookup and modify Route53 records, and I use for `certbot` certificate creation. You can see it here:
+ ```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "route53:ListHostedZones",
+                "route53:GetChange"
+            ],
+            "Resource": [
+                "*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "route53:ChangeResourceRecordSets",
+                "route53:ListResourceRecordSets"
+            ],
+            "Resource": [
+                "arn:aws:route53:::hostedzone/<my-hosted-zone-id>"
+            ]
+        }
+    ]
+}
+ ```
+ To use this with Roles Anywhere I just need to update a role, or create a new one. I've named this `RolesAnywhere-Certbot`. The important part of creating / editing this role is to update the `Trust relationships` and include the service `rolesanywhere.amazonaws.com` in the principal:
+ ```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "",
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "rolesanywhere.amazonaws.com"
+            },
+            "Action": [
+                "sts:AssumeRole",
+                "sts:SetSourceIdentity",
+                "sts:TagSession"
+            ]
+        }
+    ]
+}
+ ```
+The last step here in the AWS console is to create a profile, and ensure that permissions are enforced on the role session when one or more roles are assumed by your non AWS workload.
 
+You can see here that I've attached the `RolesAnywhere-Certbot` role to the profile, and configured the session duration for 1 hour. You can also configure which X.509 certificate attributes are mapped into the session, though I'll just accept the defaults.
 
+<Zoom>
+![ra-profile-1](/static/images/roles-anywhere/ra-profile-1.png)
+</Zoom>
+
+<Zoom>
+![ra-profile-1](/static/images/roles-anywhere/ra-profile-2.png)
+</Zoom>
+
+<Zoom>
+![ra-profile-1](/static/images/roles-anywhere/ra-profile-3.png)
+</Zoom>
 
 ### Enrolling IDM clients and requesting a certificate for IAM Roles Anywhere
 Now that we have an IDM server available we can onboard our Ansible node as a client. Fortunately this is pretty straightforward - I can just install the `ipa-client` utility and point it at IDM.
@@ -102,9 +200,11 @@ BaseDN: dc=rock,dc=lab
 
 Continue to configure the system with these values? [no]: yes
 ```
-Once the client configuration completes you should be able to see your new node in the IDM UI.
+Once the client configuration completes you should be able to see your new host in the IDM UI.
 
-#### image - IPA UI
+<Zoom>
+![idm-console-2](/static/images/roles-anywhere/idm-console-2.png)
+</Zoom>
 
 Ok, now we can start creating certificates! There is one subtle but very important point I need to make at this point. The default expiry for IDM certificates is *two years*, but I want short-lived and regularly rotated certificates that aren't valid longer than 60 days.
 
@@ -134,7 +234,7 @@ Save and close the file and update the certificate profile.
   Profile description: Standard profile for network services
   Store issued certificates: True
 ```
-**Now** we can simply request a certificate from our IDM-enrolled Ansible node and the expiry should be set to 60 days. The best part is that `certmonger` will automatically track this certificate, and renew it via IDM before it expires. How good is that??
+Now we can simply request a certificate from our IDM-enrolled Ansible node and the expiry should be set to 60 days. The best part is that `certmonger` will automatically track this certificate, and renew it via IDM before it expires. How good is that??
 ```
 # mkdir /etc/iam-anywhere
 # ipa-getcert request -k /etc/iam-anywhere/private.key -f /etc/iam-anywhere/cert.crt
@@ -214,9 +314,13 @@ Request ID '20240828021852':
         track: yes
         auto-renew: yes
 ```
-That looks *a lot* better. Now we can use this key/certificate to request short-lived credentials to access AWS services.
+That looks *a lot* better. Now we can use this key/certificate to request short-lived credentials to access AWS services. You can also see this created in the IDM console:
 
-### Creating an Ansible playbook
+<Zoom>
+![idm-console-3](/static/images/roles-anywhere/idm-console-3.png)
+</Zoom>
+
+### Creating and running an Ansible playbook
 
 There's been a lot of work to get to this point, but I think it's been worth it. Now we have:
 
@@ -228,14 +332,8 @@ There's been a lot of work to get to this point, but I think it's been worth it.
 
 - IAM roles and profiles created
 
-To use short-term credentials in our Ansible playbook, we just need to configure the `~/.aws/config` file with a credential helper for IAM Roles Anywhere:
-```ini
-# cat ~/.aws/config
-[default]
-region=ap-southeast-2
-credential_process = /usr/local/bin/aws_signing_helper credential-process --certificate /etc/iam-anywhere/cert.crt --private-key /etc/iam-anywhere/private.key    --trust-anchor-arn <your-trust-anchor-arn> --role-arn <your-role-arn<> --profile-arn <your-profile-arn>
-```
-Your playbook simply looks like:
+Creating the Ansible is pretty simple - it just looks like this: 
+
 ```yaml
 ---
 - name: List Route 53 DNS Records
@@ -255,8 +353,46 @@ Your playbook simply looks like:
       debug:
         var: route53_records.resource_record_sets
 ```
-And running the playbook should now "just work":
+The question is though - how do we use IAM Roles Anywhere in this playbook?
+
+Fortunately AWS has already solved this using the [AWS IAM Roles Anywhere Credential Helper](https://github.com/aws/rolesanywhere-credential-helper). This is an open source utility that can take the X.509 certificates issued by IDM, and use the IAM Roles Anywhere [CreateSession](https://docs.aws.amazon.com/rolesanywhere/latest/userguide/authentication-create-session.html) API to return temporary credentials we can use in an Ansible playbook.
+
+<Zoom>
+![ra-credential-helper](/static/images/roles-anywhere/ra-credential-helper.png)
+</Zoom>
+
+You can grab a copy of the utility from the Github releases page:
+
+<Zoom>
+![ra-releases](/static/images/roles-anywhere/ra-releases.png)
+</Zoom>
+
+Once you have a local copy of the `aws_signing_helper` you can try it out. Simply load up the CLI with the certificate / key issued by Red Hat IDM, and the ARNs for the trust anchor, role and profile you created earlier.
+
 ```
+/usr/local/bin/aws_signing_helper credential-process \
+  --certificate /etc/iam-anywhere/cert.crt --private-key /etc/iam-anywhere/private.key \
+  --trust-anchor-arn <your-trust-anchor-arn> --role-arn <your-role-arn> \
+  --profile-arn <your-profile-arn>
+```
+You should see that the `aws_signing_helper` CLI returns a set of temporary credentials (access key / secret access key), and expiration date of an hour:
+```json
+{"Version":1,"AccessKeyId":"<temporary-access-key>","SecretAccessKey":"<temporary-secret-access-key>","Expiration":"2024-09-02T02:13:19Z"}
+```
+
+To use the AWS IAM Roles Anywhere credential helper in our Ansible playbook, we just need to configure the `~/.aws/config` file with a `credential_process` line:
+```ini
+# cat ~/.aws/config
+[default]
+region=ap-southeast-2
+credential_process = /usr/local/bin/aws_signing_helper credential-process \
+  --certificate /etc/iam-anywhere/cert.crt --private-key /etc/iam-anywhere/private.key \
+  --trust-anchor-arn <your-trust-anchor-arn> --role-arn <your-role-arn> \
+  --profile-arn <your-profile-arn>
+```
+
+And running the Ansible playbook should now "just work":
+```json
 # ansible-playbook route53.yaml
 
 PLAY [List Route 53 DNS Records] ***************************************************************************************************************
@@ -286,3 +422,10 @@ ok: [localhost] => {
             "ttl": 172800,
             "type": "NS"
 ```
+
+## Wrapping up
+In this article I looked at AWS IAM Roles Anywhere, and how you can integrate Ansible with a hybrid cloud identity model. This provides a great model for organisations looking to ditch AWS access keys / secret access keys and move to temporary credentials across their hybrid cloud. I used Red Hat Identity Management (IDM) in this article to provide public key infrastructure (PKI), though you can use any certificate authority you'd like.
+
+AWS IAM Roles Anywhere uses trusted X.509 digital certificates to identify workloads and exchange the certificate / key for temporary access credentials. Workloads might also be able to obtain a SAML assertion or OpenID Connect Token, and I'll take a look at this approach in another article. Trusted X.509 certificates is a popular approach for workloads identities, and other cloud platforms are also exploring this, notably [Google Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation-with-x509-certificates) which supports configuring workload identity federation with X.509 certificates in a pre-GA preview.
+
+Happy automating!
