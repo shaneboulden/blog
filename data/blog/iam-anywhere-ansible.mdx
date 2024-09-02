@@ -6,13 +6,9 @@ images: ['/static/images/linkedin-banners/iam-anywhere.png']
 draft: false
 summary: "AWS IAM Roles Anywhere allows you to grant secure, temporary access to AWS services, for workloads anywhere. In this article I'm going to take a look at how you can use IAM Roles Anywhere together with Ansible."
 ---
-Before I get into this article I firstly need to apologise.
+I had an incredibly interesting question last week, and it goes like this:
 
-I lied. 
-
-[I said](/blog/openshift-gpus) that this article would be about creating GPU-accelerated Windows desktops on [OpenShift Virtualization](https://www.redhat.com/en/technologies/cloud-computing/openshift/virtualization). I had an incredibly interesting question during the week though, and I needed to write it down. It goes like this:
-
-"We use Ansible to orchestrate workloads on AWS. In the past we've used AWS access tokens, but we want to move towards temporary / short-lived credentials access to AWS resources."
+"We use Ansible to orchestrate workloads on AWS. In the past we've used AWS access tokens, but we want to move towards temporary / short-lived credentials for access to AWS resources."
 
 "If our Ansible appliance was hosted on AWS we could simply use AWS STS. But Ansible is on-premises.
 
@@ -25,7 +21,7 @@ At the end of this article you'll have an understanding of:
 - How to integrate Red Hat Identity Management (IDM) as a trust anchor for AWS IAM Roles Anywhere
 - How to use Ansible with certificates issued by Red Hat IDM together with AWS IAM Roles Anywhere to access Route53 resources using short-lived credentials
 
-[PS: If you want to see a sneak-peek of the GPU-accelerated Windows desktops on OpenShift Virtualization take a look in the video below]
+[PS: In the [last article](/blog/openshift-gpus) I spoke about GPU-accelerated Windows Desktop sessions. You can see a sneak-peek of the next article on GPUs and OpenShift Virtualization in the video below]
 
 <YoutubeEmbed embedId="ZnWweDtv6dQ" />
 
@@ -332,7 +328,7 @@ There's been a lot of work to get to this point, but I think it's been worth it.
 
 - IAM roles and profiles created
 
-Creating the Ansible is pretty simple - it just looks like this: 
+Creating the Ansible playbook is pretty simple - it just looks like this: 
 
 ```yaml
 ---
@@ -424,8 +420,10 @@ ok: [localhost] => {
 ```
 
 ## Wrapping up
-In this article I looked at AWS IAM Roles Anywhere, and how you can integrate Ansible with a hybrid cloud identity model. This provides a great model for organisations looking to ditch AWS access keys / secret access keys and move to temporary credentials across their hybrid cloud. I used Red Hat Identity Management (IDM) in this article to provide public key infrastructure (PKI), though you can use any certificate authority you'd like.
+In this article I looked at AWS IAM Roles Anywhere, and how you can integrate Ansible with a hybrid cloud identity model. This provides a great solution for organisations looking to ditch AWS access keys / secret access keys and move to temporary credentials across their hybrid cloud. I used Red Hat Identity Management (IDM) in this article to provide public key infrastructure (PKI), though you can use any certificate authority you'd like.
 
-AWS IAM Roles Anywhere uses trusted X.509 digital certificates to identify workloads and exchange the certificate / key for temporary access credentials. Workloads might also be able to obtain a SAML assertion or OpenID Connect Token, and I'll take a look at this approach in another article. Trusted X.509 certificates is a popular approach for workloads identities, and other cloud platforms are also exploring this, notably [Google Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation-with-x509-certificates) which supports configuring workload identity federation with X.509 certificates in a pre-GA preview.
+AWS IAM Roles Anywhere uses trusted X.509 digital certificates to identify workloads and exchange the certificate / key for temporary access credentials. Trusted X.509 certificates is a popular approach for workloads identities, and other cloud platforms are also exploring this, notably [Google Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation-with-x509-certificates) which supports configuring workload identity federation with X.509 certificates in a pre-GA preview.
+
+Workloads might also be able to obtain a SAML assertion or OpenID Connect Token, and I'll take a look at this approach in another article. 
 
 Happy automating!
