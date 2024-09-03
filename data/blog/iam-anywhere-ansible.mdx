@@ -204,11 +204,11 @@ Once the client configuration completes you should be able to see your new host 
 
 Ok, now we can start creating certificates! There is one subtle but very important point I need to make at this point. The default expiry for IDM certificates is *two years*, but I want short-lived and regularly rotated certificates that aren't valid longer than 60 days.
 
-You can configure this in IDM by modifying the certificate profile. Make sure that you have valid Kerberos credentials on the IDM server:
+You can configure this in IDM by creating a new certificate profile. Make sure that you have valid Kerberos credentials on the IDM server:
 ```
 [idm ~]# kinit admin@ROCK.LAB
 ```
-Now that you have valid credentials, you can extract the certificate profile:
+Now that you have valid credentials, you can extract the IPA service certificate profile:
 ```bash
 ipa certprofile-show caIPAserviceCert --out=caIPAserviceCert.cfg
 -----------------------------------------------------------
@@ -218,26 +218,51 @@ Profile configuration stored in file 'caIPAserviceCert.cfg'
   Profile description: Standard profile for network services
   Store issued certificates: True
 ```
-This file is pretty complicated, but you're only looking for two lines to change:
+Let's copy this to a new file and make a few changes:
+```
+mv caIPAserviceCert.cfg caRolesAnywhere.cfg
+```
+
 ```ini
-policyset.serverCertSet.2.constraint.params.range=70
-policyset.serverCertSet.2.default.params.range=61
+< desc=This certificate profile is for enrolling server certificates with IPA-RA agent authentication.
+---
+> desc=This certificate profile is for providing certificates for use with AWS IAM Roles Anywhere
+9c9
+< name=IPA-RA Agent-Authenticated Server Certificate Enrollment
+---
+> name=AWS IAM Roles Anywhere certificate profile
+38c38
+< policyset.serverCertSet.2.constraint.params.range=740
+---
+> policyset.serverCertSet.2.constraint.params.range=70
+41c41
+< policyset.serverCertSet.2.default.params.range=731
+---
+> policyset.serverCertSet.2.default.params.range=61
+112c112
+< profileId=caIPAserviceCert
+---
+> profileId=caRolesAnywhere
 ```
-Save and close the file and update the certificate profile.
+Save and close the file and create a new IPA certificate profile.
 ```
-# ipa certprofile-mod caIPAserviceCert --file=caIPAserviceCert.cfg
-  Profile ID: caIPAserviceCert
-  Profile description: Standard profile for network services
+# ipa certprofile-import --file=caRolesAnywhere.cfg --store=true --desc="AWS IAM Roles Anywhere profile"
+Profile ID: caRolesAnywhere
+----------------------------------
+Imported profile "caRolesAnywhere"
+----------------------------------
+  Profile ID: caRolesAnywhere
+  Profile description: AWS IAM Roles Anywhere profile
   Store issued certificates: True
 ```
 Now we can simply request a certificate from our IDM-enrolled Ansible node and the expiry should be set to 60 days. The best part is that `certmonger` will automatically track this certificate, and renew it via IDM before it expires. How good is that??
 ```
 # mkdir /etc/iam-anywhere
-# ipa-getcert request -k /etc/iam-anywhere/private.key -f /etc/iam-anywhere/cert.crt
+# ipa-getcert request -k /etc/iam-anywhere/private.key -f /etc/iam-anywhere/cert.crt  --profile caRolesAnywhere
 
 # ipa-getcert list
 Number of certificates and requests being tracked: 1.
-Request ID '20240828020814':
+Request ID '20240903054001':
         status: NEED_KEY_GEN_PERMS
         stuck: yes
         key pair storage: type=FILE,location='/etc/iam-anywhere/private.key'
@@ -247,6 +272,7 @@ Request ID '20240828020814':
         subject:
         issued: unknown
         expires: unknown
+        profile: caRolesAnywhere
         pre-save command:
         post-save command:
         track: yes
@@ -271,7 +297,7 @@ Let's resubmit the existing request to IDM and see if the certificate gets issue
 ```
 ipa-getcert list
 Number of certificates and requests being tracked: 1.
-Request ID '20240828020814':
+Request ID '20240903054001':
         status: NEED_KEY_GEN_PERMS
         stuck: yes
         key pair storage: type=FILE,location='/etc/iam-anywhere/private.key'
@@ -286,12 +312,12 @@ Request ID '20240828020814':
         track: yes
         auto-renew: yes
 
-# ipa-getcert resubmit -i '20240828020814'
-Resubmitting "20240828020814" to "IPA".
+# ipa-getcert resubmit -i '20240903054001'
+Resubmitting "20240903054001" to "IPA".
 
 # ipa-getcert list
 Number of certificates and requests being tracked: 1.
-Request ID '20240828021852':
+Request ID '20240903054001':
         status: MONITORING
         stuck: no
         key pair storage: type=FILE,location='/etc/iam-anywhere/private.key'
@@ -305,6 +331,7 @@ Request ID '20240828021852':
         principal name: host/ansible.rock.lab@ROCK.LAB
         key usage: digitalSignature,nonRepudiation,keyEncipherment,dataEncipherment
         eku: id-kp-serverAuth,id-kp-clientAuth
+        profile: caRolesAnywhere
         pre-save command:
         post-save command:
         track: yes
