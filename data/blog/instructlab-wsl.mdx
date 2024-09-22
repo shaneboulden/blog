@@ -632,29 +632,24 @@ serve:
   model_path: /home/user/.local/share/instructlab/checkpoints/ggml-model-f16.gguf
   #model_path: /home/user/.cache/instructlab/models/merlinite-7b-lab-Q4_K_M.gguf
 ```
-Now you can try out the model:
+Now you can try chatting with the new model:
 ```
 (venv) [user@HelixWin ~]$ ilab model chat -m /home/user/.local/share/instructlab/checkpoints/ggml-model-f16.gguf
-INFO 2024-09-22 19:18:41,278 instructlab.model.backends.llama_cpp:104: Trying to connect to model server at http://127.0.0.1:8000/v1
+INFO 2024-09-22 19:29:23,472 instructlab.model.backends.llama_cpp:104: Trying to connect to model server at http://127.0.0.1:8000/v1
 ╭──────────────────────────────────────────────────────────── system ─────────────────────────────────────────────────────────────╮
 │ Welcome to InstructLab Chat w/ GGML-MODEL-F16.GGUF (type /h for help)                                                           │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 >>> What is a tonsillolith?                                                                                            [S][default]
 ╭────────────────────────────────────────────────────── ggml-model-f16.gguf ──────────────────────────────────────────────────────╮
 │                                                                                                                                │
-│ Answer: A tonsillolith (tonsil stone) is material that accumulates on the palatine tonsil, reaching the size of a peppercorn    │
-│ and having a white or cream color with a sharper profile. It contains mostly calcium but has an unpleasant odor due to hydrogen │
-│ sulfide and other chemicals. The common name for this disease is "tonsillitis."                                                 │
-│                                                                                                                                 │
-│ In the document, it mentions that a tonsillolith is a common condition affecting millions of people each year and can be found  │
-│ in the article "Tonsillolith: A Major Health Problem in Developing Countries."                                                  │
-│                                                                                                                                 │
-│ This response will provide more information about the tonsillolith, such as its size, color, and the origin of the unpleasant   │
-│ odor, which was not mentioned in the original answer. It will also clarify that a tonsillolith is not the same as a             │
-│ "tonsillitis" and mention that it is a common condition in developed countries, unlike the text in the document.                │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────── elapsed 135.677 seconds ─╯
+│ Answer: A tonsillolith (tonsil stone) is material that accumulates on the palatine tonsils, reaching the size of a peppercorn   │
+│ and having a white or cream color. It can cause pain when eating or talking and may indicate infection with pathogens such as   │
+│ H. influenzae or Streptococcus pneumoniae. Tonsilloliths are common in adolescence and young adulthood, with risk factors       │
+│ including unhealthy diet, smoking, and exposure to secondary smoke. They can be removed by a healthcare professional or may     │
+│ fall off; if they block the airway, surgical removal may be necessary.                                                          │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────── elapsed 92.676 seconds ─╯
 ```
-You can see that the response from the model is a combination of the new knowledge we provided, together with existing knowledge embedded within the model about "tonsillitis" (which wasn't referenced in the training data):
+You can see that the response from the model is a combination of the new knowledge we provided, together with existing knowledge embedded within the model about management and surgical intervention (which wasn't referenced in the training data):
 ```yaml
 - context: |
       A [tonsillolith](tonsillolith "wikilink") (also known as a "tonsil stone")
