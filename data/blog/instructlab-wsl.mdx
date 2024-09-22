@@ -6,9 +6,9 @@ images: ['/static/images/linkedin-banners/ilab-wsl.png']
 draft: false
 summary: 'InstructLab is an open source framework for adding skills and knowledge to generative AI models, and I want to make it "go fast" on WSL.'
 ---
-I mentioned in an [earlier article](/blog/openshift-gpus) that I was hooked the moment I saw a machine learning / artificial intelligence model in-action (in this case, a genetic algorithm). Now that generative AI has taken hold it's incredibly exciting seeing all the innovation and new approaches.
+I mentioned in an [earlier article](/blog/openshift-gpus) that I was hooked the moment I saw a machine learning / artificial intelligence model in-action (in this case, a genetic algorithm). Now that generative AI has taken hold, I think it's incredibly exciting seeing the innovation and new approaches taking off.
 
-One of the most exciting projects I've worked with recently is [InstructLab](https://github.com/instructlab/instructlab). In this article I'll look at my home-lab setup for InstructLab, and how I've configured the framework to use NVIDIA CUDA on the Windows subsystem for Linux (WSL).
+One of those new approaches, and the most exciting projects I've worked with recently, is [InstructLab](https://github.com/instructlab/instructlab). In this article I'll look at my home-lab setup for InstructLab, and how I've configured the framework to use NVIDIA CUDA on the Windows subsystem for Linux (WSL).
 
 ## Technologies
 
@@ -78,9 +78,7 @@ The other piece to my InstructLab setup is the Windows Subsystem for Linux (WSL)
 
 Traditionally if you wanted to use Linux alongside Windows you would need to either create a separate virtual machine, or dual-boot the system. The WSL exists so that developers, AI practitioners, or anyone wanting to use Windows and Linux together can use both at the same time.
 
-I'm using Fedora on WSL, and there's an excellent article [here](https://fedoramagazine.org/wsl-fedora-33/) to get a Fedora environment setup on WSL.
-
-This article focuses on accelerating InstructLab on WSL. If you're not using WSL, there's a great guide available here for other platforms: https://instructlab.readthedocs.io/latest/gpu-acceleration.html
+This article focuses on accelerating InstructLab on WSL. If you're not using WSL, there's a great guide available [here](https://instructlab.readthedocs.io/latest/gpu-acceleration.html) for other platforms. I'm using also Fedora on WSL, and there's an excellent article [here](https://fedoramagazine.org/wsl-fedora-33/) to get a Fedora environment setup on WSL.
 
 I should note here that the model I'll get out of training on my WSL and InstructLab environment will be pretty low fidelity. I only have a RTX3070 and 64GB RAM available for training, which isn't going to give me a production, high-fidelity model. It will let me experiment with InstructLab and start to understand the framework better though.
 
@@ -91,7 +89,7 @@ I have an NVIDIA GPU available, and one of the core capabilities I'm using to ma
 
 NVIDIA CUDA is a parallel computing platform and API model that allows developers to use an NVIDIA GPU's massive parallel processing power to accelerate applications. It provides a high-level programming interface and runtime environment, making it easier to write and execute code on GPUs.
 
-InstructLab relies on CUDA support within two libraries:
+I don't need to explicitly write any new code to make InstructLab "go fast", but InstructLab relies on CUDA support within two libraries:
 - LLaMA, supporting inference for Meta's LLaMA models using the python bindings
 - PyTorch, a machine learning library.
 
@@ -217,7 +215,7 @@ llama_cpp_python.supports_gpu_offload: False
 Let's see if we can fix this and really get InstructLab 'going fast'!
 
 ## Making InstructLab 'go fast' on WSL
-As we saw above, currently my `ilab` install is *not* using the NVIDIA CUDA cores available - it's doing a lot of its processing in the CPU. This means that synthentic data generation will take a very long time, and slow down fine-tuning this model. If we want to make InstructLab "go fast", we need to:
+As we saw above, currently my `ilab` install is *not* using the NVIDIA CUDA cores available - it's doing a lot of its processing in the CPU. This means that synthentic data generation will take a very long time, and slow down adding new skills and knowledge to this model. If we want to make InstructLab "go fast", we need to:
 
 - Build a version of the `llama-cpp` python bindings with CUDA support for this system
 - Configure InstructLab to use the CUDA-enabled `llama-cpp` python bindings, instead of the default.
@@ -330,7 +328,7 @@ Logfile is /var/log/cuda-installer.log
 You can ignore the warning about the driver installation, as it's already supported by the Windows host NVIDIA driver.
 
 ### InstructLab install - revisited
-Ok! At this point we have CUDA happily installed using the correct GCC version and **without** the NVIDIA driver, and we've rebuilt the `llama-cpp` python bindings to use CUDA. Let's try an InstructLab build now using the CUDA libraries:
+Ok! At this point we have CUDA happily installed using the correct GCC version and **without** the NVIDIA driver, and we've rebuilt the `llama-cpp` python bindings to use CUDA. Let's try an InstructLab installation now using the CUDA libraries:
 ```bash
 # setup virtual env
 source ~/instructlab/venv/bin/activate
@@ -345,7 +343,7 @@ pip cache remove llama_cpp_python
 sudo dnf install clang17
 CUDAHOSTCXX=$(which clang++-17) pip install --force-reinstall llama_cpp_python==0.2.79 -C cmake.args="-DLLAMA_CUDA=on"
 
-# Re-install InstructLab
+# Re-install InstructLab with CUDA
 pip install instructlab[cuda]
 ```
 Finally, let's check `ilab system info` and make sure that GPU support is enabled.
@@ -685,5 +683,5 @@ You can see that the response from the model is a combination of the new knowled
 ## Wrapping up
 In this article I looked at a new open source framework for adding knowledge and skills to an existing LLM, InstructLab. I showed how you can enable GPU support for InstructLab within the Windows Subsystem for Linux (WSL), and how to train and chat with a new model created with InstructLab.
 
-Using InstructLab with the Windows Subsystem for Linux is a great way to get up-and-running, and trying this out on a "gaming rig", or any other desktop. It's not really suitable for creating high-fidelity models though, and in future articles I'll look at using InstructLab with Red Hat Enterprise Linux AI (RHEL AI) and OpenShift AI to create and serve high-fidelity models. Stay tuned! 
+Using InstructLab with the Windows Subsystem for Linux is a great way to get up-and-running, and trying this out on a "gaming rig", or any other desktop. InstructLab is the foundation for Red Hat Enterprise Linux AI (RHEL AI), and in future articles I'll look at using RHEL AI and OpenShift AI to create and serve domain-specific AI models. Stay tuned! 
 
