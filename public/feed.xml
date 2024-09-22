@@ -7,9 +7,19 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Mon, 02 Sep 2024 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Mon, 23 Sep 2024 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/instructlab-wsl</guid>
+    <title>Making InstructLab &#39;go fast&#39; on WSL</title>
+    <link>https://stb.id.au/blog/instructlab-wsl</link>
+    <description>InstructLab is an open source framework for adding skills and knowledge to generative AI models, and I want to make it &quot;go fast&quot; on WSL.</description>
+    <pubDate>Mon, 23 Sep 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>instructlab</category><category>gpus</category><category>nvidia</category><category>windows</category><category>linux</category><category>wsl</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/iam-anywhere-ansible</guid>
     <title>Ansible and AWS IAM Roles Anywhere</title>
