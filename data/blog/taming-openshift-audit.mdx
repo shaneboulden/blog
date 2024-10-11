@@ -1,0 +1,54 @@
+---
+title: Taming OpenShift audit with RHACS
+date: '2024-10-15'
+tags: ['openshift','audit','rhacs','security','compliance','stackrox']
+images: ['/static/images/linkedin-banners/taming-openshift-audit.png']
+draft: false
+summary: 'Audit is a core requirement for many compliance schemes, but expensive to keep indexed. In this article I will look at how you can create immediate alerts from OpenShift audit events without paying for epensive indexed dat'
+---
+As a kid I loved a book called 'One Minute Mysteries' (wonderful allitoration). It was a collection of incredibly short stories, just over a page long, about a detective and his everyday interactions. He was able to rapidly discern whether someone was lying from a minute detail, and the reader was left to wonder how. I've unfortunately lost the book, but I've tried to recreate the style here:
+
+"Detective rogers visits a bar on his way back to the office. Inside, a bronzed adventurer, recently shaved, is seated at the bar. "Where are you from", asks Detective Rogers. "I just got back yesterday from San Jose. I was out there three months digging out a gold seam I found last year. My beard was past my navel, and I just shaved yesterday. I ran out of funding to get the gold back. If you can front me the $2500, I'll give you half the gold". He scratched his bronzed chin and sank into his beer. 
+
+"I wouldn't give you $2500 if my life depended on it." Responded Detective Rogers. 
+
+*How did Detective Rogers know the man was lying?*
+
+Now, I've probably made the clues way-y-y too obvious here. The man scratched his "bronzed chin", after only shaving yesterday, and having visited the gold mine for three months. He wouldn't have a bronzed chin if he only shaved yesterday - his skin would be pasty from the beard. 
+
+Weirdly, I'm fairly certain this love for detective novels has translated to a love for audit logs. Reading audit logs is exactly like a great detective novel - why did they access that file? Is that normal? Is this a legitimate system administrator, or a threat actor trying to evade detection?
+
+Audit is essential to threat hunting. Many threat actors now attempt to ["live off the land"](/blog/living-off-the-land), abusing administrative tools  to perform their objectives. Really the only way to identify these users is through comprehensive audit, and identiyfing a "normal" administrative action from a malicious threat actor "living off the land". One of my favourite security controls available in Red Hat Enterprise Linux is `tlog`, a system for terminal session recording. It allows administrators to 'replay' a user's session - seeing the commands they type, the typos they made, and the sequence of actions as they took place. If you want to try it out, there's a hands-on lab here: ,,,
+
+Audit is also essential to many compliance schemes. The Australian ISM ... The SOC 2 Type 2 controls are similar - requiring audit across systems. 
+
+One of the difficult things about audit is that it's expensive to keep logs "indexed". If I want to search for something, or a user action, I need to be able to keep the data tokenized, and indexed for search. Platforms like Splunk and ElasticSearch excel at this - creating alerts from indexed data, and making it accessible to security teams.
+
+Kubernetes in particular can be difficult to audit. Users interact with the API via command-line tools - but systems and services interact with the API to support things like monitoring and workload scheduling, and even workloads themselves can interact with the [downwards API](...). All of these API interactions create a tremendous volume of audit data, which needs to be indexed and searched for anomalous user interactions. This can be incredibly expensive, particularly as platforms scale and grow with demand.
+
+How do we keep all this data indexed, and readily searchable for threat hunting?
+
+## RHACS and Audit
+
+I'd argue there's a better way. We don't need to keep data immediately searchable if we can create immediate alerts, and then search the data later for more detail. This is exactly the approach that Red Hat Advanced Cluster Security for Kubernetes takes with OpenShift. I've covered RHACS in a few articles before [](), and I think it's worth revisiting how RHACS integrates with OpenShift, and particularly audit logs.
+
+RHACS uses a hub-and-spoke model to secure Kubernetes platforms, including OpenShift. It comprises 'Central', supporting the vulnerability scanner, API, UI, etc, and 'Secured Cluster Services', comprising an eBPF probe, admission controller, and audit integations. 
+
+![diagram]()
+
+RHACS integrates with OpenShift audit by ...
+
+Create RHACS policy for audit and flagging activity.
+- Create egress firewall and explain what it is
+- Create policy to alert on changes
+- Pretend you're a malicious actor, and want to exfiltrate data - but all your activity is captured
+- Show alerts
+
+## OpenShift and audit
+What do you do with all of the audit data? S3 Glacier - doesn't need to be immediately retrievable, as there's 5 days on the nodes. But it's being kept - which meets compliance obligations - can be retrieved if needed.
+
+Show how to configure S3 Glacier storage with OpenShift. 
+
+Show how logs can be viewed with the 5 days kept on nodes (oc adm node logs).
+
+
