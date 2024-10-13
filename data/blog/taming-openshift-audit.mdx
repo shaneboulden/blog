@@ -40,7 +40,7 @@ I'd argue there's a better way. We don't need to keep Kubernetes event and audit
 
 RHACS uses a hub-and-spoke model to secure Kubernetes platforms, including OpenShift. It comprises 'Central', supporting the vulnerability scanner, API, UI, etc, and 'Secured Cluster Services', comprising an eBPF probe, admission controller, and audit integations. 
 
-![acs-image1](/static/images/acs-image1.png)
+![acs-image1](/static/images/ocp-audit/acs-image1.png)
 
 RHACS integrates with OpenShift audit through a simple Go-based file reader, included with the [RHACS Secured Cluster Services](). You can see the code [here](https://github.com/stackrox/stackrox/blob/2c3323ce02da5d47f2702f91f802ba1973a1b545/compliance/collection/auditlog/auditlog.go):
 
