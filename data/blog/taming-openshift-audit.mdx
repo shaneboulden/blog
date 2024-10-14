@@ -1,10 +1,10 @@
 ---
-title: Taming OpenShift audit with RHACS
+title: Taming OpenShift Audit - Part I
 date: '2024-10-27'
 tags: ['openshift','audit','rhacs','security','compliance','stackrox']
 images: ['/static/images/linkedin-banners/taming-openshift-audit.png']
 draft: false
-summary: 'Event log capture and audit is a core requirement for threat detection and digital forensic investigation. But, Kubernetes (and OpenShift) generate a huge amount of event logs, which can be unwieldy. In this article I will look at some approaches to "tame" OpenShift audit and event data, and how you can create immediate alerts from OpenShift audit events.'
+summary: 'Event log capture and audit is a core requirement for threat detection and digital forensic investigation. But, Kubernetes (and OpenShift) clusters generate a huge amount of event logs, which can be expensive to store and difficult to search. In this article I will look at some approaches to "tame" OpenShift audit and event data, and how you can create immediate alerts from OpenShift audit events.'
 ---
 As a kid I loved a book called ['Two Minute Mysteries'](https://www.amazon.com.au/Two-Minute-Mysteries-Donald-J-Sobol/dp/0590447874), by Donald J.Sobol. It was a collection of incredibly short stories, just over a page long, where the reader pretended to be Watson to the detective "Dr Haledjian". He was able to rapidly discern whether someone was lying from a minute detail, and the reader was left to wonder how. I can vividly remember the cover.
 
@@ -293,7 +293,6 @@ Usually we'd use `oc adm policy add-cluster-role-to-user` to add `cluster-admin`
 </Zoom>
 
 Let's test this out and make sure it triggers the policy. Create a new ClusterRoleBinding for the `cluster-admin` role and a user.
-
 ```
 $ oc create user user1 --full-name "User One"
 $ oc adm policy add-cluster-role-to-user cluster-admin user1
@@ -312,5 +311,6 @@ Great! This has triggered the policy on my cluster, and created alerts.
 This isn't going to capture *all* instances of associating `cluster-admin` to a user. For example, if we ran `oc adm policy add-cluster-role-to-user --role-name=my-new-role`, it wouldn't trigger this policy. We could also create a ClusterRoleBinding directly via the API, expressed as JSON or YAML, and change the name. Again, this won't trigger the alert. But, when this is triggered, we can have high confidence it is a true-positive `cluster-admin` role-binding association.
 
 ### Not the end of the story
+OpenShift event logs generate a lot of data - 200M in a 30-minute period, on a single-node cluster with practically no workloads. Creating alerts from these event logs with Red Hat Advanced Cluster Security for Kubernetes (RHACS) helps to manage this volume of data, and raise actionable alerts.
 
-
+The last example here demonstrated that this process can't capture all events, and it certainly doesn't meet the requirement to store OpenShift event logs for archival. In the next article in this series I'll look at how to complement RHACS alerts with limited audit log indexing and comprehensive archival.
