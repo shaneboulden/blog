@@ -34,7 +34,7 @@ Kubernetes in particular can be difficult to audit. Users interact with the API 
 
 How do we keep all this data indexed, and readily searchable for threat hunting?
 
-## RHACS and Audit
+## Red Hat Advanced Cluster Security for Kubernetes (RHACS) and Audit
 
 I'd argue there's a better way. We don't need to keep Kubernetes event and audit data immediately searchable if we can create immediate alerts, and then search the data later for more detail. This is exactly the approach that Red Hat Advanced Cluster Security for Kubernetes takes with OpenShift. I've covered RHACS in a few articles before, looking at [the new RHACS scanner](https://www.stb.id.au/blog/rhacs-scanner-v4), ["living off the land"](https://www.stb.id.au/blog/living-off-the-land-containers), [Sigstore support](https://www.stb.id.au/blog/sigstore-and-stackrox) and [CVE data](https://www.stb.id.au/blog/rhsa-cves-rhacs-oh-my), and I think it's worth revisiting how RHACS integrates with OpenShift, and particularly audit logs.
 
@@ -79,13 +79,19 @@ type auditEvent struct {
 	Verb                     string            `json:"verb"`
 }
 ```
-#### Diagram-2
+You can see this data-flow represented here:
 
-You can see some interesting information captured here, which we can use to generate Red Hat Advanced Cluster Security for Kubernetes (RHACS) alerts. I can capture the fact that a user action is impersonated - this could potentially represent a user evading threat detection, and trying to disguise their actions as another platform user. I can also capture the source IP, which can be really useful if users are supposed to administer OpenShift via a 'bastion host', and this can capture attempts to access the API from other locations within the organisation (or externally).
+<Zoom>
+![acs-image2](/static/images/ocp-audit/acs-image2.png)
+</Zoom>
+
+There's interesting information captured here, which we can use to generate Red Hat Advanced Cluster Security for Kubernetes (RHACS) alerts. I can capture the fact that a user action is impersonated - this could potentially represent a user evading threat detection, and trying to disguise their actions as another platform user. I can also capture the source IP, which can be really useful if users are supposed to administer OpenShift via a 'bastion host', and this can capture attempts to access the API from other locations within the organisation (or externally).
 
 Currently Red Hat Advanced Cluster Security for Kubernetes (RHACS) supports a limited number of high-interest audit events, which are also shown in the [StackRox source](https://github.com/stackrox/stackrox/blob/2c3323ce02da5d47f2702f91f802ba1973a1b545/compliance/collection/auditlog/auditevent.go#L14):
 ```go
 // The audit logs report the resource all as one word, but the k8s event object (and elsewhere) uses underscore
+var (
+	// The audit logs report the resource all as one word, but the k8s event object (and elsewhere) uses underscore
 	auditResourceToKubeResource = map[string]storage.KubernetesEvent_Object_Resource{
 		"pods_exec":                  storage.KubernetesEvent_Object_PODS_EXEC,
 		"pods_portforward":           storage.KubernetesEvent_Object_PODS_PORTFORWARD,
@@ -97,6 +103,7 @@ Currently Red Hat Advanced Cluster Security for Kubernetes (RHACS) supports a li
 		"securitycontextconstraints": storage.KubernetesEvent_Object_SECURITY_CONTEXT_CONSTRAINTS,
 		"egressfirewalls":            storage.KubernetesEvent_Object_EGRESS_FIREWALLS,
 	}
+)
 ```
 Though this is only a subset of audit events, these are a lot of the high-interest events I want to investigate on a cluster.
 
@@ -120,13 +127,93 @@ Though this is only a subset of audit events, these are a lot of the high-intere
 
 These events are exposed to Red Hat Advanced Cluster Security for Kubernetes (RHACS) users via `Runtime` policies. Let's look at an example for a secret located inside the cluster.
 
-Create RHACS policy for audit and flagging activity.
-- Create egress firewall and explain what it is
-- Create policy to alert on changes
-- Pretend you're a malicious actor, and want to exfiltrate data - but all your activity is captured
-- Show alerts
+I've created a secret inside the `test-audit` namespace on OpenShift, called `sensitive-data`. 
 
-Show how to get more data from `oc adm logs`.
+<Zoom>
+![test-secret](/static/images/ocp-audit/test-secret.png)
+</Zoom>
+
+Now I can create a policy to monitor access to this secret.
+
+<Zoom>
+![test-policy](/static/images/ocp-audit/test-policy.png)
+</Zoom>
+
+For the policy behaviour you can select 'Runtime' and 'Audit logs' as the event sources. Note that you can only select 'Inform' for the response method - there are no automated enforcement actions available for audit log events.
+
+<Zoom>
+![test-inform](/static/images/ocp-audit/test-inform.png)
+</Zoom>
+
+The policy criteria is where this gets interesting. Here I want to alert on Kubernetes secrets named `sensitive data`, and I want to alert on all API verbs representing user actions (GET / UPDATE / DELETE / PATCH / CREATE). Optionally, I could check if this user is impersonating another, or check the source IP address, but this isn't required for our quick example.
+
+<Zoom>
+![test-pol1](/static/images/ocp-audit/test-pol1.png)
+</Zoom>
+
+<Zoom>
+![test-pol2](/static/images/ocp-audit/test-pol2.png)
+</Zoom>
+
+We want to generate alerts specifically for the `test-audit` namespace, so add an inclusion scope in the next screen.
+
+<Zoom>
+![test-polscope](/static/images/ocp-audit/test-polscope.png)
+</Zoom>
+
+Finally, review the policy and `Save`.
+
+<Zoom>
+![test-polrev1](/static/images/ocp-audit/test-polrev1.png)
+</Zoom>
+
+<Zoom>
+![test-polrev2](/static/images/ocp-audit/test-polrev2.png)
+</Zoom>
+
+Now that this policy is created and enabled, we can try it out. Head to OpenShift and view the `sensitive-data` secret in the console. You should see that a violation is created inside RHACS with the details of the user:
+
+<Zoom>
+![test-alert](/static/images/ocp-audit/test-alert.png)
+</Zoom>
+
+Let's break down this alert in more detail:
+- The user who accessed this secret was `kube:admin`, who is a member of the `system:cluster-admins` group, and is authenticated to OpenShift.
+- The user accessed the secret, but did not perform any modifications. 
+- The user accessed the secret via an IPv6 address (this is a dual-stack IPv4 / IPV6 cluster) from a Windows-based Chrome browser.
+
+Quickly we can start to build a picture of user activity. This user is clearly one of the platform administrators, who accessed this from within the organisation (based on IPv6 address), and did not make any modifications to the secret. I would likely follow this up with the user directly, and see why they needed access to this secret.
+
+What if we needed more data? The easiest way to access this is via the audit logs directly on the node. You can use `oc adm node-logs` to collect more audit data.
+
+<Zoom>
+![node-logs](/static/images/ocp-audit/node-logs.png)
+</Zoom>
+
+Firstly, list the audit logs available:
+```
+$ oc adm node-logs --role=master --path=kube-apiserver/
+
+sno.blueradish.net audit-2024-10-13T21-42-20.686.log
+sno.blueradish.net audit-2024-10-13T22-15-57.009.log
+sno.blueradish.net audit-2024-10-13T22-47-58.094.log
+sno.blueradish.net audit-2024-10-13T23-20-20.061.log
+sno.blueradish.net audit-2024-10-13T23-52-47.573.log
+sno.blueradish.net audit-2024-10-14T00-25-31.483.log
+sno.blueradish.net audit-2024-10-14T00-56-29.039.log
+sno.blueradish.net audit-2024-10-14T01-28-19.076.log
+sno.blueradish.net audit-2024-10-14T02-02-04.734.log
+sno.blueradish.net audit-2024-10-14T02-32-43.245.log
+sno.blueradish.net audit.log
+```
+Now view the latest log, and `grep` for the secret:
+```json
+$ oc adm node-logs sno.blueradish.net --path=kube-apiserver/audit-2024-10-14T02-32-43.245.log | grep sensitive-data
+{"kind":"Event","apiVersion":"audit.k8s.io/v1","level":"Metadata","auditID":"dab06bca-2aec-4a79-ac9b-0e8b706af718","stage":"ResponseComplete","requestURI":"/api/v1/namespaces/test-audit/secrets","verb":"create","user":{"username":"kube:admin","groups":["system:cluster-admins","system:authenticated"],"extra":{"scopes.authorization.openshift.io":["user:full"]}},"sourceIPs":["2403:580c:d3a4:0:acf2:ef8:a05:db95","10.128.0.2","10.128.1.59"],"userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36","objectRef":{"resource":"secrets","namespace":"test-audit","name":"sensitive-data","apiVersion":"v1"},"responseStatus":{"metadata":{},"code":201},"requestReceivedTimestamp":"2024-10-14T02:26:09.070924Z","stageTimestamp":"2024-10-14T02:26:09.077158Z","annotations":{"authorization.k8s.io/decision":"allow","authorization.k8s.io/reason":"RBAC: allowed by ClusterRoleBinding \"cluster-admins\" of ClusterRole \"cluster-admin\" to Group \"system:cluster-admins\""}}
+
+{"kind":"Event","apiVersion":"audit.k8s.io/v1","level":"Metadata","auditID":"bf1f387a-5764-4437-a66f-621d04d59125","stage":"ResponseStarted","requestURI":"/api/v1/namespaces/test-audit/secrets?watch=true\u0026fieldSelector=metadata.name%3Dsensitive-data","verb":"watch","user":{"username":"kube:admin","groups":["system:cluster-admins","system:authenticated"],"extra":{"scopes.authorization.openshift.io":["user:full"]}},"sourceIPs":["2403:580c:d3a4:0:acf2:ef8:a05:db95","10.128.1.59"],"userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36","objectRef":{"resource":"secrets","namespace":"test-audit","name":"sensitive-data","apiVersion":"v1"},"responseStatus":{"metadata":{},"code":101},"requestReceivedTimestamp":"2024-10-14T02:26:09.144710Z","stageTimestamp":"2024-10-14T02:26:09.146472Z","annotations":{"authorization.k8s.io/decision":"allow","authorization.k8s.io/reason":"RBAC: allowed by ClusterRoleBinding \"cluster-admins\" of ClusterRole \"cluster-admin\" to Group \"system:cluster-admins\""}}
+```
+Here I can see the `kube:admin` user creating the secret. I can also see a `watch` event, typically indicative of the user interactively viewing the secret in the OpenShift console.
 
 ## OpenShift and audit
 What do you do with all of the audit data? S3 Glacier - doesn't need to be immediately retrievable, as there's 5 days on the nodes. But it's being kept - which meets compliance obligations - can be retrieved if needed.
