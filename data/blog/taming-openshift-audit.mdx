@@ -4,7 +4,7 @@ date: '2024-10-27'
 tags: ['openshift','audit','rhacs','security','compliance','stackrox']
 images: ['/static/images/linkedin-banners/taming-openshift-audit.png']
 draft: false
-summary: 'Event log capture and audit is a core requirement for threat detection and digital forensic investigation. But, it is very expensive to keep audit and event log data indexed and readily searchable. In this article I will look at some alternate approaches to manage OpenShift audit and event data, and how you can create immediate alerts from OpenShift audit events.'
+summary: 'Event log capture and audit is a core requirement for threat detection and digital forensic investigation. But, Kubernetes (and OpenShift) generate a huge amount of event logs, which can be unwieldy. In this article I will look at some approaches to "tame" OpenShift audit and event data, and how you can create immediate alerts from OpenShift audit events.'
 ---
 As a kid I loved a book called ['Two Minute Mysteries'](https://www.amazon.com.au/Two-Minute-Mysteries-Donald-J-Sobol/dp/0590447874), by Donald J.Sobol. It was a collection of incredibly short stories, just over a page long, where the reader pretended to be Watson to the detective "Dr Haledjian". He was able to rapidly discern whether someone was lying from a minute detail, and the reader was left to wonder how. I can vividly remember the cover.
 
@@ -53,11 +53,11 @@ You can see here that on my Single Node OpenShift (SNO) I am generating 200MB in
 
 Data ingest costs are difficult to predict without speaking to sales teams, but it can range anywhere from \$200 to \$1800 per GB. This means that per-month I could be spending anywhere from \$60,000 to \$540,000 just to search indexed audit logs for my Single-Node OpenShift - and it only scales from there.
 
-Clearly this is a very expensive option. So how do I support audit investigations with OpenShift?
+Clearly this is a very expensive option. So how do I better support audit investigations with OpenShift?
 
 <details>
   <summary>Disclaimer</summary>
-  The information contained in this article is intended to encourage innovation in security architectures, and ways of managing security event-related data. It may not meet the needs of your organisation. You should carefully understand your own risk management needs before making any significant changes to platforms and systems.
+  <p>The information contained in this article is intended to encourage innovation in security architectures, and ways of managing security event-related data. It may not meet the needs of your organisation. You should carefully understand your own risk management needs before making any significant changes to platforms and systems.</p>
 </details>
 
 ## Red Hat Advanced Cluster Security for Kubernetes (RHACS) and Audit
@@ -153,6 +153,25 @@ Though this is only a subset of audit events, these are a lot of the high-intere
 
 These events are exposed to Red Hat Advanced Cluster Security for Kubernetes (RHACS) users via `Runtime` policies. Let's look at an example for a secret located inside the cluster.
 
+RHACS Central also maintains the state of audit collection from a node. You can see this during the sensor start-up:
+```json
+common/config: 2024/10/13 07:24:20.800971 handler.go:78: Info: Received audit log sync state from Central: {
+    "nodeAuditLogFileStates": {
+        "sno.blueradish.net": {
+            "collectLogsSince": "2024-10-13T07:23:37.249933Z",
+            "lastAuditId": "12fa0ab3-11f6-48e5-976e-072aac05f72c"
+        }
+    }
+}
+common/compliance: 2024/10/13 07:24:20.801099 auditlog_manager_impl.go:232: Info: Sending start audit log collection message to node sno.blueradish.net
+common/compliance: 2024/10/13 07:24:20.801260 auditlog_manager_impl.go:245: Info: Start message to node sno.blueradish.net contains state {
+    "collectLogsSince": "2024-10-13T07:23:37.249933Z",
+    "lastAuditId": "12fa0ab3-11f6-48e5-976e-072aac05f72c"
+}
+```
+This is persisted to the RHACS Central database, and collection can be restarted in the event of a node outage.
+
+### Creating audit event alerts in RHACS
 I've created a secret inside the `test-audit` namespace on OpenShift, called `sensitive-data`. 
 
 <Zoom>
@@ -210,37 +229,88 @@ Let's break down this alert in more detail:
 
 Quickly we can start to build a picture of user activity. This user is clearly one of the platform administrators, who accessed this from within the organisation (based on IPv6 address), and did not make any modifications to the secret. I would likely follow this up with the user directly, and see why they needed access to this secret.
 
-What if we needed more data? The easiest way to access this is via the audit logs directly on the node. You can use `oc adm node-logs` to collect more audit data.
+### Alerting on admin privilege assignment
+What about another example? Let's look at a user creating admin privileges via a cluster-role binding for `cluster-admin`.
+
+OpenShift provides a large number of `ClusterRoles` out of the box. A `ClusterRole` is a special role in Kubernetes (and OpenShift) in that it's not namespaced. Usualy when you create a Kubernetes RBAC Role, you provide a namespace. But `ClusterRole` has permissions across *all* namespaces - not just one. Kubernetes `ClusterRoles` and `Roles` are additive. I can't **deny** access to resources, but I can **allow** access by adding resources into the role.
+
+So, the roles we are most interest in are:
+- `ClusterRoles` that have permissions across all namespaces; and
+- Roles with additive persmissions to lots of resources.
+
+It turns out there is one such role provided with every OpenShift cluster by default - `cluster-admin`. If you take a look at the `cluster-admin` ClusterRole, you can see the huge number of permissions this user has:
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  labels:
+    kubernetes.io/bootstrapping: rbac-defaults
+  name: cluster-admin
+rules:
+- apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- nonResourceURLs:
+  - '*'
+  verbs:
+  - '*'
+```
+Because we can't 'deny' access to resources, and these policies are additive, the most privileged roles use wildcards to denote access to many resources. The `cluster-admin` role can:
+- Access any namespace in the cluster
+- Access any and all resources in that namespace
+- Perform any actions on those resources (list, get, delete, update, patch, etc)
+- Access any URLs not associated with resources, such as `/healthz`
+
+This is definitely a `ClusterRole` that we want to monitor and immediately investigate when it is associated with an account. We can do that my monitoring for `ClusterRoleBindings`, which associate a ClusterRole with a user account (or a serviceaccount)
+
+The lead-up is the same; create a policy and use the 'Audit logs' runtime policy. I'm going to call this policy 'cluster-admin access created'.
 
 <Zoom>
-![node-logs](/static/images/ocp-audit/node-logs.png)
+![cadm-pol1](/static/images/ocp-audit/cadm-pol1.png)
 </Zoom>
 
-Firstly, list the audit logs available:
-```
-$ oc adm node-logs --role=master --path=kube-apiserver/
+<Zoom>
+![cadm-pol2](/static/images/ocp-audit/cadm-pol2.png)
+</Zoom>
 
-sno.blueradish.net audit-2024-10-13T21-42-20.686.log
-sno.blueradish.net audit-2024-10-13T22-15-57.009.log
-sno.blueradish.net audit-2024-10-13T22-47-58.094.log
-sno.blueradish.net audit-2024-10-13T23-20-20.061.log
-sno.blueradish.net audit-2024-10-13T23-52-47.573.log
-sno.blueradish.net audit-2024-10-14T00-25-31.483.log
-sno.blueradish.net audit-2024-10-14T00-56-29.039.log
-sno.blueradish.net audit-2024-10-14T01-28-19.076.log
-sno.blueradish.net audit-2024-10-14T02-02-04.734.log
-sno.blueradish.net audit-2024-10-14T02-32-43.245.log
-sno.blueradish.net audit.log
-```
-Now view the latest log, and `grep` for the secret:
-```json
-$ oc adm node-logs sno.blueradish.net --path=kube-apiserver/audit-2024-10-14T02-32-43.245.log | grep sensitive-data
-{"kind":"Event","apiVersion":"audit.k8s.io/v1","level":"Metadata","auditID":"dab06bca-2aec-4a79-ac9b-0e8b706af718","stage":"ResponseComplete","requestURI":"/api/v1/namespaces/test-audit/secrets","verb":"create","user":{"username":"kube:admin","groups":["system:cluster-admins","system:authenticated"],"extra":{"scopes.authorization.openshift.io":["user:full"]}},"sourceIPs":["2403:580c:d3a4:0:acf2:ef8:a05:db95","10.128.0.2","10.128.1.59"],"userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36","objectRef":{"resource":"secrets","namespace":"test-audit","name":"sensitive-data","apiVersion":"v1"},"responseStatus":{"metadata":{},"code":201},"requestReceivedTimestamp":"2024-10-14T02:26:09.070924Z","stageTimestamp":"2024-10-14T02:26:09.077158Z","annotations":{"authorization.k8s.io/decision":"allow","authorization.k8s.io/reason":"RBAC: allowed by ClusterRoleBinding \"cluster-admins\" of ClusterRole \"cluster-admin\" to Group \"system:cluster-admins\""}}
+Usually we'd use `oc adm policy add-cluster-role-to-user` to add `cluster-admin` privileges to a user. When this command is run it will create a new ClusterRoleBinding named for the role, e.g. `cluster-admin-0`, or `cluster-admin-1`. We can use this fact to create a policy based on the resource name (note the user of `r/cluster-admin.*` to invoke regex pattern matching with 'Kubernetes resource name'):
 
-{"kind":"Event","apiVersion":"audit.k8s.io/v1","level":"Metadata","auditID":"bf1f387a-5764-4437-a66f-621d04d59125","stage":"ResponseStarted","requestURI":"/api/v1/namespaces/test-audit/secrets?watch=true\u0026fieldSelector=metadata.name%3Dsensitive-data","verb":"watch","user":{"username":"kube:admin","groups":["system:cluster-admins","system:authenticated"],"extra":{"scopes.authorization.openshift.io":["user:full"]}},"sourceIPs":["2403:580c:d3a4:0:acf2:ef8:a05:db95","10.128.1.59"],"userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36","objectRef":{"resource":"secrets","namespace":"test-audit","name":"sensitive-data","apiVersion":"v1"},"responseStatus":{"metadata":{},"code":101},"requestReceivedTimestamp":"2024-10-14T02:26:09.144710Z","stageTimestamp":"2024-10-14T02:26:09.146472Z","annotations":{"authorization.k8s.io/decision":"allow","authorization.k8s.io/reason":"RBAC: allowed by ClusterRoleBinding \"cluster-admins\" of ClusterRole \"cluster-admin\" to Group \"system:cluster-admins\""}}
-```
-Here I can see the `kube:admin` user creating the secret. I can also see a `watch` event, typically indicative of the user interactively viewing the secret in the OpenShift console.
+<Zoom>
+![cadm-pol3](/static/images/ocp-audit/cadm-pol3.png)
+</Zoom>
 
-## OpenShift and audit
+<Zoom>
+![cadm-pol4](/static/images/ocp-audit/cadm-pol4.png)
+</Zoom>
+
+<Zoom>
+![cadm-pol5](/static/images/ocp-audit/cadm-pol5.png)
+</Zoom>
+
+Let's test this out and make sure it triggers the policy. Create a new ClusterRoleBinding for the `cluster-admin` role and a user.
+
+```
+$ oc create user user1 --full-name "User One"
+$ oc adm policy add-cluster-role-to-user cluster-admin user1
+clusterrole.rbac.authorization.k8s.io/cluster-admin added: "user1"
+```
+Great! This has triggered the policy on my cluster, and created alerts.
+
+<Zoom>
+![cadm-alert1](/static/images/ocp-audit/cadm-alert1.png)
+</Zoom>
+
+<Zoom>
+![cadm-alert2](/static/images/ocp-audit/cadm-alert2.png)
+</Zoom>
+
+This isn't going to capture *all* instances of associating `cluster-admin` to a user. For example, if we ran `oc adm policy add-cluster-role-to-user --role-name=my-new-role`, it wouldn't trigger this policy. We could also create a ClusterRoleBinding directly via the API, expressed as JSON or YAML, and change the name. Again, this won't trigger the alert. But, when this is triggered, we can have high confidence it is a true-positive `cluster-admin` role-binding association.
+
+### Not the end of the story
 
 
