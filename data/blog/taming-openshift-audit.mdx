@@ -1,6 +1,6 @@
 ---
 title: Taming OpenShift Audit with RHACS
-date: '2024-10-27'
+date: '2024-10-30'
 tags: ['openshift','audit','rhacs','security','compliance','stackrox','tlog']
 images: ['/static/images/linkedin-banners/taming-openshift-audit.png']
 draft: false
@@ -30,9 +30,9 @@ Weirdly, I'm fairly certain that this childhood interest in detective short-stor
 
 Audit and event logging is essential to threat hunting. Many threat actors now attempt to ["live off the land"](/blog/living-off-the-land), abusing administrative tools  to perform their objectives. Strategies like malware signature detection and [application allow-listing](/blog/hands-on-app-control) have no impact on risk mitigation for these techniques, as the threat actors are using allow-listed administrative tools. 
 
-Really the only way to identify these users is through comprehensive audit, and identifying a "normal" administrative action from a malicious threat actor "living off the land". One of my favourite security controls available in Red Hat Enterprise Linux is `tlog`, a system for terminal session recording. It allows administrators to 'replay' a user's session - seeing the commands they type, the typos they made, and the sequence of actions as they took place. If you want to try it out, there's a hands-on lab [here](some-link), and you can see a video here.
+Really the only way to identify these users is through comprehensive audit, and identifying a "normal" administrative action from a malicious threat actor "living off the land". One of my favourite security controls available in Red Hat Enterprise Linux is `tlog`, a system for terminal session recording. It allows administrators to 'replay' a user's session - seeing the commands they type, the typos they made, and the sequence of actions as they took place. If you want to try it out, there's a hands-on lab [here](https://www.redhat.com/en/interactive-labs/configure-terminal-session-recording), and you can see a video here.
 
-## TODO - add YT embed of tlog
+<YoutubeEmbed embedId="qPANrDickyA" />
 
 Context is hugely important to identify whether an action on a system is a threat actor trying to evade detection, or a legitimate system administrator. That's exactly what `tlog` delivers - a 'replayable' view of the users' session. This provides the context I need to see the user's actions in context, whether they're applying a patch (hopefully automated with Ansible), or troubleshooting a failed process. The reason for the user making changes becomes readily apparent when I view the entire session in context. 
 
@@ -320,9 +320,7 @@ Great! This has triggered the policy on my cluster and created alerts.
 ![cadm-alert2](/static/images/ocp-audit/cadm-alert2.png)
 </Zoom>
 
-## TODO - verify --role-name
-
-This isn't going to capture *all* instances of associating `cluster-admin` to a user. For example, if we ran `oc adm policy add-cluster-role-to-user --role-name=my-new-role`, it wouldn't trigger this policy. We could also create a ClusterRoleBinding directly via the API, expressed as JSON or YAML, and change the name. Again, this won't trigger the alert. But, when this is triggered, we can have high confidence it is a true-positive `cluster-admin` role-binding association.
+This isn't going to capture *all* instances of associating `cluster-admin` to a user. For example, if we ran `oc adm policy add-cluster-role-to-user --rolebinding-name=my-new-role`, it wouldn't trigger this policy. We could also create a ClusterRoleBinding directly via the API, expressed as JSON or YAML, and change the name. Again, this won't trigger the alert. But, when this is triggered, we can have high confidence it is a true-positive `cluster-admin` role-binding association created interactively via the `oc` CLI.
 
 ### Using terminal session recording to record interactive OpenShift sessions
 
