@@ -4,7 +4,7 @@ date: '2024-10-27'
 tags: ['openshift','audit','rhacs','security','compliance','stackrox','tlog']
 images: ['/static/images/linkedin-banners/taming-openshift-audit.png']
 draft: false
-summary: 'Event log capture and audit is a core requirement for threat detection and digital forensic investigation. But, Kubernetes (and OpenShift) clusters generate a huge amount of event logs, which can be expensive to store and difficult to search. In this article I look at some approaches to "tame" OpenShift audit and event data, and show how you can use Red Hat Advanced Cluster Security for Kubernetes (RHACS) to create immediate alerts from OpenShift audit events.'
+summary: 'In this article I look at some approaches to "tame" OpenShift audit and event data, and show how you can use Red Hat Advanced Cluster Security for Kubernetes (RHACS) to create immediate alerts from OpenShift audit events.'
 ---
 As a kid I loved a book called ['Two Minute Mysteries'](https://www.amazon.com.au/Two-Minute-Mysteries-Donald-J-Sobol/dp/0590447874), by Donald J.Sobol. It was a collection of short stories, usually just over a page long, where the reader pretended to be 'Watson' to the detective 'Dr Haledjian'. He was able to rapidly discern whether someone was lying from a minute detail, and the reader was left to wonder how. I can vividly remember the cover.
 
@@ -20,7 +20,7 @@ Dr Haledjian visits a bar on his way back to the office. Inside, a bronzed adven
 
 "I just got back yesterday from San Jose.", replied the adventurer. "I was out there three months digging out a gold seam I found last year. My beard was a foot long, and I just shaved yesterday. I ran out of funding to get the gold back. If you can front me the $2500, I'll give you half the gold". He scratched his bronzed chin and sank into his beer. 
 
-"I wouldn't give you $2500 if my life depended on it," responded Dr Haledjian. 
+"I wouldn't give you $2500 if my life depended on it," responded Dr Haledjian.
 
 *How did Dr Haledjian know the man was lying?*
 
@@ -343,7 +343,7 @@ sudo systemctl enable fapolicyd cockpit.socket --now
 
 You can download and install the OpenShift command-line from [mirror.openshift.com](mirror.openshift.com), and I'm going to use the 4.17.0 client for my cluster.
 ```bash
-sudo curl https://mirror.openshift.com/pub/openshift-v4/amd64/clients/ocp/4.17.2/openshift-client-linux.tar.gz | tar -xz -C /usr/local/bin/
+curl https://mirror.openshift.com/pub/openshift-v4/amd64/clients/ocp/4.17.2/openshift-client-linux.tar.gz | sudo tar -xz -C /usr/local/bin/
 ```
 If you try to run `oc` as a non-root user on the system at this point you'll see an error:
 ```bash
@@ -393,7 +393,7 @@ $ ls -l /var/log
 $ exit
 ```
 
-You should now see that a user session has been recorded, and is visible in the web console:
+You should now see that a user session has been recorded and is visible in the web console:
 
 <Zoom>
 ![web-console3](/static/images/ocp-audit/web-console3.png)
@@ -405,7 +405,9 @@ You should now see that a user session has been recorded, and is visible in the 
 
 Great! Our bastion host is setup and ready to capture OpenShift admin user sessions. Let's modify the `cluster-admin access created policy` above to specify the IP address of the bastion host. This will allow us to identify admin actions from the bastion host, which I'm slightly less worried about, from admin actions on other hosts.
 
-#### Pics of modifying the policy
+<Zoom>
+![pol-ip1](/static/images/ocp-audit/pol-ip1.png)
+</Zoom>
 
 Let's check this complete workflow works. Login to the bastion host and assign `cluster-admin` privileges to a user, as above:
 
@@ -416,17 +418,31 @@ clusterrole.rbac.authorization.k8s.io/cluster-admin added: "user1"
 ```
 I should see that an alert is generated in the RHACS `Violations` view showing that this change has been made from the bastion host.
 
-#### Pic of the alert
+<Zoom>
+![pol-ip2](/static/images/ocp-audit/pol-ip2.png)
+</Zoom>
 
 Now the big test - can I capture the complete user session from `tlog`? You can check this by accessing the web console for the bastion host.
 
-#### Pic of terminal session being recorded
+<Zoom>
+![pol-ip3](/static/images/ocp-audit/pol-ip3.png)
+</Zoom>
 
-Now I have the event alert, and importantly I have **context** - I can see exactly which `oc` commands the user ran on the bastion host.
+Success! Now I have the event alert, and importantly I have **context** - I can see exactly which `oc` commands the user ran on the bastion host.
 
 The last step here is creating a policy that alerts on *any* high-interest audit events that are *not* performed from the bastion host. I've called this policy 'Admin action from non-bastion host' and flagged it as a 'critical' severity. You can see the policy criteria here:
 
-#### Pics of the new policy
+<Zoom>
+![nonip-pol1](/static/images/ocp-audit/nonip-pol1.png)
+</Zoom>
+
+<Zoom>
+![nonip-pol2](/static/images/ocp-audit/nonip-pol2.png)
+</Zoom>
+
+<Zoom>
+![nonip-pol3](/static/images/ocp-audit/nonip-pol3.png)
+</Zoom>
 
 Let's try it out. From a different host let's make the same change:
 ```
@@ -434,9 +450,11 @@ $ oc create user user1 --full-name "User One"
 $ oc adm policy add-cluster-role-to-user cluster-admin user1
 clusterrole.rbac.authorization.k8s.io/cluster-admin added: "user1"
 ```
-You should now see an alert that this action has been performed from a non-bastion host.
+You should now see an alert that this action has been performed from a non-bastion host (in this case from an IPv6-capable host on the network, to an IPv6-capable OpenShift cluster).
 
-#### Pic of the alert
+<Zoom>
+![nonbastion1](/static/images/ocp-audit/nonbastion1.png)
+</Zoom>
 
 ### Not the end of the story
 OpenShift event logs generate a lot of data - 200M in a 30-minute period, on a single-node cluster with practically no workloads. Creating alerts from these event logs with Red Hat Advanced Cluster Security for Kubernetes (RHACS) helps to manage this volume of data, and raise actionable alerts.
