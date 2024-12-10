@@ -1,0 +1,206 @@
+---
+title: Teaching AI about Kubernetes network policy
+date: '2024-12-06'
+tags: ['instructlab','kubernetes','network','policy','security']
+images: ['/static/images/linkedin-banners/ilab-netpol.png']
+draft: false
+summary: Learning Kubernetes network policy can be challenging for new platform engineers. Generative AI provides an excellent way to help generate and understand network policy, and in this article, I look at how we can teach an AI model about network policy using InstructLab. 
+---
+In a [previous article](/blog/instructlab-wsl) I introduced [Instructlab](https://instructlab.ai/), an open source framework for enhancing generative AI models. In this article I want to look at a practical and helpful implementation of InstructLab - generating accurate Kubernetes network policy, and reducing the burden on platform engineers and DevOps practitioners.
+
+## Kubernetes network policy primer
+Before I get too far into this article I want to provide a brief primer on Kubernetes network policy, and why we're interested in generative AI models applied to this problem space. 
+
+Kubernetes network policy allows us to declaratively specify permitted network connections within a Kubernetes namespace. These rules are **additive**, which means that the most strict network policy looks like this, disallowing all ingress and egress traffic for all pods within a namespace:
+
+```yaml
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:                
+  name: default-deny-in-namespace
+  namespace: default
+spec:                                                                                                                                                                    podSelector: {}                                                                                                                                                    policyTypes:
+  - Ingress                  
+  - Egress
+```
+This policy applies to all pods in the `default` namespace (note the wildcard pod selector, `{}`), and applies to traffic originating within pods (`Egress`), as well as traffic destined for pods (`Ingress`).
+
+Network policy is implemented by the [Container Network Interface (CNI) plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/) used by your Kubernetes cluster. In OpenShift, the default CNI plugin is [OVN-Kubernetes](https://docs.openshift.com/container-platform/4.17/networking/ovn_kubernetes_network_provider/about-ovn-kubernetes.html). 
+
+OVN-Kubernetes implements network policy using access control lists (ACLs). For example, the network policy above would result in four ACLs being created by OVN-Kubernetes, two for egress and two for ingress. These ACLs deny any egress / ingress traffic for pods in the namespace, while preserving Address Resolution Protocol (ARP) communications.
+```yaml
+## Egress
+action              : allow
+direction           : from-lport
+external_ids        : {
+    direction=Egress, 
+    "k8s.ovn.org/id"="default-network-controller:NetpolNamespace:default:Egress:arpAllow", 
+    "k8s.ovn.org/name"=default, 
+    "k8s.ovn.org/owner-controller"=default-network-controller, 
+    "k8s.ovn.org/owner-type"=NetpolNamespace, 
+    type=arpAllow
+}
+label               : 0
+log                 : false
+match               : "inport == @a16982411286042166782_egressDefaultDeny && (arp || nd)"
+meter               : acl-logging
+name                : "NP:default:Egress"
+options             : {apply-after-lb="true"}
+priority            : 1001
+severity            : []
+
+action              : drop
+direction           : from-lport
+external_ids        : {
+    direction=Egress, 
+    "k8s.ovn.org/id"="default-network-controller:NetpolNamespace:default:Egress:defaultDeny", 
+    "k8s.ovn.org/name"=default, 
+    "k8s.ovn.org/owner-controller"=default-network-controller, 
+    "k8s.ovn.org/owner-type"=NetpolNamespace, 
+    type=defaultDeny
+}
+label               : 0
+log                 : false
+match               : "inport == @a16982411286042166782_egressDefaultDeny"
+meter               : acl-logging
+name                : "NP:default:Egress"
+options             : {apply-after-lb="true"}
+priority            : 1000
+severity            : []
+
+## Ingress
+action              : allow
+direction           : to-lport
+external_ids        : {
+    direction=Ingress, 
+    "k8s.ovn.org/id"="default-network-controller:NetpolNamespace:default:Ingress:arpAllow", 
+    "k8s.ovn.org/name"=default, 
+    "k8s.ovn.org/owner-controller"=default-network-controller, 
+    "k8s.ovn.org/owner-type"=NetpolNamespace, 
+    type=arpAllow
+}
+label               : 0
+log                 : false
+match               : "outport == @a16982411286042166782_ingressDefaultDeny && (arp || nd)"
+meter               : acl-logging
+name                : "NP:default:Ingress"
+options             : {}
+priority            : 1001
+severity            : []
+
+action              : drop
+direction           : to-lport
+external_ids        : {
+    direction=Ingress, 
+    "k8s.ovn.org/id"="default-network-controller:NetpolNamespace:default:Ingress:defaultDeny", 
+    "k8s.ovn.org/name"=default, 
+    "k8s.ovn.org/owner-controller"=default-network-controller, 
+    "k8s.ovn.org/owner-type"=NetpolNamespace, 
+    type=defaultDeny
+}
+label               : 0
+log                 : false
+match               : "outport == @a16982411286042166782_ingressDefaultDeny"
+meter               : acl-logging
+name                : "NP:default:Ingress"
+options             : {}
+priority            : 1000
+severity            : []
+```
+
+Let's look at a more complex example. Suppose I have a number of applications running as pods inside the same Kubernetes namespace - application A, B and C. Application C should be able to communicate with application A, but not application B, per below.
+
+<Zoom>
+![app diagram](/static/images/ilab-netpol/app-diagram.png)
+</Zoom>
+
+This application architecture can be implemented with Kubernetes network policy, which would look like this:
+```yaml
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+  name: application-netpol
+  namespace: my-app
+spec:
+  podSelector:
+    matchLabels:
+      app: application-a
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: application-c
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:                
+  name: default-deny-in-namespace
+  namespace: default
+spec:                                                                                                                                                                    podSelector: {}                                                                                                                                                    policyTypes:
+  - Ingress                  
+  - Egress
+```
+
+One of the challenge here is that this isn't very intuitive for experienced network security engineers, or any security teams. These teams are usually made responsible for network security policy, but this looks completely different to other platforms they use. Common quesions I hear are: 
+
+- "So, we don't specify "blocked" connections, but only add "allowed" connections?"
+- "How do I block all connections into a namespace, but allow all outgoing traffic?"
+- "What if I have a specified IP that I want to block traffic to?"
+
+Usually these users know what they need to do, but don't know how to express it as a Kuberbetes network policy (or multiple policies). This is a great use case for generative AI (and InstructLab) - communicating requirements through natural language prompts, and generating (or explaining) network policy for the user. Let's see if InstructLab can help!
+
+## Lab environment
+I'm using the same lab environment as my [previous article](/blog/instructlab-wsl), and running InstructLab on the Windows Subsystem for Linux (WSL). You can see a pic here:
+
+<Zoom>
+![lab env](/static/images/ilab-netpol/lab-env.png)
+</Zoom>
+
+The main reason I'm running this on WSL is its support for [Unified Shared Memory](https://developer.nvidia.com/blog/unified-memory-cuda-beginners/), which effectively allows the CUDA library (which is supporting our AI enhancements) to access both RAM (addressable by the CPU) and VRAM (addressable by the GPU) as a single memory address space.
+
+Why do I need Unified Shared Memory? I only have an 8GB video card, but I need the entire model to 'fit' into GPU-addressable VRAM to support training my new generative AI model (~17GB) with InstructLab. I have a couple of options here:
+
+- Use a larger GPU card. This might not be an option for most users - though I'm currently experimenting with an [NVIDIA K80](), and will be sure to update the blog when I have this working.
+
+- Use Unified Shared Memory to expand the memory address space available for InstructLab model training.
+
+## Setting up InstructLab
+
+Setting up InstructLab for this article is largely the same as the last. Firstly, we need to install InstructLab into a Python virtual environment:
+```
+$ python -m venv ~/ilab-venv
+$ source ~/ilab-venv/bin/activate
+
+$(venv) pip3 install instructlab
+```
+Once installed you can configure your InstructLab environment:
+```
+$ (venv) ilab config init
+
+Welcome to InstructLab CLI. This guide will help you to setup your environment.
+Please provide the following values to initiate the environment [press Enter for defaults]:
+Path to taxonomy repo [taxonomy]:
+Path to your model [models/merlinite-7b-lab-Q4_K_M.gguf]:
+Generating `config.yaml` in the current directory...
+Initialization completed successfully, you're ready to start using `ilab`. Enjoy!
+```
+
+## Chatting with the model
+Now we're ready to start chatting. I'm using the [Merlinite]() model, and I've started out by asking the model what it knows about network policy, and then to generate me a simple network policy:
+
+<Zoom>
+![ilab chat](/static/images/ilab-netpol/ilab-chat.png)
+</Zoom>
+
+Well this is embarassing. The model seems to have understood my question, but the result isn't even network policy - it's a Kubernetes [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/). Let's see if we can correct this:
+
+<Zoom>
+![ilab chat improved](/static/images/ilab-netpol/ilab-chat-improved.png)
+</Zoom>
+
