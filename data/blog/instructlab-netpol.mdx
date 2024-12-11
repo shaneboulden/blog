@@ -144,9 +144,11 @@ kind: NetworkPolicy
 metadata:                
   name: default-deny-in-namespace
   namespace: default
-spec:                                                                                                                                                                    podSelector: {}                                                                                                                                                    policyTypes:
-  - Ingress                  
-  - Egress
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
 ```
 
 One of the challenge here is that this isn't very intuitive for experienced network security engineers, or any security teams. These teams are usually made responsible for network security policy, but this looks completely different to other platforms they use. Common questions I hear are: 
