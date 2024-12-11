@@ -7,15 +7,25 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Sun, 27 Oct 2024 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Wed, 11 Dec 2024 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/instructlab-netpol</guid>
+    <title>Teaching AI models about Kubernetes network policy</title>
+    <link>https://stb.id.au/blog/instructlab-netpol</link>
+    <description>Learning Kubernetes network policy can be challenging for new platform engineers. Generative AI provides an excellent way to help generate and understand network policy, and in this article, I look at how we can teach an AI model to create network policy using InstructLab.</description>
+    <pubDate>Wed, 11 Dec 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>instructlab</category><category>kubernetes</category><category>network</category><category>policy</category><category>security</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/taming-openshift-audit</guid>
     <title>Taming OpenShift Audit with RHACS</title>
     <link>https://stb.id.au/blog/taming-openshift-audit</link>
     <description>In this article I look at some approaches to &quot;tame&quot; OpenShift audit and event data, and show how you can use Red Hat Advanced Cluster Security for Kubernetes (RHACS) to create immediate alerts from OpenShift audit events.</description>
-    <pubDate>Sun, 27 Oct 2024 00:00:00 GMT</pubDate>
+    <pubDate>Wed, 30 Oct 2024 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>openshift</category><category>audit</category><category>rhacs</category><category>security</category><category>compliance</category><category>stackrox</category><category>tlog</category>
   </item>
