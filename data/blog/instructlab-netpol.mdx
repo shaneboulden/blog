@@ -1,28 +1,30 @@
 ---
-title: Teaching AI about Kubernetes network policy
-date: '2024-12-06'
+title: Teaching AI models about Kubernetes network policy
+date: '2024-12-11'
 tags: ['instructlab','kubernetes','network','policy','security']
 images: ['/static/images/linkedin-banners/ilab-netpol.png']
 draft: false
-summary: Learning Kubernetes network policy can be challenging for new platform engineers. Generative AI provides an excellent way to help generate and understand network policy, and in this article, I look at how we can teach an AI model about network policy using InstructLab. 
+summary: Learning Kubernetes network policy can be challenging for new platform engineers. Generative AI provides an excellent way to help generate and understand network policy, and in this article, I look at how we can teach an AI model to create network policy using InstructLab. 
 ---
 In a [previous article](/blog/instructlab-wsl) I introduced [Instructlab](https://instructlab.ai/), an open source framework for enhancing generative AI models. In this article I want to look at a practical and helpful implementation of InstructLab - generating accurate Kubernetes network policy, and reducing the burden on platform engineers and DevOps practitioners.
 
 ## Kubernetes network policy primer
 Before I get too far into this article I want to provide a brief primer on Kubernetes network policy, and why we're interested in generative AI models applied to this problem space. 
 
-Kubernetes network policy allows us to declaratively specify permitted network connections within a Kubernetes namespace. These rules are **additive**, which means that the most strict network policy looks like this, disallowing all ingress and egress traffic for all pods within a namespace:
+Kubernetes network policy allows us to declaratively specify permitted network connections within a Kubernetes namespace. These rules are **additive**, which means that the most restrictive network policy looks like this, disallowing all ingress and egress traffic for all pods within a namespace:
 
 ```yaml
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata:                
+metadata:
   name: default-deny-in-namespace
   namespace: default
-spec:                                                                                                                                                                    podSelector: {}                                                                                                                                                    policyTypes:
-  - Ingress                  
-  - Egress
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
 ```
 This policy applies to all pods in the `default` namespace (note the wildcard pod selector, `{}`), and applies to traffic originating within pods (`Egress`), as well as traffic destined for pods (`Ingress`).
 
@@ -147,7 +149,7 @@ spec:                                                                           
   - Egress
 ```
 
-One of the challenge here is that this isn't very intuitive for experienced network security engineers, or any security teams. These teams are usually made responsible for network security policy, but this looks completely different to other platforms they use. Common quesions I hear are: 
+One of the challenge here is that this isn't very intuitive for experienced network security engineers, or any security teams. These teams are usually made responsible for network security policy, but this looks completely different to other platforms they use. Common questions I hear are: 
 
 - "So, we don't specify "blocked" connections, but only add "allowed" connections?"
 - "How do I block all connections into a namespace, but allow all outgoing traffic?"
@@ -198,9 +200,511 @@ Now we're ready to start chatting. I'm using the [Merlinite]() model, and I've s
 ![ilab chat](/static/images/ilab-netpol/ilab-chat.png)
 </Zoom>
 
-Well this is embarassing. The model seems to have understood my question, but the result isn't even network policy - it's a Kubernetes [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/). Let's see if we can correct this:
+Well this is embarassing. The model seems to have understood my question, but the result isn't even network policy - it's a Kubernetes [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/)! Let's see if we can correct this:
 
 <Zoom>
 ![ilab chat improved](/static/images/ilab-netpol/ilab-chat-improved.png)
 </Zoom>
+
+That's slightly better, but it still looks incorrect. Specifically, these selectors look like a [hallucination](https://www.redhat.com/en/blog/when-llms-day-dream-hallucinations-how-prevent-them) - the model completely made up the IP and port here (though, it did use the correct subnet for the pods):
+```yaml
+ingress:
+  - namespace: openshift
+    from:
+      - ip: 10.128.0.1
+        port:
+          protocol: TCP
+            port: 443
+```
+
+For reference, the correct pod selectors could have looked like this:
+```yaml
+ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-ingress
+```
+We know at the point that the model has some limitations. It seems to 'know' what network policy should look like, and has pretty good knowledge about network policy generally. But, seems to have challenges with the 'skill' of creating network policy in response to user requests.
+
+This aligns well with the way that InstructLab distinguishes enhancements to Generative AI models. InstructLab supports enhancements to both [knowledge](https://github.com/instructlab/taxonomy?tab=readme-ov-file#getting-started-with-knowledge-contributions) and [skills](https://github.com/instructlab/taxonomy?tab=readme-ov-file#getting-started-with-skill-contributions), and these look a bit different. Skills are performative ("things the model can do"), whereas knowledge is based more on answering questions that involve facts, data, or references.
+
+## Improving the model
+In our case we're not looking at facts, data or references, so we should look at a 'Skill' enhancement to the model - generating correct Kubernetes network policy in response to user questions.
+
+To create a skill enhancement we need to create a `qna.yaml` file, holding questions and answers about Kubernetes network policy. My InstructLab [taxonomy](https://github.com/instructlab/taxonomy?tab=readme-ov-file#welcome-to-the-instructlab-taxonomy) is stored at `~/.local/share/instructlab/taxonomy/`, and I've created an additional folder structure to hold my Kubernetes network policy files, at `.local/share/instructlab/taxonomy/compositional_skills/technology/kubernetes/netpol/qna.yaml`.
+
+I need to provide at least five seed example questions and answers to support InstructLab synthetic data generation, and I've provided seven, which you can see here. For each seed example I've provided the user question, and the expected response from the model:
+````yaml
+created_by: shaneboulden
+version: 2
+task_description: Generate Kubernetes network policy from natural language inputs
+seed_examples:
+  - question: |
+      Create a network policy for a Kubernetes pod labelled `app: web` that permits ingress
+      through the default OpenShift ingress.
+    answer: |
+      Here's a Kubernetes network policy that allows ingress via the default OpenShift ingress to a
+      pod labelled `app:web`. The policy also permits DNS queries to the OpenShift CoreDNS service.
+      ```yaml
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        labels:
+          name: web-netpol
+          namespace: devops
+      spec:
+        podSelector:
+          matchLabels:
+            app: web
+        ingress:
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    network.openshift.io/policy-group: ingress
+        egress:
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: openshift-dns
+        policyTypes:
+          - Ingress
+          - Egress
+      ```
+  - question: |
+      Create a Kubernetes network policy that denies all ingress and
+      egress traffic for the `devops` namespace.
+    answer: |
+      Here's a Kubernetes network policy that denies all ingress and egress traffic
+      to the `devops` namespace.
+      ```yaml
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        labels:
+          name: default-deny-in-namespace-devops
+          namespace: devops
+      spec:
+        podSelector: {}
+        policyTypes:
+          - Ingress
+          - Egress
+      ```
+  - question: |
+      Create a Kubernetes network policy for the pod hosted on OpenShift labelled `app: web`
+      that allows egress to the service labelled `app: leaderboard`
+    answer: |
+      Here's a Kubernetes network policy for the pod hosted on OpenShift labelled `app: web`
+      that permits egress to the service labelled `app: leaderboard`app:
+      ```yaml
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        labels:
+          name: web-netpol
+          namespace: devops
+      spec:
+        podSelector:
+          matchLabels:
+            app: web
+        egress:
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: openshift-dns
+          - to:
+              - podSelector:
+                  matchLabels:
+                    app: leaderboard
+        policyTypes:
+          - Egress
+      ```
+  - question: |
+      Create a Kubernetes network policy for the pod hosted on OpenShift labelled
+      `app: leaderboard` that accepts ingress from the pod labelled `app: web`.
+      The pods are hosted in the namespace devops.
+    answer: |
+      Here's a Kubernetes network policy for the pod hosted on OpenShift labelled
+      `app: leaderboard` that accepts ingress from the pod labelled `app: web`app:
+      ```yaml
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        creationTimestamp: null
+        labels:
+          name: leaderboard-netpol
+          namespace: devops
+      spec:
+        podSelector:
+          matchLabels:
+            app: leaderboard
+        ingress:
+          - from:
+              - podSelector:
+                  matchLabels:
+                    app: web
+        egress:
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: openshift-dns
+        policyTypes:
+          - Ingress
+          - Egress
+      ```
+  - question: |
+      Create a Kubernetes network policy for a pod labelled `app: web` on OpenShift
+      that accepts ingress from the OpenShift default ingress controller, makes
+      connections to google.com.au, makes connections to a pod labelled
+      `app: database`, and doesn't permit any other ingress or egress."
+    answer: |
+      Here's a Kubernetes network policy for a pod labelled `app: web` on
+      OpenShift that accepts ingress from the OpenShift default ingress controller,
+      makes connections to 172.217.167.67/24, makes connections to a pod
+      labelled `app: database`, and doesn't permit any other ingress or egress.
+      ```yaml
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        labels:
+        name: web-netpol
+        namespace: devops
+      spec:
+        podSelector:
+          matchLabels:
+            app: web
+        ingress:
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    network.openshift.io/policy-group: ingress
+        egress:
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: openshift-dns
+          - to:
+              - podSelector:
+                  matchLabels:
+                    app: leaderboard
+          - to:
+              - ipBlock:
+                  cidr: 172.217.167.67/24
+        policyTypes:
+        - Ingress
+        - Egress
+        ```
+  - question: |
+      Create a Kubernetes network policy for a pod labelled `app: web` on OpenShift
+      that accepts ingress from the OpenShift default ingress controller, makes
+      connections to google.com.au, makes connections to a pod labelled
+      `app: database`"
+    answer: |
+      Here's a Kubernetes network policy for a pod labelled `app: web` on
+      OpenShift that accepts ingress from the OpenShift default ingress controller,
+      makes connections to 172.217.167.67/24, makes connections to a pod
+      labelled `app: database`.
+      ```yaml
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        labels:
+        name: web-netpol
+        namespace: devops
+      spec:
+        podSelector:
+          matchLabels:
+            app: web
+        ingress:
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    network.openshift.io/policy-group: ingress
+        egress:
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: openshift-dns
+          - to:
+              - podSelector:
+                  matchLabels:
+                    app: leaderboard
+          - to:
+              - ipBlock:
+                  cidr: 172.217.167.67/24
+        policyTypes:
+        - Ingress
+        - Egress
+        ```
+  - question: |
+      Create a Kubernetes network policy that  allows ingress from pods labelled with `app: bookstore`
+      and `role: api` from pods labelled with `app: bookstore`.
+    answer: |
+      Here is a Kubernetes network policy that allows ingress from pods labelled with `app: bookstore`
+      and `role: api` from pods labelled with `app: bookstore`:
+      ```
+      kind: NetworkPolicy
+      apiVersion: networking.k8s.io/v1
+      metadata:
+        name: api-allow
+      spec:
+        podSelector:
+          matchLabels:
+            app: bookstore
+            role: api
+        ingress:
+        - from:
+            - podSelector:
+                matchLabels:
+                  app: bookstore
+      ```
+````
+Now that we have our seed examples, we can generate synthetic data. This is a core component of InstructLab, and essentially generates a "curriculum" of millions of question-and-answers from the seed examples I've provided, that is then used to teach the "student" model.
+
+If I run `ilab data generate` I should start seeing this synthetic data generation:
+```
+$ ilab data generate
+INFO 2024-10-28 10:13:14,335 numexpr.utils:161: NumExpr defaulting to 16 threads.
+INFO 2024-10-28 10:13:14,571 datasets:54: PyTorch version 2.4.0 available.
+INFO 2024-10-28 10:13:15,582 instructlab.model.backends.llama_cpp:104: Trying to connect to model server at http://127.0.0.1:8000/v1
+WARNING 2024-10-28 10:13:26,368 instructlab.data.generate:291: Disabling SDG batching - unsupported with llama.cpp serving
+Generating synthetic data using 'simple' pipeline, '/home/user/.cache/instructlab/models/merlinite-7b-lab-Q4_K_M.gguf' model, '/home/user/.local/share/instructlab/taxonomy' taxonomy, against http://127.0.0.1:56023/v1 server
+
+INFO 2024-10-28 10:13:26,567 instructlab.sdg:375: Synthesizing new instructions. If you aren't satisfied with the generated instructions, interrupt training (Ctrl-C) and try adjusting your YAML files. Adding more examples may help.
+…
+INFO 2024-10-28 10:22:36,035 instructlab.sdg.datamixing:200: Mixed Dataset saved to /home/user/.local/share/instructlab/datasets/skills_train_msgs_2024-10-28T10_13_26.jsonl
+INFO 2024-10-28 10:22:36,036 instructlab.sdg:438: Generation took 549.67s
+```
+You can see in the output that this synthetic data set has been saved to `/home/user/.local/share/instructlab/datasets/skills_train_msgs_2024-10-28T11_35_10.jsonl`. If we take a look at this file, we can see that it contains more example questions-and-answers about Kubernetes network policy:
+```json
+{
+  {
+    "id": "fa550d31-5400-4857-ac30-bc90f5f20686",
+    "messages": [{
+        "content": "I am, Red Hat\u00ae Instruct Model based on Granite 7B, an AI language model developed by Red Hat and IBM Research, based on the Granite-7b-base language model. My primary function is to be a chat assistant.",
+        "role": "system"
+    }, {
+        "content": "",
+        "role": "user"
+    }, {
+        "content": "Create a Kubernetes network policy that allows ingress traffic from pods with `app:bookstore-api` label to `app:bookstore` pods.'\n\nResponse:\n```\napiVersion: networking.k8s.io\/v1\nkind: NetworkPolicy\nmetadata:\n  name: bookstore-policy\nspec:\n  podSelector:\n    matchLabels:\n      app: bookstore\n  ingress:\n  - from:\n    - namespaceSelector:\n        matchLabels:\n          app: bookstore-api\n```",
+        "role": "assistant"
+    }],
+    "metadata": "{\"task_description\": \"Generate Kubernetes network policy from natural language inputs\", \"seed_question\": \"Create a Kubernetes network policy that  allows ingress from pods labelled with `app: bookstore`\\nand `role: api` from pods labelled with `app: bookstore`.\\n\", \"seed_response\": \"Here is a Kubernetes network policy that allows ingress from pods labelled with `app: bookstore`\\nand `role: api` from pods labelled with `app: bookstore`:\\n```\\nkind: NetworkPolicy\\napiVersion: networking.k8s.io\/v1\\nmetadata:\\n  name: api-allow\\nspec:\\n  podSelector:\\n    matchLabels:\\n      app: bookstore\\n      role: api\\n  ingress:\\n  - from:\\n      - podSelector:\\n          matchLabels:\\n            app: bookstore\\n```\\n\", \"output\": \"Create a Kubernetes network policy that allows ingress traffic from pods with `app:bookstore-api` label to `app:bookstore` pods.'\\n\\nResponse:\\n```\\napiVersion: networking.k8s.io\/v1\\nkind: NetworkPolicy\\nmetadata:\\n  name: bookstore-policy\\nspec:\\n  podSelector:\\n    matchLabels:\\n      app: bookstore\\n  ingress:\\n  - from:\\n    - namespaceSelector:\\n        matchLabels:\\n          app: bookstore-api\\n```\"}"
+}
+...
+```
+Ok. At this point we have our seed examples, and we've used this to create synthetic data. Now we can train the model!
+
+In this [last article](/blog/instructlab-wsl) I looked at how you can configure InstructLab to use NVIDIA CUDA, and I'm going to use my NVIDIA card again to support model training.
+```
+ilab model train --device cuda --data-path /home/user/.local/share/instructlab/datasets/skills_train_msgs_2024-10-28T11_35_10.jsonl
+```
+Note that you may come across a few errors here. I ran into an issue `OverflowError: int too big to convert` when trying this out initially. The solution is to change the effective batch size to 16 (which worked for my GPU):
+```
+ilab model train --device cuda --data-path /home/user/.local/share/instructlab/datasets/skills_train_msgs_2024-10-28T11_35_10.jsonl --effective-batch-size 16
+```
+There's probably also a couple of additional libraries you need to install into your virtual env:
+```
+pip install bitsandbytes flash_attn
+```
+If all else fails, you can always use the `--legacy` flag to train the model.
+```
+ilab model train --device cuda --data-path /home/user/.local/share/instructlab/datasets/ --legacy
+```
+Once your environment is happy, you should start seeing training results reported:
+```
+Saving model in huggingface format at samples_seen: 208
+Model saved in /home/user/.local/share/instructlab/checkpoints/hf_format/samples_208
+[13:54:00] INFO     saving took 7.2973291873931885 seconds                                                             utils.py:611
+Epoch 3: 100%|██████████| 3/3 [00:42<00:00, 14.31s/it]
+ total tokens: 1932 num samples: 6 num padding tokens: 578 - rank: 0 max len: 322 min len: 109 avg len: 225.66666666666666 num_loss_counted_tokens: 870
+ total tokens: 3000 num samples: 12 num padding tokens: 1207 - rank: 0 max len: 250 min len: 92 avg len: 149.41666666666666 num_loss_counted_tokens: 829
+ total tokens: 3588 num samples: 12 num padding tokens: 1148 - rank: 0 max len: 299 min len: 94 avg len: 203.33333333333334 num_loss_counted_tokens: 1485
+```
+You can also validate that the NVIDIA device is being used correctly (not the shared memory being used here also):
+
+<Zoom>
+![ilab gpu](/static/images/ilab-netpol/ilab-gpu.png)
+</Zoom>
+
+You should get a message once training is completed:
+```
+Saving model in huggingface format at samples_seen: 496
+Model saved in /home/user/.local/share/instructlab/checkpoints/hf_format/samples_496
+[14:00:35] INFO     saving took 7.73287296295166 seconds                                                               utils.py:611
+Epoch 9: 100%|██████████| 3/3 [01:02<00:00, 20.87s/it]
+Operation completed successfully! 🎉
+```
+## Testing out the new model
+At this point we've trained a new model using InstructLab, and you should see a bunch of models saved into `/home/user/.local/share/instructlab/checkpoints/hf_format/`
+```
+$ ls -l /home/user/.local/share/instructlab/checkpoints/hf_format/
+total 40K
+drwxr-xr-x 2 user user Dec 11 13:51 samples_112
+drwxr-xr-x 2 user user Dec 11 13:53 samples_160
+drwxr-xr-x 2 user user Dec 11 13:53 samples_208
+drwxr-xr-x 2 user user Dec 11 13:54 samples_256
+drwxr-xr-x 2 user user Dec 11 13:55 samples_304
+drwxr-xr-x 2 user user Dec 11 13:56 samples_352
+drwxr-xr-x 2 user user Dec 11 13:58 samples_400
+drwxr-xr-x 2 user user Dec 11 13:59 samples_448
+drwxr-xr-x 2 user user Dec 11 14:00 samples_496
+drwxr-xr-x 2 user user Dec 11 13:49 samples_64
+```
+Essentially each of these is a complete InstructLab training pass, using more samples each time. We want to use the model based on the highest samples, in this case `samples_496`.
+
+This is actually a [vLLM](https://github.com/vllm-project/vllm) model, so we will need to `--backend=vllm` to serve out the model.
+```
+ilab model serve --model-path /home/user/.local/share/instructlab/checkpoints/hf_format/samples_496/ --backend=vllm -- --swap-space=1 --tensor-parallel-size=1
+```
+You should see that your model is now being served:
+```
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO 12-11 14:15:06 metrics.py:295] Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 0.0 tokens/s, Running: 0 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 0.0%, CPU KV cache usage: 0.0%.
+```
+In another terminal window, start the model chat:
+```
+ilab model chat --model /home/user/.local/share/instructlab/checkpoints/hf_format/samples_496
+
+(venv) [user@HelixWin ~]$ ilab model chat --model /home/user/.local/share/instructlab/checkpoints/hf_format/samples_496
+╭──────────────────────────────────────────────────────────── system ─────────────────────────────────────────────────────────────╮
+│ Welcome to InstructLab Chat w/ SAMPLES_496 (type /h for help)                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+```
+Let's try out an example query:
+```
+Create a Kubernetes network policy for the pod hosted on OpenShift labelled `app: leaderboard` that accepts ingress from the p
+od labelled `app: web`. The pods are hosted in the namespace devops.
+╭────────────────────────────────────────────────────────── samples_496 ──────────────────────────────────────────────────────────╮
+│ ```yaml                                                                                                                         │
+│ apiVersion: networking.k8s.io/v1                                                                                                │
+│ kind: NetworkPolicy                                                                                                             │
+│ metadata:                                                                                                                       │
+│   name: leaderboard-ingress                                                                                                     │
+│ spec:                                                                                                                           │
+│   podSelector:                                                                                                                  │
+│     matchLabels:                                                                                                                │
+│       app: leaderboard                                                                                                          │
+│   ingress:                                                                                                                      │
+│   - from:                                                                                                                       │
+│     - ipBlock:                                                                                                                  │
+│       cidr: "10.0.0.0/32"                                                                                                       │
+│     - port:                                                                                                                     │
+│       number: 80                                                                                                                │
+│ ```                                                                                                                             │
+│                                                                                                                                 │
+│ This network policy allows ingress traffic to the leaderboard pod from any IP address on the range `10.0.0.0/32` on port `80`.  │
+│ The `podSelector` matches any pod with the label `app: leaderboard`.                                                            │
+╰───────────────────────────────────────────────────────────────────────────────────────────────────────── elapsed 6.694 seconds ─╯
+```
+Ok - this is actually pretty good! The `podSelector` is correct for the target pod, and the `ingress` section is correctly defined - but I didn't ask for the `ipblock` and `ports` sections (the `ipblock` at least looks correct). Let's see if the model can correct this:
+```
+>>> Thanks, but I didn't ask for ports or protocols. I expected the `ingress` section to use a podselector to match based on the la
+bel `app: web`. Can you please fix this?
+╭────────────────────────────────────────────────────────── samples_496 ──────────────────────────────────────────────────────────╮
+│ Of course! I understand that you're looking for a network policy that accepts ingress traffic from the pod labelled `app: web`. │
+│ Here's the corrected network policy:                                                                                            │
+│                                                                                                                                 │
+│ ```yaml                                                                                                                         │
+│ apiVersion: networking.k8s.io/v1                                                                                                │
+│ kind: NetworkPolicy                                                                                                             │
+│ metadata:                                                                                                                       │
+│   name: leaderboard-ingress                                                                                                     │
+│ spec:                                                                                                                           │
+│   podSelector:                                                                                                                  │
+│     matchLabels:                                                                                                                │
+│       app: leaderboard                                                                                                          │
+│   ingress:                                                                                                                      │
+│   - from:                                                                                                                       │
+│     - podSelector:                                                                                                              │
+│         matchLabels:                                                                                                            │
+│           app: web                                                                                                              │
+│     - port:                                                                                                                     │
+│       number: 80                                                                                                                │
+│ ```                                                                                                                             │
+│                                                                                                                                 │
+│ In this corrected version, the `ingress` section includes a `podSelector` that matches any pod with the label `app: web`. The   │
+│ `port` is set to `80`, allowing ingress traffic on this port.                                                                   │
+╰───────────────────────────────────────────────────────────────────────────────────────────────────────── elapsed 8.120 seconds ─╯
+```
+Great! Now we have the correct pod selector, but we still have that pesky `port`. Let's try again:
+```
+>>> Just remove the port 80 section and we're good :)                                                                  [S][default]
+╭────────────────────────────────────────────────────────── samples_496 ──────────────────────────────────────────────────────────╮
+│ Certainly! Based on your requirements, I've updated the network policy to only allow ingress traffic from any IP address on the │
+│ range `10.0.0.0/32` to the pod labelled `app: leaderboard`. Here's the corrected network policy:                                │
+│                                                                                                                                 │
+│ ```yaml                                                                                                                         │
+│ apiVersion: networking.k8s.io/v1                                                                                                │
+│ kind: NetworkPolicy                                                                                                             │
+│ metadata:                                                                                                                       │
+│   name: leaderboard-ingress                                                                                                     │
+│ spec:                                                                                                                           │
+│   podSelector:                                                                                                                  │
+│     matchLabels:                                                                                                                │
+│       app: leaderboard                                                                                                          │
+│   ingress:                                                                                                                      │
+│   - from:                                                                                                                       │
+│     - ipBlock:                                                                                                                  │
+│       cidr: "10.0.0.0/32"                                                                                                       │
+│ ```                                                                                                                             │
+│                                                                                                                                 │
+│ In this corrected version, the `ingress` section includes an `ipBlock` that matches any IP address on the range `10.0.0.0/32`.  │
+│ This will allow ingress traffic from any IP address on this range to the pod labelled `app: leaderboard`. I hope this version   │
+│ meets your requirements. Let me know if you have any further questions!                                                         │
+╰───────────────────────────────────────────────────────────────────────────────────────────────────────── elapsed 9.992 seconds ─╯
+```
+Oh no. The `port` was removed, but we're back to `ipBlock` sections. Let's try one more time:
+```
+>>> No no. I don't need an ipblock - just a podselector for the label 'app: web' in the ingress section.             [S][default]
+╭────────────────────────────────────────────────────────── samples_496 ──────────────────────────────────────────────────────────╮
+│ I apologize for any confusion earlier. Based on your requirements, I've updated the network policy to only allow ingress        │
+│ traffic from the pod labelled `app: web`. Here's the corrected network policy:                                                  │
+│                                                                                                                                 │
+│ ```yaml                                                                                                                         │
+│ apiVersion: networking.k8s.io/v1                                                                                                │
+│ kind: NetworkPolicy                                                                                                             │
+│ metadata:                                                                                                                       │
+│   name: leaderboard-ingress                                                                                                     │
+│ spec:                                                                                                                           │
+│   podSelector:                                                                                                                  │
+│     matchLabels:                                                                                                                │
+│       app: leaderboard                                                                                                          │
+│   ingress:                                                                                                                      │
+│   - from:                                                                                                                       │
+│     - podSelector:                                                                                                              │
+│         matchLabels:                                                                                                            │
+│           app: web                                                                                                              │
+│ ```                                                                                                                             │
+│                                                                                                                                 │
+│ In this corrected version, the `ingress` section includes a `podSelector` that matches any pod with the label `app: web`. I     │
+│ hope this version meets your requirements. Let me know if you have any further questions!                                       │
+╰───────────────────────────────────────────────────────────────────────────────────────────────────────── elapsed 7.554 seconds ─╯
+```
+We got there. The `ingress` section now looks correct, and while I would have liked this to also include the namespace `devops` in the metadata, and the `policyTypes` to include `ingress`, I think I can live with this. 
+
+There's one final test - can I create this network policy on OpenShift?
+
+<Zoom>
+![ilab deploy 1](/static/images/ilab-netpol/ilab-np-deploy1.png)
+</Zoom>
+
+<Zoom>
+![ilab deploy 2](/static/images/ilab-netpol/ilab-np-deploy2.png)
+</Zoom>
+
+Success! The network policy created by my new generative AI model I trained with InstructLab successfully deploys.
+
+## Wrapping up
+In this article I looked at how we can teach a generative AI model to create better Kubernetes network policy, using InstructLab. This can help reduce the burden on platform engineers and security teams, and support better securing cloud-native applications.
+
+The model we created still has some limitations. I'm using a consumer GPU on my desktop, meaning that the synthetic data generated is low fidelity, as is the model created. It's likely I would get far better outcomes using [RHEL AI](https://www.redhat.com/en/blog/what-rhel-ai-guide-open-source-way-doing-ai) and more powerful GPUs (e.g. H100 :)).
+
+I also used a pretty generic model as the base here, `granite-7b-lab`. I could use a model already tuned for code creation to potentially support better outcomes, such as the [Granite code models](https://huggingface.co/collections/ibm-granite/granite-code-models-6624c5cec322e4c148c8b330), or [Code Llama](https://ai.meta.com/blog/code-llama-large-language-model-coding/).
+
+That's the great thing about [InstructLab](https://instructlab.ai/) - it can be used to enhance *any* generative AI model.
+
+
+
 
