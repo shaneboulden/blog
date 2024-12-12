@@ -200,28 +200,38 @@ Initialization completed successfully, you're ready to start using `ilab`. Enjoy
 ```
 
 ## Chatting with the model
-Now we're ready to start chatting. I'm using the [Merlinite]() model, and I've started out by asking the model what it knows about network policy, and then to generate me a simple network policy:
+In this article we're going to train an IBM Granite model. Granite is a series of large language models (LLMs) that span generative AI use cases, involving language and code. Specifically we're going to use the Granite 7B model that's already been trained with using the [LAB methodology](https://arxiv.org/pdf/2403.01081), available from [HuggingFace](https://huggingface.co/instructlab/granite-7b-lab).
 
 <Zoom>
-![ilab chat](/static/images/ilab-netpol/ilab-chat.png)
+![hf granite](/static/images/ilab-netpol/hf-granite.png)
 </Zoom>
 
-Well this is embarassing. The model seems to have understood my question, but the result isn't even network policy - it's a Kubernetes [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/)! Let's see if we can correct this:
+Granite only [recently became the default](https://github.com/instructlab/instructlab/pull/2585) for InstructLab (which to-date has been Merlinite), and we will need to download it:
 
-<Zoom>
-![ilab chat improved](/static/images/ilab-netpol/ilab-chat-improved.png)
-</Zoom>
-
-That's slightly better, but it still looks incorrect. Specifically, these selectors look like a [hallucination](https://www.redhat.com/en/blog/when-llms-day-dream-hallucinations-how-prevent-them) - the model completely made up the IP and port here (though, it did use the correct subnet for the pods):
-```yaml
-ingress:
-  - namespace: openshift
-    from:
-      - ip: 10.128.0.1
-        port:
-          protocol: TCP
-            port: 443
 ```
+ilab model download --repository=instructlab/granite-7b-lab
+```
+We need to serve this model out before chatting with it. Because this is a [vLLM](https://github.com/vllm-project/vllm) model we will need to specify `--backend=vllm`. Note that you may need to tune the `model-max-len` parameter - for me, I had to go down to 512, but you may be able to use `2048` or `4096` depending on your GPU.
+
+```
+ilab model serve --model-path /home/user/.cache/instructlab/models/instructlab/granite-7b-lab/ --backend=vllm -- --max-model-len 512
+```
+
+Now we're ready to start chatting. In another terminal window I've started out by asking the model what it knows about network policy, and then to generate me a simple network policy:
+
+<Zoom>
+![ilab chat1](/static/images/ilab-netpol/ilab-chat1.png)
+</Zoom>
+
+<Zoom>
+![ilab chat2](/static/images/ilab-netpol/ilab-chat2.png)
+</Zoom>
+
+Ok - this isn't that bad! The policy uses the right Kubernetes API, and the `podSelectors` are correct, but the `ingress` section looks a bit strange. In fact, this policy doesn't even deploy correctly to my Openshift cluster:
+
+<Zoom>
+![ilab netpol deploy](/static/images/ilab-netpol/ilab-netpol-deploy.png)
+</Zoom>
 
 For reference, the correct pod selectors could have looked like this:
 ```yaml
@@ -560,7 +570,7 @@ drwxr-xr-x 2 user user Dec 11 13:49 samples_64
 ```
 Essentially each of these is a complete InstructLab training pass, using more samples each time. We want to use the model based on the highest samples, in this case `samples_496`.
 
-This is actually a [vLLM](https://github.com/vllm-project/vllm) model, so we will need to `--backend=vllm` to serve out the model.
+This is also a [vLLM](https://github.com/vllm-project/vllm) model, so we will need to `--backend=vllm` again to serve out the model.
 ```
 ilab model serve --model-path /home/user/.local/share/instructlab/checkpoints/hf_format/samples_496/ --backend=vllm -- --swap-space=1 --tensor-parallel-size=1
 ```
