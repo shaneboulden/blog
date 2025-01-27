@@ -1,0 +1,159 @@
+---
+title: Getting started with RHACS Policy-as-Code
+date: '2025-01-31'
+tags: ['openshift','rhacs','stackrox','policy','code','gitops']
+images: ['/static/images/linkedin-banners/rhacs-policy-as-code.png']
+draft: false
+summary: "Red Hat Advanced Cluster Security for Kubernetes 4.6 has landed, with one of the mostly hotly requested features - policy-as-code!"
+---
+Red Hat Advanced Cluster Security for Kubernetes (RHACS) 4.6.0 landed in early December. The release included a number of improvements, including support for CSAF-VEX vulnerability data formats, scanner support for Red Hat Enterprise Linux CoreOS (the operating system that underpins OpenShift), and compliance reporting.
+
+This release also included one of the mostly requested features for RHACS - managing security policy-as-code! This allows you to manage all of the securty policies for RHACS declaratively and take advantage of GitOps reconciliation.
+
+Why is this so widely requested? I think there's a number of reasons for this:
+
+- **DevSecOps workflows**:'DevSecOps' is now the de factor standard for building and deploying applications. Policy-as-code makes DevSecOps possible, allowing deveolopers and security teams to collaborate on security policy updates, as well as bringing development tools and skills to secuity teams (managing code commits, deploying policy via CI/CD pipelines, etc)
+
+- **Consistency and Automation**: Using a security policy-as-code approach ensures that policies are applied consistently across environments. Automation through CI/CD pipelines means reduces the risk of human error or inconsistent policy enforcement.
+
+- **Version Control and Auditing**: Security policies stored as code can be versioned and tracked in the same way as application code. This provides a clear audit trail, allowing teams to see who made changes, what changes were made, and why. This also aids compliance efforts, as historical versions of policies can be reviewed when needed.
+
+- **Scalability**: As organisations grow, managing security policies manually becomes increasingly difficult. With security policies as code, scaling to handle large numbers of environments or resources becomes much easier. The same policies can be applied across multiple accounts, regions, or clusters without duplication of effort.
+
+- **Improved collaboration**: Security-as-code encourages cross-functional collaboration. Developers, security teams, and operations can all work from the same framework and tools, making security a shared responsibility. The clear separation of policy definition and implementation also improves communication between teams and fosters a more proactive security culture.
+
+- **Faster changes**: With security policies defined in code, updates can be pushed quickly and reliably through automated pipelines. This leads to faster security policy changes, making it easier to adapt to new security threats or compliance requirements without slowing down development cycles.
+
+### Policy-as-code approach
+
+Technically, it's always been possible to manage RHACS policies as code using automation and Git Webhooks. One implementation of this could be using Ansible:
+
+- A change to a security policy is checked into Github
+- Github webhooks are configured to issue notifications to [Ansible Automation Platform](https://www.redhat.com/en/technologies/management/ansible) when changes are made
+- Ansible Automation Platform starts an Ansible playbook that clones a Git repository holding security policies
+- The Ansible playbook then uses the RHACS RESTful API to update security policy, using the latest policies  obtained from the Git repo
+
+This works well, and you can see a video of it here in action. Neil Carpenter initially published an implementation of this Ansible / RHACS workflow here, and I've  uploaded a derivative here: https://github.com/shaneboulden/ansible-acs-policy-demo
+
+<YoutubeEmbed embedId="NsEql869IGg" />
+
+But, this isn't a 'standard' approach to GitOps, and there's no reconciliation available. [ArgoCD](https://argoproj.github.io/cd/) monitors for changes to deployed artifacts or those stored in code, and then 'reconciles' the latest code-base with deployed artifacts. This implementation is missing this critical control-loop.
+
+Instead, the Red Hat Advanced Cluster Security for Kubernetes (RHACS) native policy-as-code implementation is designed to work with ArgoCD. It uses Kubernetes Custom Resource objects (CRs) to represent security policies, and store these in a Git repository. When changes are made to either the code-base or running config, ArgoCD performs reconciliation, using the RHACS Operator to make changes to running Central instance. You can see a diagram showing this process here:
+
+### Getting started
+
+Let's get started with Red Hat Advanced Cluster Security for Kubernetes (RHACS) and security policy-as-code. Make sure you have a RHACS Central instance 4.6+ deployed via the operator, and have enrolled at least one cluster. This can also be the local cluster, as shown here (note the internal cluster address for RHACS Central):
+
+<Zoom>
+![operator-install](/static/images/policy-as-code/operator-install.png)
+</Zoom>
+
+<Zoom>
+![operator-central-cr](/static/images/policy-as-code/operator-central-cr.png)
+</Zoom>
+
+<Zoom>
+![operator-scs-cr](/static/images/policy-as-code/operator-scs-cr.png)
+</Zoom>
+
+<Zoom>
+![rhacs-dashboard](/static/images/policy-as-code/rhacs-dashboard.png)
+</Zoom>
+
+Now, let's create a new policy. The format for RHACS Policy custom resources is documented [here](https://docs.openshift.com/acs/4.6/operating/manage_security_policies/custom-security-policies.html#policy-as-code-create-cr_custom-security-policies), and shown below:
+```yaml
+kind: SecurityPolicy
+apiVersion: config.stackrox.io/v1alpha1
+metadata:
+  name: short-name
+spec:
+  policyName: A longer form name
+# ...
+```
+To see the fields available to construct security policy, you can use `oc explain securitypolicy.spec`:
+```
+$ oc explain securitypolicy.spec
+GROUP:      config.stackrox.io
+KIND:       SecurityPolicy
+VERSION:    v1alpha1
+
+FIELD: spec <Object>
+
+DESCRIPTION:
+    SecurityPolicySpec defines the desired state of SecurityPolicy
+    
+FIELDS:
+  categories	<[]string> -required-
+    Categories is a list of categories that this policy falls under.  Category
+    names must already exist in Central.
+
+  criteriaLocked	<boolean>
+    Read-only field. If true, the policy's criteria fields are rendered
+    read-only.
+
+  description	<string>
+    Description is a free-form text description of this policy.
+
+  disabled	<boolean>
+    Disabled toggles whether or not this policy will be executing and actively
+    firing alerts.
+
+  enforcementActions	<[]string>
+    Enforcement lists the enforcement actions to take when a violation from this
+    policy is identified.  Possible value are UNSET_ENFORCEMENT,
+    SCALE_TO_ZERO_ENFORCEMENT, UNSATISFIABLE_NODE_CONSTRAINT_ENFORCEMENT,
+    KILL_POD_ENFORCEMENT, FAIL_BUILD_ENFORCEMENT, FAIL_KUBE_REQUEST_ENFORCEMENT,
+    FAIL_DEPLOYMENT_CREATE_ENFORCEMENT, and. FAIL_DEPLOYMENT_UPDATE_ENFORCEMENT.
+...
+```
+I'm going to create a simple policy that checks for the CVE [CVE-2025-23089](https://access.redhat.com/security/cve/cve-2025-23089). This is a flaw in Node.js that allows potential exposure to unaddressed software vulnerabilities via the continued use of End-of-Life (EOL) versions that no longer receive security updates or patches.
+
+```yaml
+kind: SecurityPolicy
+apiVersion: config.stackrox.io/v1alpha1
+metadata:
+  name: cve-2025-23089
+spec:
+  policyName: 'CVE-2025-23089: End-of-Life Node.js Versions Pose Security Risks'
+  categories:
+    - 'Vulnerability Management'
+  description: 'This CVE was created to flag End-of-Life (EOL) versions of Node.js that no longer receive security updates or patches.'
+  disabled: false
+  guidance: Use a supported version of Node.js. Supported versions can be found at https://nodejs.org/en/about/previous-releases
+  lifecycleStages:
+    - BUILD
+    - DEPLOY
+  policySections:
+    - sectionName: "Rule 1"
+      policyGroups:
+        - fieldName: CVE
+          booleanOperator: OR
+          negate: false
+          values:
+            - value: 2025-23089
+  rationale: Unsupported Node.js versions are potentially vulnerable to critical vulnerabilties
+  severity: HIGH_SEVERITY
+```
+
+Here's my policy stored in GitHub:
+
+Add the repository to GitHub:
+<Zoom>
+![gitops-repo](/static/images/policy-as-code/gitops-repo.png)
+</Zoom>
+
+Create an application using the repo:
+
+<Zoom>
+![gitops-app1](/static/images/policy-as-code/gitops-app1.png)
+</Zoom>
+
+<Zoom>
+![gitops-app2](/static/images/policy-as-code/gitops-app2.png)
+</Zoom>
+
+
+#### Add the policy to ArgoCD, and set it to apply to the acs-central namespace
+
+#### Modify the policy via code to add enforcement actions
