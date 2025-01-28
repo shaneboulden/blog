@@ -145,15 +145,62 @@ Add the repository to GitHub:
 
 Create an application using the repo:
 
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: rhacs-policies
+  namespace: openshift-gitops
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  destination:
+    namespace: acs-central
+    server:  https://kubernetes.default.svc
+  project: default
+  source:
+    path: policies
+    repoURL: https://github.com/shaneboulden/stackrox-policy-as-code.git
+    targetRevision: HEAD
+  syncPolicy:
+    automated: {}
+```
+You can check that the application is created and synchronised via the ArgoCD dashboard:
+
 <Zoom>
-![gitops-app1](/static/images/policy-as-code/gitops-app1.png)
+![gitops-app](/static/images/policy-as-code/gitops-app.png)
+</Zoom>
+
+You may see this error:
+
+```
+securitypolicies.config.stackrox.io is forbidden: User "system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller" cannot create resource "securitypolicies" in API group "config.stackrox.io" in the namespace "acs-central"
+```
+This a [well-documented issue](https://access.redhat.com/solutions/7007638) with permissions for the ArgoCD service account, and the recommended solution is to grant the ArgoCD service account the `admin` role in the target namespace.
+```
+oc adm policy add-role-to-user admin system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller -n acs-central
+```
+Observe that the ArgoCD application is sync'd, and the policy is now created in the cluster:
+
+<Zoom>
+![gitops-policy](/static/images/policy-as-code/gitops-policy.png)
+</Zoom>
+
+```
+$ oc get securitypolicies -n acs-central
+NAME             AGE
+cve-2025-23089   2m39s
+```
+Finally, you can check that the policy is now created in the RHACS instance:
+
+<Zoom>
+![gitops-policy1](/static/images/policy-as-code/gitops-policy1.png)
 </Zoom>
 
 <Zoom>
-![gitops-app2](/static/images/policy-as-code/gitops-app2.png)
+![gitops-policy1](/static/images/policy-as-code/gitops-policy2.png)
 </Zoom>
 
+### Testing out the new policy
 
-#### Add the policy to ArgoCD, and set it to apply to the acs-central namespace
-
-#### Modify the policy via code to add enforcement actions
+### Updating the policy
