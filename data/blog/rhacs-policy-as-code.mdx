@@ -72,7 +72,7 @@ spec:
 # ...
 ```
 To see the fields available to construct security policy, you can use `oc explain securitypolicy.spec`:
-```
+```yaml
 $ oc explain securitypolicy.spec
 GROUP:      config.stackrox.io
 KIND:       SecurityPolicy
@@ -107,43 +107,68 @@ FIELDS:
     FAIL_DEPLOYMENT_CREATE_ENFORCEMENT, and. FAIL_DEPLOYMENT_UPDATE_ENFORCEMENT.
 ...
 ```
-I'm going to create a simple policy that checks for the CVE [CVE-2025-23089](https://access.redhat.com/security/cve/cve-2025-23089). This is a flaw in Node.js that allows potential exposure to unaddressed software vulnerabilities via the continued use of End-of-Life (EOL) versions that no longer receive security updates or patches.
+I'm going to create a simple policy that checks for `netcat` inside container images. I think this is important, because `netcat` could easily be used by an attacker with access to a pod to access services, and try and move laterally. `netcat` could also be used with a [living off the land](https://www.stb.id.au/blog/living-off-the-land-containers)
+
+PS. If you're interested in 'living off the land' techniques I ran a webinar in November 2024, which is now available on-demand at [redhat.com](https://www.redhat.com/en/events/webinar/a-platform-engineers?sc_cid=7015Y0000048ktFQAQ)
+
+A great strategy to minimise this risk is simply removing `netcat` from container images. Here's a SecurityPolicy object that checks for `netcat` in images, and ensures we can flag this in CI/CD pipelines, or using the RHACS admission controller.
 
 ```yaml
 kind: SecurityPolicy
 apiVersion: config.stackrox.io/v1alpha1
 metadata:
-  name: cve-2025-23089
+  name: netcat-in-image
 spec:
-  policyName: 'CVE-2025-23089: End-of-Life Node.js Versions Pose Security Risks'
+  policyName: Netcat in Image
   categories:
-    - 'Vulnerability Management'
-  description: 'This CVE was created to flag End-of-Life (EOL) versions of Node.js that no longer receive security updates or patches.'
+  - Package Management
+  description: 'This policy checks for container images containing netcat'
   disabled: false
-  guidance: Use a supported version of Node.js. Supported versions can be found at https://nodejs.org/en/about/previous-releases
+  remediation: Use the base image package manager to remove "nmap-ncat"
   lifecycleStages:
-    - BUILD
-    - DEPLOY
+  - BUILD
+  - DEPLOY
   policySections:
-    - sectionName: "Rule 1"
-      policyGroups:
-        - fieldName: CVE
-          booleanOperator: OR
-          negate: false
-          values:
-            - value: 2025-23089
-  rationale: Unsupported Node.js versions are potentially vulnerable to critical vulnerabilties
+  - sectionName: Rule 1
+    policyGroups:
+    - fieldName: Image Component
+      booleanOperator: OR
+      negate: false
+      values:
+      - value: nmap-ncat=
+  rationale: Netcat potentially allows attackers to move laterally, and access external
+    services from a running pod
   severity: HIGH_SEVERITY
 ```
+I've committed this to a repo available [here](https://github.com/shaneboulden/stackrox-policy-as-code). You can see the policy in the `policies` directory.
 
-Here's my policy stored in GitHub:
+<Zoom>
+![repo](/static/images/policy-as-code/secpol.png)
+</Zoom>
 
-Add the repository to GitHub:
+The first step in automating this policy with GitOps is adding the repository to OpenShift GitOps. You can find the route for the OpenShift GitOps UI in the `openshift-gitops` namespace:
+
+```
+$ oc get routes -n openshift-gitops
+NAME                      HOST/PORT                                                                        PATH   SERVICES                  PORT    TERMINATION          WILDCARD
+openshift-gitops-server   openshift-gitops-server-openshift-gitops.apps.cluster1.example.com          openshift-gitops-server   https   reencrypt/Redirect   None
+```
+
+Once you've accessed the OpenShift GitOps UI, select `Settings` and then `Repositories`.
+
 <Zoom>
 ![gitops-repo](/static/images/policy-as-code/gitops-repo.png)
 </Zoom>
 
-Create an application using the repo:
+<Zoom>
+![gitops-repo1](/static/images/policy-as-code/gitops-repo1.png)
+</Zoom>
+
+<Zoom>
+![gitops-repo2](/static/images/policy-as-code/gitops-repo2.png)
+</Zoom>
+
+Now that the repo is connected, we can create an ArgoCD application using the repo:
 
 ```yaml
 apiVersion: argoproj.io/v1alpha1
@@ -172,7 +197,6 @@ You can check that the application is created and synchronised via the ArgoCD da
 </Zoom>
 
 You may see this error:
-
 ```
 securitypolicies.config.stackrox.io is forbidden: User "system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller" cannot create resource "securitypolicies" in API group "config.stackrox.io" in the namespace "acs-central"
 ```
@@ -183,24 +207,188 @@ oc adm policy add-role-to-user admin system:serviceaccount:openshift-gitops:open
 Observe that the ArgoCD application is sync'd, and the policy is now created in the cluster:
 
 <Zoom>
-![gitops-policy](/static/images/policy-as-code/gitops-policy.png)
+![gitops-policy11](/static/images/policy-as-code/gitops-policy11.png)
+</Zoom>
+
+<Zoom>
+![gitops-policy12](/static/images/policy-as-code/gitops-policy12.png)
 </Zoom>
 
 ```
 $ oc get securitypolicies -n acs-central
-NAME             AGE
-cve-2025-23089   2m39s
+NAME              AGE
+netcat-in-image   22h
 ```
-Finally, you can check that the policy is now created in the RHACS instance:
+Finally, you can check that the policy is now created in the RHACS instance. You'll note that the policy is listed as `externally managed`, and if you try and edit it, you'll get a warning that any changes will be overwritten at the next sync.
 
 <Zoom>
 ![gitops-policy1](/static/images/policy-as-code/gitops-policy1.png)
 </Zoom>
 
 <Zoom>
-![gitops-policy1](/static/images/policy-as-code/gitops-policy2.png)
+![gitops-policy2](/static/images/policy-as-code/gitops-policy2.png)
+</Zoom>
+
+<Zoom>
+![gitops-policy3](/static/images/policy-as-code/gitops-policy3.png)
 </Zoom>
 
 ### Testing out the new policy
+Now that we have a new policy, let's test it out! I'm going to run an `image check` via the `roxctl` CLI, and check that an image I know is vulnerable fails this policy.
+
+```yaml
+$ roxctl -e "central-acs-central.apps.cluster1.sandbox1177.opentlc.com:443" --ins
+ecure-skip-tls-verify=true image check -i quay.io/smileyfritz/chat-client:latest
+
+Policy check results for image: quay.io/smileyfritz/chat-client:latest
+(TOTAL: 1, LOW: 0, MEDIUM: 0, HIGH: 1, CRITICAL: 0)
+
++-----------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+|     POLICY      | SEVERITY | BREAKS BUILD |          DESCRIPTION           |           VIOLATION            |          REMEDIATION           |
++-----------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+| Netcat in Image |   HIGH   |      -       |     This policy checks for     |   - Image includes component   |   Use the base image package   |
+|                 |          |              |  container images containing   |      'nmap-ncat' (version      | manager to remove "nmap-ncat"  |
+|                 |          |              |             netcat             |         2:7.92-1.el8)          |                                |
++-----------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+```
+Great! This policy that we've created and managed via OpenShift GitOps correctly identifies `netcat` in Red Hat-based container images.
 
 ### Updating the policy
+Our policy works, currently it isn't 'enforcing'. If you check the output above, the 'BREAKS BUILD' field is a '-' - meaning that this policy won't fail any pipelines. Let's add some enforcement actions to the policy, via GitOps.
+
+Firstly, I want to understand the enforcement actions available. Let's run `oc explain securitypolicy.spec` again to see the actions available:
+```yaml
+$ oc explain securitypolicy.spec
+GROUP:      config.stackrox.io
+KIND:       SecurityPolicy
+VERSION:    v1alpha1
+
+FIELD: spec <Object>
+
+DESCRIPTION:
+    SecurityPolicySpec defines the desired state of SecurityPolicy
+
+FIELDS:
+...
+  enforcementActions    <[]string>
+    Enforcement lists the enforcement actions to take when a violation from this
+    policy is identified.  Possible value are UNSET_ENFORCEMENT,
+    SCALE_TO_ZERO_ENFORCEMENT, UNSATISFIABLE_NODE_CONSTRAINT_ENFORCEMENT,
+    KILL_POD_ENFORCEMENT, FAIL_BUILD_ENFORCEMENT, FAIL_KUBE_REQUEST_ENFORCEMENT,
+    FAIL_DEPLOYMENT_CREATE_ENFORCEMENT, and. FAIL_DEPLOYMENT_UPDATE_ENFORCEMENT.
+```
+There's a few here that I particularly care about:
+
+- `SCALE_TO_ZERO_ENFORCEMENT`: This will ensure that pods that are not blocked by the admission controller (e.g. on secure clusters with `contactImageScanners` set to `DoNotScanInline`) are still scaled down.
+
+- `FAIL_BUILD_ENFORCEMENT`: This will ensure that CI/CD pipelines that include `roxctl image check` will fail (i.e. return a non-zero return code from `roxctl`)
+
+- `FAIL_DEPLOYMENT_CREATE_ENFORCEMENT`: This will ensure that the admission controller will block deployment creation on secured clusters with `contactImageScanners` set to `ScanIfMissing`.
+
+- `FAIL_DEPLOYMENT_UPDATE_ENFORCEMENT`: Similarly, any updates to deployments that reference vulnerable images will fail.
+
+Here's our SecurityPolicy with the enforcement actions added:
+```yaml
+kind: SecurityPolicy
+apiVersion: config.stackrox.io/v1alpha1
+metadata:
+  name: netcat-in-image
+spec:
+  policyName: Netcat in Image
+  categories:
+  - Package Management
+  description: 'This policy checks for container images containing netcat'
+  disabled: false
+  enforcementActions:
+    - SCALE_TO_ZERO_ENFORCEMENT
+    - FAIL_BUILD_ENFORCEMENT
+    - FAIL_DEPLOYMENT_CREATE_ENFORCEMENT
+    - FAIL_DEPLOYMENT_UPDATE_ENFORCEMENT
+  remediation: Use the base image package manager to remove "nmap-ncat"
+  lifecycleStages:
+  - BUILD
+  - DEPLOY
+  policySections:
+  - sectionName: Rule 1
+    policyGroups:
+    - fieldName: Image Component
+      booleanOperator: OR
+      negate: false
+      values:
+      - value: nmap-ncat=
+  rationale: Netcat potentially allows attackers to move laterally, and access external
+    services from a running pod
+  severity: HIGH_SEVERITY
+```
+I've commited these changes and sync'd the ArgoCD application, and can now see that the SecurityPolicy object is updated:
+
+<Zoom>
+![enforcement1](/static/images/policy-as-code/enforcement1.png)
+</Zoom>
+
+If I now take a look at the policy in Red Hat Advanced Cluster Security for Kubernetes (RHACS), I can see that the 'enforcement' toggles for 'Build' and 'Deploy' are now enabled:
+
+<Zoom>
+![enforcement2](/static/images/policy-as-code/enforcement2.png)
+</Zoom>
+
+Let's try out this policy again:
+
+```yaml
+$ roxctl -e "central-acs-central.apps.cluster1.sandbox1177.opentlc.com:443" --insecure-skip-tls-verify=true image check -i quay.io/smileyfritz/chat-client:latest
+Policy check results for image: quay.io/smileyfritz/chat-client:latest
+(TOTAL: 1, LOW: 0, MEDIUM: 0, HIGH: 1, CRITICAL: 0)
+
++-----------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+|     POLICY      | SEVERITY | BREAKS BUILD |          DESCRIPTION           |           VIOLATION            |          REMEDIATION           |
++-----------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+| Netcat in Image |   HIGH   |      X       |     This policy checks for     |   - Image includes component   |   Use the base image package   |
+|                 |          |              |  container images containing   |      'nmap-ncat' (version      | manager to remove "nmap-ncat"  |
+|                 |          |              |             netcat             |         2:7.92-1.el8)          |                                |
++-----------------+----------+--------------+--------------------------------+--------------------------------+--------------------------------+
+```
+Great! Our policy now breaks the build, ensuring that any pipelines referencing images containing `netcat` will fail at the `roxctl image check`.
+
+### Lowering the barrier to GitOps adoption
+GitOps provides scale, consistency and enables collaboration, though it can be challenging to initially adopt these practices and processes.
+
+I'm going to explore this more in another article, but one thing that may help initially is a script to convert Red Hat Advanced Cluster Security for Kubernetes (RHACS) exported policies to SecurityPolicy objects that can be managed with GitOps / ArgoCD.
+
+I've added the `export2gitops.py` [here](https://github.com/stackrox/contributions/pull/117), which does just this. You can use this utility to convert exported policies, e.g.
+
+```yaml
+$ python export2gitops.py -i sample-policy.json -o netcat-in-image.yaml
+✅ YAML output saved to netcat-in-image.yaml
+
+$ cat netcat-in-image.yaml
+kind: SecurityPolicy
+apiVersion: config.stackrox.io/v1alpha1
+metadata:
+  name: netcat-in-image
+spec:
+  policyName: Netcat in Image
+  categories:
+  - Package Management
+  description: 'This policy checks for container images containing netcat '
+  disabled: false
+  remediation: Use the base image package manager to remove "nmap-ncat"
+  lifecycleStages:
+  - BUILD
+  - DEPLOY
+  policySections:
+  - sectionName: Rule 1
+    policyGroups:
+    - fieldName: Image Component
+      booleanOperator: OR
+      negate: false
+      values:
+      - value: nmap-ncat=
+  rationale: Netcat potentially allows attackers to move laterally, and access external
+    services from a running pod
+  severity: HIGH_SEVERITY
+```
+
+## Wrap up
+In this article I've looked at managing security policy-as-code, using OpenShift GitOps and Red Hat Advanced Cluster Security for Kubernetes (RHACS). I looked at how to create new policies via code, and see this reflected in RHACS via ArgoCD workflows.
+
+I also briefly looked at how we can start to lower the barrier to GitOps adoption, noting this can be a complex workflow if you're unfamiliar with Git, and GitOps processes. I'll explore this more in another article.
