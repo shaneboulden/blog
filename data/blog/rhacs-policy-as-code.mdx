@@ -10,9 +10,9 @@ Red Hat Advanced Cluster Security for Kubernetes (RHACS) 4.6.0 landed in early D
 
 This release also included one of the mostly requested features for RHACS - managing security policy-as-code! This allows you to manage all of the securty policies for RHACS declaratively and take advantage of GitOps reconciliation.
 
-Why is this so widely requested? I think there's a number of reasons for this:
+Why is this so widely requested? I think there's a number of reasons:
 
-- **DevSecOps workflows**:'DevSecOps' is now the de factor standard for building and deploying applications. Policy-as-code makes DevSecOps possible, allowing deveolopers and security teams to collaborate on security policy updates, as well as bringing development tools and skills to secuity teams (managing code commits, deploying policy via CI/CD pipelines, etc)
+- **DevSecOps workflows**:'DevSecOps' is now the de factor standard for building and deploying applications. Policy-as-code makes DevSecOps possible, allowing deveolopers and security teams to collaborate on security policy updates, as well as bringing development tools and skills to security teams (managing code commits, deploying policy via CI/CD pipelines, etc)
 
 - **Consistency and Automation**: Using a security policy-as-code approach ensures that policies are applied consistently across environments. Automation through CI/CD pipelines means reduces the risk of human error or inconsistent policy enforcement.
 
@@ -33,7 +33,7 @@ Technically, it's always been possible to manage RHACS policies as code using au
 - Ansible Automation Platform starts an Ansible playbook that clones a Git repository holding security policies
 - The Ansible playbook then uses the RHACS RESTful API to update security policy, using the latest policies  obtained from the Git repo
 
-This works well, and you can see a video of it here in action. Neil Carpenter initially published an implementation of this Ansible / RHACS workflow here, and I've  uploaded a derivative here: https://github.com/shaneboulden/ansible-acs-policy-demo
+This works well, and you can see a video of it here in action. Neil Carpenter initially published an implementation of this [Ansible / RHACS workflow](https://github.com/neilcar/ansible-acs-policy-mgmt), and I've  uploaded a derivative here: https://github.com/shaneboulden/ansible-acs-policy-demo
 
 <YoutubeEmbed embedId="NsEql869IGg" />
 
