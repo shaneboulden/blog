@@ -220,7 +220,7 @@ My deployment was accepted instead of being blocked, and the pods were scaled to
 ### Enforcing a policy based on image criteria
 The last policy we configured to enforce focused on the deployment spec. It checked whether the containers referenced in the deployment had CPU and memory limits specified, and if not, blocked the deployment.
 
-Let's try a policy based on image-criteria, rather than deployment spec. I want to check if an image has the `nmap-ncat` package present, and if it does, to block the deployment. Why? This is a super-useful command-line tool for attackers, and can could be used to support a [living-off-the-land](/blog/living-off-the-land-containers) strategy on my platform.
+Let's try a policy based on image-criteria, rather than deployment spec. I want to check if an image has the `nmap-ncat` package present, and if it does, to block the deployment. Why? This is a super-useful command-line tool for attackers, and could be used to support a [living-off-the-land](/blog/living-off-the-land-containers) strategy on my platform.
 
 This policy checks for the `nmap-ncat` package in containers, and is set to enforce on both `Build` and `Deploy` (you can see that the policy is externally managed, as I'm managing this policy with [GitOps](/blog/rhacs-policy-as-code))
 
@@ -410,7 +410,7 @@ metadata:
 spec:
   admissionControl:
     bypass: BreakGlassAnnotation
-    contactImageScanners: DoNotScanInline
+    contactImageScanners: ScanIfMissing
     listenOnCreates: true
     listenOnEvents: true
     listenOnUpdates: true
