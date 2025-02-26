@@ -20,7 +20,7 @@ I've covered [Red Hat Advanced Cluster Security for Kubernetes (RHACS)](https://
 
 - [GTFOBins and StackRox](/blog/gtfobins-stackrox): Part one in an investigation into living-off-the-land techniques, and integrating the GTFOBins open source project with StackRox (RHACS).
 
-- [GTFOBins and StackRox - Part II)](/blog/gtfobins-stackrox-p2): Part two in an investigation into living-off-the-land techniques, specifically covering runtime security and the GTFOBins open source project integrated with StackRox (RHACS).
+- [GTFOBins and StackRox (Part II)](/blog/gtfobins-stackrox-p2): Part two in an investigation into living-off-the-land techniques, specifically covering runtime security and the GTFOBins open source project integrated with StackRox (RHACS).
 
 - [Sigstore and StackRox](/blog/sigstore-and-stackrox): Covers creating StackRox (RHACS) policies to verify container images are signed using Sigstore signatures.
 
@@ -39,7 +39,7 @@ Red Hat Advanced Cluster Security for Kubernetes (RHACS) includes a **validating
 ## Understanding "hard" and "soft" enforcement
 Often one of the topics that comes up in Red Hat Advanced Cluster Security for Kubernetes (RHACS) discussions is the concept of "hard" and "soft" enforcement for deployment-time policies.
 
-When you create a user creates deployment on a cluster, it may violate a policy and be "soft" enforced. "Soft" enforcement means actions taken by the sensor running on secured clusters. This is usually referred to as "soft" enforcement as the deployment isn't blocked by the admission controller, but accepted, and pods are scaled down in response to policy violations.
+When a user creates deployment on an OpenShift or Kubernetes cluster, it may violate a policy and be "soft" enforced. "Soft" enforcement means actions taken by the [sensor](https://docs.openshift.com/acs/4.6/architecture/acs-architecture.html#acs-secured-cluster-services_acs-architecture) running on secured clusters. This is usually referred to as "soft" enforcement as the deployment isn't blocked by the admission controller, but accepted, and pods are scaled down in response to policy violations.
 
 You can see how "soft" enforcement is implemented in the StackRox codebase. It's implemented through a capability called the `Enforcer`, which processes alert results, and takes action if the policy should be enforced.
 
