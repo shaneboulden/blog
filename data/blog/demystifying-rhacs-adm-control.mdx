@@ -215,7 +215,7 @@ Now if I create the same deployment, I see different behaviour:
 ![scaled-zero3](/static/images/adm-control/scaled-zero3.png)
 </Zoom>
 
-My deployment was accepted instead of being blocked, and the pods were scaled to zero! This is because I set `listenOnCreates` to `false`. This meant that the RHACS admission controller didn't validate the deployment (if `listenOnCreates` was `true`, the admission controller would have blocked the deployment), and instead the deployment was accepted, and the RHACS `sensor` scaled pods to zero instead.
+My deployment was accepted instead of being blocked, and the pods were scaled to zero! This is because I set `listenOnCreates` to `false`. This meant that the RHACS admission controller didn't validate the deployment (if `listenOnCreates` was `true`, the admission controller would have blocked the deployment), and instead the deployment was accepted, and the RHACS `sensor` scaled pods to zero instead ("soft" enforcement)
 
 ### Enforcing a policy based on image criteria
 The last policy we configured to enforce focused on the deployment spec. It checked whether the containers referenced in the deployment had CPU and memory limits specified, and if not, blocked the deployment.
@@ -393,11 +393,11 @@ spec:
 ![netcat-blocked3](/static/images/adm-control/netcat-blocked3.png)
 </Zoom>
 
-Great! By updating `contactImageScanners` to `ScanIfMissing`, the admission controller can not verify image contents, and block deployment that violate policies describing image-based criteria.
+Great! By updating `contactImageScanners` to `ScanIfMissing`, the admission controller can now verify image contents, and block deployments that violate policies describing image-based criteria.
 
 ## Modifying the timeout value for the admission controller
 
-Let's explore another scenario. What happens if the admission controller times out, and fails open? 
+Let's explore another scenario. What happens if the admission controller times out, and "fails open"? 
 
 To force this scenario, I'm going to set the `timeoutSeconds` value to `1`, only giving the admission controller one second to contact image scanners, or perform other activities to verify deployments.
 
