@@ -1,0 +1,487 @@
+---
+title: Demystifying RHACS Admission Control
+date: '2025-02-26'
+tags: ['openshift','rhacs','stackrox','admission','control']
+images: ['/static/images/linkedin-banners/deymstifying-rhacs-adm-control.png']
+draft: false
+summary: "Understanding Red Hat Advanced Cluster Security for Kubernetes (RHACS) admission control can be challenging. This article takes a closer look at admission control, and the different configuration settings."
+---
+I've covered Red Hat Advanced Cluster Security for Kubernetes (RHACS) in a few articles to-date:
+
+- [Getting started with RHACS policy-as-code](/blog/rhacs-policy-as-code): A primer on policy as code and GitOps approaches to managing RHACS policies.
+
+- [Taming OpenShift audit with RHACS](/blog/taming-openshift-audit): Creating alerts from OpenShift audit logs using RHACS policies.
+
+- [Getting started with RHACS Scanner V4](/blog/rhacs-scanner-v4): An intro to the new container image scanner included with RHACS v4.4.
+
+- [A new metric for DevSecOps adoption](/blog/devsecops-metrics-rhacs): Covers measuring critical CVE detection frequency, and how to measure this with RHACS.
+
+- [RHSA, CVEs and RHACS (oh my)](/blog/rhsa-cves-rhacs-oh-my): A guide to mapping Red Hat Security Advisories (RHSAs) to CVEs, and automating RHACS CVE deferral with Ansible.
+
+- [GTFOBins and StackRox](/blog/gtfobins-stackrox): Part one in an investigation into living-off-the-land techniques, and integrating the GTFOBins open source project with StackRox (RHACS).
+
+- [GTFOBins and StackRox - Part II)](/blog/gtfobins-stackrox-p2): Part two in an investigation into living-off-the-land techniques, specifically covering runtime security and the GTFOBins open source project integrated with StackRox (RHACS).
+
+- [Sigstore and StackRox](/blog/sigstore-and-stackrox): Covers creating StackRox (RHACS) policies to verify container images are signed using Sigstore signatures.
+
+- [Application control for everyone](/blog/app-control-for-everyone): A guide to application control, and how to implement application control for container workloads using Red Hat Advanced Cluster Security for Kubernetes (RHACS).
+
+But, I haven't covered one of the most asked-about topics - admission control! In this article  I want to take a closer look at admission control, and some of the key things you need to know about using admission control with Red Hat Advanced Cluster Security for Kubernetes (RHACS).
+
+## What is admission control?
+
+An admission controller is a core Kubernetes concept. It's a piece of code within the Kubernetes API server that checks the data arriving in a request to modify or create a resource.
+
+Admission control mechanisms may be validating, mutating, or both. Mutating controllers may modify the data for the resource being modified; validating controllers may not. The Kubernetes project has great docs on admission controllers, which you can find [here](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/)
+
+Red Hat Advanced Cluster Security for Kubernetes (RHACS) includes a **validating** admission controller that can validate Kubernetes requests against RHACS policies, providing a Kubernetes-native approach to preventing vulnerable workloads running on OpenShift and Kubernetes clusters. 
+
+## Understanding "hard" and "soft" enforcement
+Often one of the topics that comes up in Red Hat Advanced Cluster Security for Kubernetes (RHACS) discussions is the concept of "hard" and "soft" enforcement for deployment-time policies.
+
+When you create a user creates deployment on a cluster, it may violate a policy and be "soft" enforced. "Soft" enforcement means actions taken by the sensor running on secured clusters. This is usually referred to as "soft" enforcement as the deployment isn't blocked by the admission controller, but accepted, and pods are scaled down in response to policy violations.
+
+You can see how "soft" enforcement is implemented in the StackRox codebase. It's implemented through a capability called the `Enforcer`, which processes alert results, and takes action if the policy should be enforced.
+
+[Here's](https://github.com/stackrox/stackrox/blob/master/sensor/common/enforcer/enforcer.go) the `sensor` function that takes action when a policy is violated:
+```go
+if a.GetEnforcement().GetAction() == storage.EnforcementAction_UNSET_ENFORCEMENT {
+    continue
+}
+// Do not enforce if there is a bypass annotation specified
+if !enforcers.ShouldEnforce(a.GetDeployment().GetAnnotations()) {
+    continue
+}
+switch stage {
+case storage.LifecycleStage_DEPLOY:
+    e.actionsC <- &central.SensorEnforcement{
+        Enforcement: a.GetEnforcement().Action,
+        Resource: &central.SensorEnforcement_Deployment{
+            Deployment: generateDeploymentEnforcement(a),
+        },
+    }
+...
+```
+This enables RHACS to scale pods down in response to policy violations, or what is sometimes called "soft" enforcement - the deployment isn't blocked, but the pods are scaled down.
+
+"Hard" enforcement is when the Red Hat Advanced Cluster Security for Kubernetes (RHACS) admission controller blocks a deployment, ensuring it is never persisted to `etcd`, and never created on the cluster. RHACS uses a `ValidatingAdmissionWebhook` controller to verify that the resource being provisioned complies with the specified security policies. When the OpenShift Container Platform API (or Kubernetes API) server receives a request that matches one of the webhook rules, the API server sends an AdmissionReview request to RHACS. RHACS then accepts or rejects the request based on the configured security policies.
+
+This is sometimes called "hard" enforcement because the deployment is blocked, and never persisted to `etcd`. It is not accepted to the cluster, like with "soft" enforcement controlled by the sensor.
+
+### When would soft enforcement be performed, instead of "hard" enforcement?
+Usually the RHACS admission controller blocks workloads that violate deployment-time policies (when enforcing actions are configured), and "hard" enforcing these policies. However, there's a few scenarios where "soft" enforcement is performed, instead of the workload being blocked by the RHACS admission controller. We'll explore these in a few demonstrations too:
+
+- **The admission controller is disabled**. If the admission controller is disabled, deployments will not be validated. This results in the deployment being created on the cluster, and pods 'scaled to zero' by the sensor if a policy is violated.
+
+- **The admission controller times-out**. If the request takes longer than a specified time to validate - i.e. if the admission controller needs to wait for the image to be scanned - then the admission controller will "fail open" and admit the deployment. Once it is admitted, then the sensor will perform "soft" enforcement. 
+
+- **`contactImageScanners` is set to `DoNotScanInline` and the policy criteria is image-based**: `contactImageScanners` is a pretty important option. If this is set to `DoNotScanInline`, then image-based criteria for policies won't be validated against deployments. The admission controller will admit the workload, and then sensor will scale the pods down. We'll see a demonstration of this later.
+
+## Deploying and configuring the RHACS admission controller
+Now that we understand a little more about admission control, let's take a look at deploying the RHACS admission controller.
+
+The admission controller is deployed by default when you deploy Secured Cluster Services via the RHACS operator. Here's the configuration:
+```yaml
+apiVersion: platform.stackrox.io/v1alpha1
+kind: SecuredCluster
+metadata:
+  name: stackrox-secured-cluster-services
+  namespace: stackrox
+spec:
+  admissionControl:
+    bypass: BreakGlassAnnotation
+    contactImageScanners: DoNotScanInline
+    listenOnCreates: true
+    listenOnEvents: true
+    listenOnUpdates: true
+    replicas: 3
+    timeoutSeconds: 10
+...
+```
+Let's understand these configuration settings a little more:
+
+- `bypass`: This indicates whether the admission controller can be bypassed. It can be set to `BreakGlassAnnotation`, indicating that an annotation `admission.stackrox.io/break-glass` can be set on deployments, or `Disabled`, indicating that the admission controller cannot be bypassed.
+- `contactImageScanners`: this setting determines whether inline scanning of container images should be performed on previously unscanned images during a deployments admission review by the admission controller. It default to `DoNotScanInline`, but can be set to `ScanIfMissing`.
+- `listenOnCreates`: Controls whether the admission controller listens for 'create' events (e.g. creating a deployment)
+- `listenOnEvents`: Controls whether the admission controller listens for Kubernetes events (e.g. `port-forward` and `exec`)
+- `listenOnUpdates`: Controls whether the admission controller listens for 'update' events (e.g. updating a deployment). Note that this will not have any effect unless 'Listen On Creates' is set to 'true' as well.
+- `replicas`: this controls the number of admission controller replicas created on the cluster (defaults to three)
+- `timeoutSeconds`: this controls the the maximum timeout for an admissions review, upon which the admission controller failing open (i.e. admitting the Kubernetes deployment)
+
+## Configuring RHACS policies for admission control
+Now that we understand a little more about RHACS admission control and "hard" and "soft" enforcement, let's take a look at admission control in action with Red Hat Advanced Cluster Security for Kubernetes (RHACS).
+
+One of the default policies included with RHACS checks whether deployments have CPU and memory limits specified:
+
+<Zoom>
+![admission-control](/static/images/adm-control/mem-policy.png)
+</Zoom>
+
+By default this policy does not perform any enforcement actions - it simply creates an alert that a deployment does not have CPU or memory limits specified. To configure this to perform both "soft" and "hard" enforcement, I simply need to toggle the `Deploy` enforcement action within the policy:
+
+<Zoom>
+![mem-policy-enforce](/static/images/adm-control/mem-policy-enforce.png)
+</Zoom>
+
+Now that the policy is enforcing, we can test out a workload without any limits:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:    
+  labels:
+    app: ubi-test
+    app.kubernetes.io/component: ubi-test
+    app.kubernetes.io/instance: ubi-test
+    app.kubernetes.io/name: ubi-test
+    app.kubernetes.io/part-of: ubi-test
+  name: ubi-test
+  namespace: devops
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: ubi-test
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: ubi-test
+        deployment: ubi-test
+    spec:
+      containers:
+      - image: quay.io/smileyfritz/ubi8:latest
+        imagePullPolicy: IfNotPresent
+        command: 
+          - "/bin/bash"
+          - "-c"
+          - "--"
+        args: 
+          - "while true; do sleep 30; done;"
+        name: ubi-test
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+```
+
+<Zoom>
+![deploy-blocked](/static/images/adm-control/deploy-cpu-blocked.png)
+</Zoom>
+
+Great! Our deployment was blocked by the admission controller. We can also see this reflected in the RHACS violations page:
+
+<Zoom>
+![deploy-alert](/static/images/adm-control/deploy-cpu-alert.png)
+</Zoom>
+
+What if we set `listenOnCreates` to `false`? I've modified the admission controller on my cluster to look like this:
+```yaml
+spec:
+  admissionControl:
+    bypass: BreakGlassAnnotation
+    contactImageScanners: DoNotScanInline
+    listenOnCreates: false
+    listenOnEvents: true
+    listenOnUpdates: false
+    replicas: 3
+    timeoutSeconds: 10
+```
+Now if I create the same deployment, I see different behaviour:
+
+<Zoom>
+![scaled-zero1](/static/images/adm-control/scaled-zero1.png)
+</Zoom>
+
+<Zoom>
+![scaled-zero2](/static/images/adm-control/scaled-zero2.png)
+</Zoom>
+
+<Zoom>
+![scaled-zero3](/static/images/adm-control/scaled-zero3.png)
+</Zoom>
+
+My deployment was accepted instead of being blocked, and the pods were scaled to zero! This is because I set `listenOnCreates` to `false`. This meant that the RHACS admission controller didn't validate the deployment (if `listenOnCreates` was `true`, the admission controller would have blocked the deployment), and instead the deployment was accepted, and the RHACS `sensor` scaled pods to zero instead.
+
+### Enforcing a policy based on image criteria
+The last policy we configured to enforce focused on the deployment spec. It checked whether the containers referenced in the deployment had CPU and memory limits specified, and if not, blocked the deployment.
+
+Let's try a policy based on image-criteria, rather than deployment spec. I want to check if an image has the `nmap-ncat` package present, and if it does, to block the deployment. Why? This is a super-useful command-line tool for attackers, and can could be used to support a [living-off-the-land](/blog/living-off-the-land-containers) strategy on my platform.
+
+This policy checks for the `nmap-ncat` package in containers, and is set to enforce on both `Build` and `Deploy` (you can see that the policy is externally managed, as I'm managing this policy with [GitOps](/blog/rhacs-policy-as-code))
+
+<Zoom>
+![netcat-pol1](/static/images/adm-control/netcat-pol1.png)
+</Zoom>
+
+<Zoom>
+![netcat-pol2](/static/images/adm-control/netcat-pol2.png)
+</Zoom>
+
+Ok! Now let's try to deploy a container image that I *know* contains `netcat`. Before creating the deployment though, let's just make sure that the admission controller is reconfigured to listen on 'creates':
+```yaml
+spec:
+  admissionControl:
+    bypass: BreakGlassAnnotation
+    contactImageScanners: DoNotScanInline
+    listenOnCreates: true
+    listenOnEvents: true
+    listenOnUpdates: true
+    replicas: 3
+    timeoutSeconds: 10
+```
+OK. Now let's create our known-vulnerable deployment:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:    
+  labels:
+    app: chat-client
+    app.kubernetes.io/component: chat-client
+    app.kubernetes.io/instance: chat-client
+    app.kubernetes.io/name: chat-client
+    app.kubernetes.io/part-of: chat-client
+  name: chat-client
+  namespace: devops
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: chat-client
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: chat-client
+        deployment: chat-client
+    spec:
+      containers:
+      - image: quay.io/smileyfritz/chat-client:latest
+        imagePullPolicy: IfNotPresent
+        command: 
+          - "/bin/bash"
+          - "-c"
+          - "--"
+        args: 
+          - "while true; do sleep 30; done;"
+        name: chat-client
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+```
+
+<Zoom>
+![scaled-zero5](/static/images/adm-control/scaled-zero5.png)
+</Zoom>
+
+<Zoom>
+![scaled-zero5-alert](/static/images/adm-control/scaled-zero5-alert.png)
+</Zoom>
+
+Hmm. This is interesting. My policy was set to `enforce` at `Deploy`, but the policy was "soft" enforced (by the RHACS sensor), and not "hard" enforced by the admission controller. Why?
+
+The answer is that little-known option - `contactImageScanners`. To make decisions about image-based criteria, the admission controller may need to contact the RHACS image scanner, and without this setting, it can't. This means that the admission controller "failed open" in this case, admitting the workload, and the deployment was then "soft" enforced by the RHACS sensor, and scaled to zero.
+
+Ok, let's update `contactImageScanners`. I'm going to set it to `ScanIfMissing`, indicating that the admission controller should invoke a scan for images, and wait until the scan results are available to make decisions based on image criteria. 
+
+Here's my updated admission controller spec:
+```yaml
+spec:
+  admissionControl:
+    bypass: BreakGlassAnnotation
+    contactImageScanners: ScanIfMissing
+    listenOnCreates: true
+    listenOnEvents: true
+    listenOnUpdates: true
+    replicas: 3
+    timeoutSeconds: 10
+```
+NB: after modifying the `contactImageScanners` setting, you will need to destroy the `admission-controller` and `sensor` pods, and wait for them to recreate on the cluster.
+
+Let's try the deployment again:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:    
+  labels:
+    app: chat-client
+    app.kubernetes.io/component: chat-client
+    app.kubernetes.io/instance: chat-client
+    app.kubernetes.io/name: chat-client
+    app.kubernetes.io/part-of: chat-client
+  name: chat-client
+  namespace: devops
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: chat-client
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: chat-client
+        deployment: chat-client
+    spec:
+      containers:
+      - image: quay.io/smileyfritz/chat-client:latest
+        imagePullPolicy: IfNotPresent
+        command: 
+          - "/bin/bash"
+          - "-c"
+          - "--"
+        args: 
+          - "while true; do sleep 30; done;"
+        name: chat-client
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+```
+<Zoom>
+![netcat-blocked1](/static/images/adm-control/netcat-blocked1.png)
+</Zoom>
+
+<Zoom>
+![netcat-blocked2](/static/images/adm-control/netcat-blocked2.png)
+</Zoom>
+
+<Zoom>
+![netcat-blocked3](/static/images/adm-control/netcat-blocked3.png)
+</Zoom>
+
+Great! By updating `contactImageScanners` to `ScanIfMissing`, the admission controller can not verify image contents, and block deployment that violate policies describing image-based criteria.
+
+## Modifying the timeout value for the admission controller
+
+Let's explore another scenario. What happens if the admission controller times out, and fails open? 
+
+To force this scenario, I'm going to set the `timeoutSeconds` value to `1`, only giving the admission controller one second to contact image scanners, or perform other activities to verify deployments.
+
+```yaml
+apiVersion: platform.stackrox.io/v1alpha1
+kind: SecuredCluster
+metadata:
+  name: stackrox-secured-cluster-services
+  namespace: stackrox
+spec:
+  admissionControl:
+    bypass: BreakGlassAnnotation
+    contactImageScanners: DoNotScanInline
+    listenOnCreates: true
+    listenOnEvents: true
+    listenOnUpdates: true
+    replicas: 3
+    timeoutSeconds: 1
+```
+Now let's try invoking the same image criteria-based policy and checking for `netcat` present in a container image:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:    
+  labels:
+    app: chat-client
+    app.kubernetes.io/component: chat-client
+    app.kubernetes.io/instance: chat-client
+    app.kubernetes.io/name: chat-client
+    app.kubernetes.io/part-of: chat-client
+  name: chat-client
+  namespace: devops
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: chat-client
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: chat-client
+        deployment: chat-client
+    spec:
+      containers:
+      - image: quay.io/smileyfritz/chat-client:latest
+        imagePullPolicy: IfNotPresent
+        command: 
+          - "/bin/bash"
+          - "-c"
+          - "--"
+        args: 
+          - "while true; do sleep 30; done;"
+        name: chat-client
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+```
+
+<Zoom>
+![timeout1](/static/images/adm-control/timeout1.png)
+</Zoom>
+
+<Zoom>
+![timeout2](/static/images/adm-control/timeout2.png)
+</Zoom>
+
+With only one second to validate the image scan, the admission controller has "timed out" - it has failed to verify the image contents in that time, and verify whether the image contains `netcat`. The admission controller has "failed open", admitting the workload, and the RHACS `sensor` has instead taken action and scaled pods to zero in response to the policy violation.
+
+## Wrap-up
+
+This was a pretty short article, looking at a core Red Hat Advanced Cluster Security for Kubernetes (RHACS) concept, admission control. I explored the differences between "soft" and "hard" enforcement, the different configuration options available, and some of the scenarios in which "soft" and "hard" enforcement of RHACS policies takes place. I hope this has helped :)

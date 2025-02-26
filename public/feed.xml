@@ -7,9 +7,29 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Wed, 11 Dec 2024 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Wed, 26 Feb 2025 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/demystifying-rhacs-adm-control</guid>
+    <title>Demystifying RHACS Admission Control</title>
+    <link>https://stb.id.au/blog/demystifying-rhacs-adm-control</link>
+    <description>Understanding Red Hat Advanced Cluster Security for Kubernetes (RHACS) admission control can be challenging. This article takes a closer look at admission control, and the different configuration settings.</description>
+    <pubDate>Wed, 26 Feb 2025 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>rhacs</category><category>stackrox</category><category>admission</category><category>control</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/rhacs-policy-as-code</guid>
+    <title>Getting started with RHACS Policy-as-Code</title>
+    <link>https://stb.id.au/blog/rhacs-policy-as-code</link>
+    <description>Red Hat Advanced Cluster Security for Kubernetes 4.6 has landed, with one of the mostly hotly requested features - policy-as-code!</description>
+    <pubDate>Fri, 31 Jan 2025 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>rhacs</category><category>stackrox</category><category>policy</category><category>code</category><category>gitops</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/instructlab-netpol</guid>
     <title>Teaching AI models about Kubernetes network policy</title>
@@ -118,6 +138,16 @@
     <pubDate>Mon, 12 Feb 2024 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>kacti</category><category>kubernetes</category><category>security</category><category>verification</category><category>openshift</category><category>containers</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/minecraft-metallb</guid>
+    <title>Exposing Minecraft on OpenShift with MetalLB</title>
+    <link>https://stb.id.au/blog/minecraft-metallb</link>
+    <description>Exposing non-HTTP traffic on OpenShift presents some interesting challenges, and Minecraft provides a great opportunity to explore MetalLB on my bare-metal, single-node OpenShift instance.</description>
+    <pubDate>Mon, 15 Jan 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>kubernetes</category><category>openshift</category><category>metallb</category><category>loadbalancer</category>
   </item>
 
   <item>
