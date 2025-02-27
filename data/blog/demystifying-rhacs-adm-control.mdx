@@ -77,6 +77,8 @@ Usually the RHACS admission controller blocks workloads that violate deployment-
 
 - **`contactImageScanners` is set to `DoNotScanInline` and the policy criteria is image-based**: `contactImageScanners` is a pretty important option. If this is set to `DoNotScanInline`, then image-based criteria for policies won't be validated against deployments. The admission controller will admit the workload, and then sensor will scale the pods down. We'll see a demonstration of this later.
 
+So really, I see the sensor-based 'scale down' of pods ("soft" enforcement) as a redundancy. If the admission controller fails open, is disabled, times out or is misconfigured, the Red Hat Advanced Cluster Security for Kubernetes (RHACS) `sensor` will still scale-down pods on the cluster, and ensure that vulnerable code is not running on the platform.
+
 ## Deploying and configuring the RHACS admission controller
 Now that we understand a little more about admission control, let's take a look at deploying the RHACS admission controller.
 
