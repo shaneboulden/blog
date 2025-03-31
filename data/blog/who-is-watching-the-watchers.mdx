@@ -1,0 +1,430 @@
+---
+title: Who watches the watchers?
+date: '2025-03-31'
+tags: ['rhacm', 'rhacs', 'openshift', 'governance', 'security']
+draft: false
+summary: 'Exploring the age-old question of "who watches the watchers". Or more accurately for IT professionals - how do we provide governance for security platforms?'
+---
+I'll preface this article with - I am not a big Star Trek fan. I apologise profusely if I don't get the terminology or character names correct... But, there is one episode that sticks with me.
+
+The fourth episode of the third season of [Star Trek: The Next Generation](https://en.wikipedia.org/wiki/Star_Trek:_The_Next_Generation) is titled ["Who watches the watchers"](https://en.wikipedia.org/wiki/Who_Watches_the_Watchers). The episode follows the crew of the starship *Enterprise* as they repair an observation post, watching a pro-Vulcan civilisation develop. During the repair, one of the local inhabitants is injured, and saved by the crew, violating the [Prime Directive](https://en.wikipedia.org/wiki/Prime_Directive), a guiding principle that prohibits Starfleet members from interfering with the natural development of alien civilisations.
+
+<Zoom>
+![trek1](/static/images/watchers/trek1.png)
+</Zoom>
+
+<Zoom>
+![trek2](/static/images/watchers/trek2.png)
+</Zoom>
+  
+The crew eventually need to convince the settlement that they are in-fact mortal, before promising to remove the observation outpost and allow the settlement to develop on its own.
+
+The title of this episode comes from a latin phrase - *Quis custodiet ipsos custodes?* It translates as **"Who will guard the guards themselves?"** or **"Who will watch the watchmen?"**. The context for this Star Trek episode is clear - who governs Star Fleet observers, and ensures they are acting appropriately?
+
+In the context of IT security architecture, this phrase can take on a different context. *"Who watches the watchers"* - who ensures that our security monitoring platforms are correctly configured and deployed, and governed correctly? 
+
+One of the platforms you can use to secure OpenShift environments is Red Hat Advanced Cluster Security for Kubernetes (RHACS). If you look at the RHACS architecture, the secured cluster services we push down to clusters - the admission controller, sensor and eBPF probe - look eerily similar to the observation posts from this episode. The eBPF probe provides visibility into runtime process execution and network traffic flows for containers, observing runtime activity. But who ensures that these 'observation posts' are configured correctly?
+
+In this article I'm going to use Red Hat Advanced Cluster Management for Kubernetes (RHACM) to "watch the watchers" - Red Hat Advanced Cluster Security for Kubernetes (RHACS) - and ensure that RHACS components and capabilities are correctly deployed and configured, and that alerts are generated and actions taken when components are changed or modified. Let's get started!
+
+## The OpenShift Plus Policy Set
+
+I'm going to use an existing Red Hat Advanced Cluster Management for Kubernetes (RHACM) policy set to manage RHACS, called the [OpenShift Plus PolicySet](https://github.com/open-cluster-management-io/policy-collection/tree/main/policygenerator/policy-sets/stable/openshift-plus). This is a pre-configured collection of resources you can use to manage Red Hat Advanced Cluster Security for Kubernetes (RHACS) and other OpenShift Plus components with RHACM.
+
+<Zoom>
+![policyset1](/static/images/watchers/policyset1.png)
+</Zoom>
+
+<Zoom>
+![policyset2](/static/images/watchers/policyset2.png)
+</Zoom>
+
+The OpenShift Plus PolicySet supports:
+- Configuring Red Hat Advanced Cluster Management for Kubernetes (RHACM) observability components on managed clusters
+- Configuring a hub instance of Red Hat Advanced Cluster Security for Kubernetes (RHACS) Central, hosting the vulnerability scanner, API, user interface, policy engine, and other platform components
+- Configuring RHACS Secured Cluster Services on spoke clusters, ensuring that the sensor, admission controller and eBPF programs are correctly deployed
+- Deploying the OpenShift compliance operator, to report cluster compliance back to RHACS Central
+- Configuring an instance of Quay
+- Deploying and managing OpenShift Data Foundation (ODF)
+
+I don't need all of these services, and I'm just going to look at RHACS and both its Central and Secured Cluster instances, as well as the compliance operator. I've created a modified version of the policy set [here]() if you want to take a look.
+
+<Zoom>
+![repo1](/static/images/watchers/repo1.png)
+</Zoom>
+
+<Zoom>
+![repo2](/static/images/watchers/repo2.png)
+</Zoom>
+
+## Installing the Policy Generator plugin
+The OpenShift Plus policy set uses the [policy generator plugin]() to create policies to manage RHACS and the compliance operator from templates, and the first step before using the policy set is to install the plugin.
+
+You can find a guide to installing the plugin [here](https://github.com/open-cluster-management-io/policy-generator-plugin?tab=readme-ov-file#install-the-binary). Essentially on Linux it's a case of running the following commands from your terminal:
+```
+wget https://github.com/open-cluster-management-io/policy-generator-plugin/releases/latest/download/linux-arm64-PolicyGenerator
+chmod +x linux-amd64-PolicyGenerator
+mv linux-amd64-PolicyGenerator ${HOME}/.config/kustomize/plugin/policy.open-cluster-management.io/v1/policygenerator/PolicyGenerator
+```
+
+## Deploying RHACS components with the OpenShift Plus PolicySet
+Once you have the policy generator plugin installed, you can deploy the RHACS Central and Secured Cluster services using `kustomize`. If you haven't come across Kustomize before, it's a is a standalone tool to customize Kubernetes objects through a [kustomization](https://kubectl.docs.kubernetes.io/references/kustomize/glossary/#kustomization) file. You can see that we have a `kustomization.yml` in the root of the project directory:
+```yaml:kustomization.yml
+generators:
+- ./policyGenerator.yaml
+commonLabels:
+  open-cluster-management.io/policy-set: openshift-plus
+commonAnnotations:
+  argocd.argoproj.io/compare-options: IgnoreExtraneous
+```
+I can apply it with `kustomize build --enable-alpha-plugins  | oc apply -f -`:
+```bash
+$ kustomize build --enable-alpha-plugins  | oc apply -f -
+placement.cluster.open-cluster-management.io/placement-openshift-plus-clusters created
+placement.cluster.open-cluster-management.io/placement-openshift-plus-hub created
+placementbinding.policy.open-cluster-management.io/binding-policy-openshift-plus-hub created
+placementbinding.policy.open-cluster-management.io/binding-policy-openshift-plus-hub2 created
+policy.policy.open-cluster-management.io/policy-acs-central-ca-bundle created
+policy.policy.open-cluster-management.io/policy-acs-central-ca-bundle-expired created
+policy.policy.open-cluster-management.io/policy-acs-central-status created
+policy.policy.open-cluster-management.io/policy-acs-monitor-certs created
+policy.policy.open-cluster-management.io/policy-acs-operator-central created
+policy.policy.open-cluster-management.io/policy-acs-sync-resources created
+policy.policy.open-cluster-management.io/policy-advanced-managed-cluster-security created
+policy.policy.open-cluster-management.io/policy-advanced-managed-cluster-status created
+policy.policy.open-cluster-management.io/policy-compliance-operator-install created
+policyset.policy.open-cluster-management.io/openshift-plus-clusters created
+policyset.policy.open-cluster-management.io/openshift-plus-hub created
+```
+You can see now that I have two policy sets deployed on this cluster - a policy set to manage hub components, and another to manage 'spoke' clusters. The idea is that I can then deploy Red Hat Advanced Cluster Security for Kubernetes (RHACS) 'Central' to the hub cluster, and RHACS 'Secured Cluster Services' (and the compliance operator) to spokes. For this example I just have a single cluster, so I'm going to deploy everything to the one cluster, but the option is there for me to manage multiple clusters using a hub and spoke configuration.
+
+<Zoom>
+![policy1](/static/images/watchers/policy1.png)
+</Zoom>
+
+You can see that a number of policies have been created, targeting both the hub and spoke policy sets. Some of these policies will be in a 'pending' state, because there are dependencies between them. For example, the `policy-acs-monitor-certs` policy requires that the RHACS Central CA bundle is created, before the certs can be monitored. This is shown in the `policyGenerator.yaml` file:
+```yaml:'policyGenerator.yaml' {7-8} showLineNumbers
+- name: policy-acs-monitor-certs
+  categories:
+    - SC System and Communications Protection
+  consolidateManifests: false
+  controls:
+    - SC-8 Transmission Confidentiality and Integrity
+  dependencies:
+    - name: policy-acs-central-ca-bundle
+  manifests:
+    - path: input-sensor/acs-check-certificates.yaml
+    - path: input-sensor/policy-acs-central-ca-bundle-expired.yaml
+      remediationAction: inform
+```
+<Zoom>
+![policy2](/static/images/watchers/policy2.png)
+</Zoom>
+
+If we take a look at the `stackrox` namespace on the local cluster, you can see the Red Hat Advanced Cluster Security for Kubernetes (RHACS) Central and Secured Cluster services components deploying:
+
+<Zoom>
+![policy3](/static/images/watchers/policy3.png)
+</Zoom>
+
+Once all of the RHACS components are deployed you should see green ticks across all the policies.
+
+<Zoom>
+![policy4](/static/images/watchers/policy5.png)
+</Zoom>
+
+<Zoom>
+![policy5](/static/images/watchers/policy5.png)
+</Zoom>
+
+If you login to the new Red Hat Advanced Cluster Security for Kubernetes (RHACS) Central instance, you should see that the cluster has been automtically enrolled, and vulnerability information is starting to flow through to the dashboard:
+
+<Zoom>
+![dash1](/static/images/watchers/dash1.png)
+</Zoom>
+
+<Zoom>
+![dash2](/static/images/watchers/dash2.png)
+</Zoom>
+
+## Modifying the RHACS config
+What if I want to make changes now to RHACS config? I can use the repo and policy generator plugin again to make changes.
+
+If I take a look at the deployed RHACS configuration, I can see that the admission controller is only listening on 'events', and won't be invoked when we create or update a Kubernetes deployment.
+
+<Zoom>
+![modify1](/static/images/watchers/modify1.png)
+</Zoom>
+
+NB: If you want to better understand the RHACS admission controller, I [wrote an article last month](/blog/rhacs-adm-control) detailing these behaviours.
+
+Let's update this. I'm going to modify the policy set in two locations to ensure that the admission controller is listening on both 'creates' **and** 'updates' - `input-sensor/policy-advanced-managed-cluster-security.yaml` and `input-sensor/policy-acs-sync-resources.yaml`:
+```yaml:'input-sensor/policy-advanced-managed-cluster-security.yaml' {15-17} showLineNumbers
+apiVersion: platform.stackrox.io/v1alpha1
+kind: SecuredCluster
+metadata:
+  namespace: stackrox
+  name: stackrox-secured-cluster-services
+spec:
+  clusterName: |
+    {{ fromSecret "open-cluster-management-agent" "hub-kubeconfig-secret" "cluster-name" | base64dec }}
+  auditLogs:
+    collection: Auto
+  centralEndpoint: |
+    {{ fromSecret "stackrox" "sensor-tls" "acs-host" | base64dec }}
+  admissionControl:
+    contactImageScanners: ScanIfMissing
+    listenOnCreates: true
+    listenOnEvents: true
+    listenOnUpdates: true
+  perNode:
+    collector:
+      collection: CORE_BPF
+      imageFlavor: Regular
+    taintToleration: TolerateTaints
+```
+
+```yaml:'input-sensor/policy-acs-sync-resources.yaml' {15-17} showLineNumbers
+apiVersion: platform.stackrox.io/v1alpha1
+kind: SecuredCluster
+metadata:
+  name: stackrox-secured-cluster-services
+  namespace: stackrox
+spec:
+  clusterName: |
+    {{ fromSecret "open-cluster-management-agent" "hub-kubeconfig-secret" "cluster-name" | base64dec }}
+  auditLogs:
+    collection: Auto
+  centralEndpoint: |
+    {{ fromSecret "stackrox" "sensor-tls" "acs-host" | base64dec }}
+  admissionControl:
+    contactImageScanners: ScanIfMissing
+    listenOnCreates: true
+    listenOnEvents: true
+    listenOnUpdates: true
+  scanner:
+    scannerComponent: Disabled
+  perNode:
+    collector:
+      collection: CORE_BPF
+      imageFlavor: Regular
+    taintToleration: TolerateTaints
+```
+Now I can run `kustomize` again. You can see in the output that the two policies I modified have been updated, and the rest are left unchanged:
+```bash {10-11} showLineNumbers
+placement.cluster.open-cluster-management.io/placement-openshift-plus-clusters unchanged
+placement.cluster.open-cluster-management.io/placement-openshift-plus-hub unchanged
+placementbinding.policy.open-cluster-management.io/binding-policy-openshift-plus-hub unchanged
+placementbinding.policy.open-cluster-management.io/binding-policy-openshift-plus-hub2 unchanged
+policy.policy.open-cluster-management.io/policy-acs-central-ca-bundle unchanged
+policy.policy.open-cluster-management.io/policy-acs-central-ca-bundle-expired unchanged
+policy.policy.open-cluster-management.io/policy-acs-central-status unchanged
+policy.policy.open-cluster-management.io/policy-acs-monitor-certs unchanged
+policy.policy.open-cluster-management.io/policy-acs-operator-central unchanged
+policy.policy.open-cluster-management.io/policy-acs-sync-resources configured
+policy.policy.open-cluster-management.io/policy-advanced-managed-cluster-security configured
+policy.policy.open-cluster-management.io/policy-advanced-managed-cluster-status unchanged
+policy.policy.open-cluster-management.io/policy-compliance-operator-install unchanged
+policyset.policy.open-cluster-management.io/openshift-plus-clusters unchanged
+policyset.policy.open-cluster-management.io/openshift-plus-hub unchanged
+```
+I can now see in the OpenShift console that the Red Hat Advanced Cluster Security for Kubernetes (RHACS) Secured Cluster services have been updated, and the admission controller is now listening on 'create' and 'update' events.
+
+<Zoom>
+![modify2](/static/images/watchers/modify2.png)
+</Zoom>
+
+Now that the admission controller is updated, let's try it out. I'm firstly going to modify the default Red Hat Advanced Cluster Security for Kubernetes (RHACS) `Log4Shell` policy to 'enforce' at deployment time, rather than simply create alerts.
+
+<Zoom>
+![deploy1](/static/images/watchers/deploy1.png)
+</Zoom>
+
+<Zoom>
+![deploy2](/static/images/watchers/deploy2.png)
+</Zoom>
+
+Now let's try creating a new deployment which references a container image vulnerable to log4shell:
+```yaml:log4shell-app.yaml {33} showLineNumbers
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: log4shell-app
+    app.kubernetes.io/component: log4shell-app
+    app.kubernetes.io/instance: log4shell-app
+    app.kubernetes.io/name: log4shell-app
+    app.kubernetes.io/part-of: log4shell-app
+    app.openshift.io/runtime-namespace: app-deploy
+  name: log4shell-app
+  namespace: app-deploy
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 0
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: log4shell-app
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: log4shell-app
+        deployment: log4shell-app
+    spec:
+      containers:
+      - image: quay.io/smileyfritz/log4shell-app:v0.5
+        imagePullPolicy: IfNotPresent
+        name: log4shell-app
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+```
+Now that the admission controller has been configured to listen on `create` events, I should see an error like this presented in the OpenShift console:
+
+<Zoom>
+![deploy3](/static/images/watchers/deploy3.png)
+</Zoom>
+
+## Creating a compliance operator integration with RHACS
+The next 'who is watching the watchers' scenario I want to look at is platform compliance. One of the other policies deployed by the OpenShift Platform Plus policy set is to manage the OpenShift compliance operator on spoke clusters. You can see the policy here:
+
+<Zoom>
+![compliance1](/static/images/watchers/compliance1.png)
+</Zoom>
+
+You can see that this policy has all green ticks - meaning that the compliance operator was deployed successfully, and there are no issues with the configuration:
+
+<Zoom>
+![compliance2](/static/images/watchers/compliance2.png)
+</Zoom>
+
+This is great news, because it means I can create a compliance integration with Red Hat Advanced Cluster Security for Kubernetes (RHACS)! You can find a tab in the RHACS menu for compliance, and creating a schedule:
+
+<Zoom>
+![compliance3](/static/images/watchers/compliance3.png)
+</Zoom>
+
+I'm going to create a simple scheduled compliance scan using the OpenShift 'Essential Eight' compliance profile. This is a very lightweight profile that contains only a few checks that align with the Australian Signals Directorate's 'Essential Eight' strategies to better manage cybersecurity risk:
+
+<Zoom>
+![compliance4](/static/images/watchers/compliance4.png)
+</Zoom>
+
+On the next screen I can select clusters for this compliance schedule. The `Operator status` refers to the OpenShift compliance operator running on the target cluster. It needs to be 'Healthy' for the integration to work - and fortunately for us, Red Hat Advanced Cluster Management for Kubernetes (RHACM) is managing the operator status and health, and will report any issues!
+
+<Zoom>
+![compliance5](/static/images/watchers/compliance5.png)
+</Zoom>
+
+Since the operator status is 'healthy', Red Hat Advanced Cluster Security for Kubernetes (RHACS) can retrieve the compliance profiles supported, and I'm going to select the `ocp4-e8` profile.
+
+<Zoom>
+![compliance6](/static/images/watchers/compliance6.png)
+</Zoom>
+
+I can now start a scan with the 'Run scan' option for the schedule:
+
+<Zoom>
+![compliance7](/static/images/watchers/compliance7.png)
+</Zoom>
+
+And the results will show up in Red Hat Advanced Cluster Security for Kubernetes (RHACS):
+
+<Zoom>
+![compliance8](/static/images/watchers/compliance8.png)
+</Zoom>
+
+## Managing security policy-as-code with RHACM and ArgoCD
+The final 'who is watching the watchers' scenario I want to look at is managing security policy as code. I covered this also in a [previous article](/blog/rhacs-policy-as-code), and it provides a mechanism where we can use ArgoCD to manage security policies as Kubernetes custom resources.
+
+What if I have multiple Red Hat Advanced Cluster Security for Kubernetes (RHACS) Central instances that I want to consistently apply policies-as-code to? This is a common scenario I come across, where organisations have a RHACS Central instance in development, and another separate instance in production, and want to ensure there is a boundary separating the two environments.
+
+Fortunately, I can use Red Hat Advanced Cluster Management for Kubernetes (RHACM) to 'watch the watchers', and push this to multiple RHACS 'observation posts', ensuring consistency across these environments.
+
+Red Hat Advanced Cluster Management for Kubernetes (RHACM) supports two types of application sets we can use to manage security policies as code:
+
+- `Argo CD ApplicationSet - Pull model`: In the pull model, the Argo CD Application CR is distributed from the centralised cluster to the remote clusters. Each remote cluster independently reconciles and deploys the application using the received CR. Subsequently, the application status is reported back from the remote clusters to the centralised cluster. One of the main use cases for the optional pull model is to address network scenarios where the centralised cluster cannot reach out to remote clusters, but the remote clusters can communicate with the centralized cluster.
+
+- `Argo CD ApplicationSet - Push model`: This is where the security policies are pushed from a centralised cluster to remote clusters, requiring a connection from the centralized cluster to the remote destinations.
+
+Because I have everything on the one cluster, I can't use a pull model (my preference for multi-cluster operations), and I'm going to use a 'Push model' instead:
+
+<Zoom>
+![push1](/static/images/watchers/push1.png)
+</Zoom>
+
+Next I need to create a name for the application set, and select the local Argo CD instance (ensure that OpenShift GitOps is deployed, and create the Argo server if it doesn't exist):
+
+<Zoom>
+![push2](/static/images/watchers/push2.png)
+</Zoom>
+
+Select the repo and branch, and ensure that the policies are deployed into the `stackrox` namespace:
+
+<Zoom>
+![push3](/static/images/watchers/push3.png)
+</Zoom>
+
+Leave the sync policy as-is:
+
+<Zoom>
+![push4](/static/images/watchers/push4.png)
+</Zoom>
+
+Once you've selected the cluster placement review the new application set, and click 'Submit':
+
+<Zoom>
+![push5](/static/images/watchers/push5.png)
+</Zoom>
+
+<Zoom>
+![push6](/static/images/watchers/push6.png)
+</Zoom>
+
+If you navigate to Argo CD, you should now have a new application created, and the `SecurityPolicy` resources deployed to the cluster:
+
+<Zoom>
+![app1](/static/images/watchers/app1.png)
+</Zoom>
+
+<Zoom>
+![app2](/static/images/watchers/app2.png)
+</Zoom>
+
+Finally, if I navigate to the Red Hat Advanced Cluster Security for Kubernetes (RHACS) 'Policy Management' tab I can that I have a new policy created that is listed as 'Externally managed', and shows a warning if I try to edit it:
+
+<Zoom>
+![app3](/static/images/watchers/app3.png)
+</Zoom>
+
+<Zoom>
+![app4](/static/images/watchers/app4.png)
+</Zoom>
+
+## Wrap up
+
+In this article I've explored 'who is watching the watchers' - it's a great Star Trek episode, and also applies to governing security platforms and technologies. I've used a pre-built Red Hat Advanced Cluster Management for Kubernetes (RHACM) policy set to manage Red Hat Advanced Cluster Security for Kubernetes (RHACS), and ensure that secured cluster services and the OpenShift compliance operator are installed and managed correctly.
+
+You can check out all of the RHACM policy sets here: https://github.com/open-cluster-management-io/policy-collection/tree/main
+
+This includes policies to:
+
+- [Harden Red Hat Advanced Cluster Management for Kubernetes (RHACM)](https://github.com/open-cluster-management-io/policy-collection/tree/main/policygenerator/policy-sets/stable/acm-hardening)
+- [Deploy and manage OPA Gatekeeper](https://github.com/open-cluster-management-io/policy-collection/tree/main/policygenerator/policy-sets/community/gatekeeper)
+- [Deploy and manage Kyverno](https://github.com/open-cluster-management-io/policy-collection/tree/main/policygenerator/policy-sets/community/kyverno)
+
+...and many others. Hope this was helpful!
