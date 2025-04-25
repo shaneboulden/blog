@@ -1,0 +1,506 @@
+---
+title: All About ARF
+date: '2025-04-28'
+tags: ['arf', 'scap', 'compliance', 'openshift', 'rhel']
+images: ['/static/images/linkedin-banners/who-watches-the-watchers.png']
+draft: false
+summary: 'What sound does a SCAPendoes make? ARF!'
+---
+I think that the Asset Reporting Format (ARF) is one of the most useful NIST standards built-in to the OpenSCAP Scanner. With just a simple switch you can turn a frustratingly plain compliance report into something actionable, with information you can use to modify system configuration and return it to a compliant baseline.
+
+Before we dive in, I need to get a super quick compliance-related Dad-joke out the way. The inspiration for this is this [delightful comic](https://comicskingdom.com/mutts/2023-11-26) from Patrick McDonnell.
+
+<Zoom>
+![mutts](/static/images/arf/mutts.png)
+</Zoom>
+
+<Quote>What sound does a SCAPendoes make?</Quote>
+
+<Quote>ARF!</Quote>
+
+I promise this will make more sense as the article progresses...
+
+A quick disclaimer - the first part of this article is pretty heavy with XML. You can skip to the [ARF in Action]() section if you want to skip the XML deep-dive. 
+
+Let's explore ARF!
+
+## What is the Asset Reporting Format (ARF)?
+The [Asset Reporting Format (ARF)]() is an XML-based standard developed as part of the NIST [Security Content Automation Protocol (SCAP) suite](), designed to make it easier to report on the state of IT assets in a structured, machine-readable way.
+
+ARF provides an important role in organisations. One of the common challenges organisations is understanding "what do I actually own / have, and how is it configured?" ARF supports this by leveraging asset identification for ARF reports. Each asset in an ARF report is uniquely identified, and this provides a way to tie data about assets from different sources. In fact, the 'asset' section of ARF reports contains information just about the asset - independent of the relationship to reports.
+
+You can see an example of an ARF report here: 
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<asset-report-collection xmlns:ai="http://scap.nist.gov/schema/asset-identification/1.1"
+    xmlns="http://scap.nist.gov/schema/asset-reporting-format/1.1"
+    xmlns:core="http://scap.nist.gov/schema/reporting-core/1.1"
+    xmlns:xlink="http://www.w3.org/1999/xlink"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://scap.nist.gov/schema/asset-reporting-format/1.1 http://scap.nist.gov/schema/asset-reporting-format/1.1/asset-reporting-format_1.1.0.xsd">
+    <core:relationships xmlns:arfvocab="http://scap.nist.gov/vocabulary/arf/relationships/1.0#">
+        <core:relationship type="arfvocab:isAbout" subject="report_1">
+            <core:ref>asset_1</core:ref>
+        </core:relationship>
+        <core:relationship type="arfvocab:createdFor" subject="report_1">
+            <core:ref>report_request_1</core:ref>
+        </core:relationship>
+    </core:relationships>
+    <report-requests>
+        <report-request id="report_request_1">
+            <content>
+                <Benchmark id="minimal-xccdf" xml:lang="en-US"
+                    xmlns="http://checklists.nist.gov/xccdf/1.1"
+                    xmlns:cpe="http://cpe.mitre.org/dictionary/2.0"
+                    xmlns:dc="http://purl.org/dc/elements/1.1/"
+                    xmlns:xhtml="http://www.w3.org/1999/xhtml">
+                    <status date="2009-12-01">draft</status>
+                    <title>Test Title</title>
+                    <description>
+                        <xhtml:strong>Test Description</xhtml:strong>
+                    </description>
+                    <notice id="test-notice">Test Notice</notice>
+                    <reference href="http://testreference1">
+                        <dc:publisher>Test Publisher1</dc:publisher>
+                        <dc:identifier>Test Identifier1</dc:identifier>
+                    </reference>
+                    <platform idref="cpe:/o:microsoft:windows_vista"/>
+                    <version>Test Version</version>
+                    <metadata>
+                        <dc:creator>Test Creator</dc:creator>
+                        <dc:publisher>Test Publisher</dc:publisher>
+                        <dc:contributor>Test Contributor</dc:contributor>
+                        <dc:source>http://scap.nist.gov/</dc:source>
+                    </metadata>
+                    <Profile id="test_profile1">
+                        <title>Test Title for Profile 1</title>
+                        <description>Test Description for Profile 1</description>
+                        <select idref="test_rule1" selected="true"/>
+                    </Profile>
+                    <Rule id="test_rule1" selected="true" weight="10.0">
+                        <title>Test Title for Rule 1</title>
+                        <description>Test Description for Rule 1</description>
+                        <ident system="http://cce.mitre.org">CCE-2466-1</ident>
+                        <check system="http://oval.mitre.org/XMLSchema/oval-definitions-5">
+                            <check-content-ref href="minimal-oval.xml" name="oval:gov.nist.test.compliance:def:1"/>
+                        </check>
+                    </Rule>
+                </Benchmark>
+            </content>
+        </report-request>
+    </report-requests>
+    <assets>
+        <asset id="asset_1">
+            <ai:computing-device>
+                <ai:connections>
+                    <ai:connection>
+                        <ai:ip-address>
+                            <ai:ip-v4>192.168.2.10</ai:ip-v4>
+                        </ai:ip-address>
+                    </ai:connection>
+                </ai:connections>
+                <ai:fqdn>comp1234.tempuri.org</ai:fqdn>
+            </ai:computing-device>
+        </asset>
+    </assets>
+    <reports>
+        <report id="report_1">
+            <content>
+                <TestResult xmlns="http://checklists.nist.gov/xccdf/1.1" id="minimal-xccdf1280857747215" version="Test Version" test-system="cpe:/a:nist:scap_scanner:1.0"
+start-time="2010-08-03T13:44:07.657-04:00" end-time="2010-08-03T13:49:07.657-04:00">
+                    <benchmark href="minimal-xccdf"/>
+                    <title xml:lang="en-US">SCAP automated assessment for checklist minimal-xccdf performed at Tuesday, August 3, 2010</title>
+                    <organization>National Institute of Standards and Technology</organization>
+                    <identity authenticated="1" privileged="1">administrator</identity>
+                    <profile idref="test_profile1"/>
+                    <target>0:0:0:0:0:0:0:1</target>
+                    <target>127.0.0.1</target>
+                    <target>host.domain.tld</target>
+                    <target-address>0:0:0:0:0:0:0:1</target-address>
+                    <target-address>127.0.0.1</target-address>
+                    <target-address>192.168.222.1</target-address>
+                    <target-facts>
+                        <fact name="urn:xccdf:fact:asset:identifier:host_name" type="string">0:0:0:0:0:0:0:1</fact>
+                        <fact name="urn:xccdf:fact:asset:identifier:fqdn" type="string">0:0:0:0:0:0:0:1</fact>
+                        <fact name="urn:xccdf:fact:asset:identifier:ipv6" type="string">0:0:0:0:0:0:0:1</fact>
+                        <fact name="urn:xccdf:fact:asset:identifier:host_name" type="string">127.0.0.1</fact>
+                        <fact name="urn:xccdf:fact:asset:identifier:fqdn" type="string">127.0.0.1</fact>
+                        <fact name="urn:xccdf:fact:asset:identifier:ipv4" type="string">127.0.0.1</fact>
+                        <fact name="urn:xccdf:fact:asset:identifier:mac" type="string"/>
+                        <fact name="urn:xccdf:fact:asset:identifier:host_name" type="string">host.domain.tld</fact>
+                        <fact name="urn:xccdf:fact:asset:identifier:fqdn" type="string">host.domain.tld</fact>
+                        <fact name="urn:xccdf:fact:asset:identifier:ipv4" type="string">192.168.222.1</fact>
+                        <fact name="urn:xccdf:fact:asset:identifier:mac" type="string">00:50:56:c0:00:01</fact>
+                    </target-facts>
+                    <rule-result idref="test_rule1" time="2010-08-03T13:49:07.650-04:00" weight="10.0">
+                        <result>pass</result>
+                        <ident system="http://cce.mitre.org">CCE-2466-1</ident>
+                        <instance>host.domain.tld</instance>
+                        <check system="http://oval.mitre.org/XMLSchema/oval-definitions-5">
+                            <check-content-ref href="minimal-oval-res.xml" name="oval:gov.nist.test.compliance:def:1"/>
+                        </check>
+                    </rule-result>
+                    <score maximum="1" system="urn:xccdf:scoring:flat-unweighted">1</score>
+                    <score maximum="10" system="urn:xccdf:scoring:flat">10</score>
+                </TestResult>
+            </content>
+        </report>
+    </reports>
+</asset-report-collection>
+```
+Let's break down this example. The `asset-report-collection` is the top-level container for an ARF report, and contains `assets`, `reports` and `relationships`.
+```xml
+<asset-report-collection xmlns:ai="http://scap.nist.gov/schema/asset-identification/1.1"
+    xmlns="http://scap.nist.gov/schema/asset-reporting-format/1.1"
+    xmlns:core="http://scap.nist.gov/schema/reporting-core/1.1"
+    xmlns:xlink="http://www.w3.org/1999/xlink"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://scap.nist.gov/schema/asset-reporting-format/1.1
+    http://scap.nist.gov/schema/asset-reporting-format/1.1/asset-reporting-format_1.1.0.xsd">
+...
+<asset-report-collection>
+```
+ARF primarily exists to express information about assets and the relationships between assets and reports. You can see this in the `core:relationships` section. This highlights that the ARF document contains a report `report_1`, which is about an asset, `asset_1`. 
+```xml
+<core:relationships xmlns:arfvocab="http://scap.nist.gov/vocabulary/arf/relationships/1.0#">
+    <core:relationship type="arfvocab:isAbout" subject="report_1">
+        <core:ref>asset_1</core:ref>
+    </core:relationship>
+    <core:relationship type="arfvocab:createdFor" subject="report_1">
+        <core:ref>report_request_1</core:ref>
+    </core:relationship>
+</core:relationships>
+```
+ARF documents need to contain a section `report-requests`. This basically describes the report created, who / what it was created for, and some information about the report. In our example, an XCCDF report (a compliance scan) has been requested or a Microsoft Windows Vista system, with several explicit compliance rules defined.
+
+```xml
+<report-requests>
+    <report-request id="report_request_1">
+        <content>
+            <Benchmark id="minimal-xccdf" xml:lang="en-US"
+                xmlns="http://checklists.nist.gov/xccdf/1.1"
+                xmlns:cpe="http://cpe.mitre.org/dictionary/2.0"
+                xmlns:dc="http://purl.org/dc/elements/1.1/"
+                xmlns:xhtml="http://www.w3.org/1999/xhtml">
+                <status date="2009-12-01">draft</status>
+                <title>Test Title</title>
+                <description>
+                    <xhtml:strong>Test Description</xhtml:strong>
+                </description>
+                <notice id="test-notice">Test Notice</notice>
+                <reference href="http://testreference1">
+                    <dc:publisher>Test Publisher1</dc:publisher>
+                    <dc:identifier>Test Identifier1</dc:identifier>
+                </reference>
+                <platform idref="cpe:/o:microsoft:windows_vista"/>
+                <version>Test Version</version>
+                <metadata>
+                    <dc:creator>Test Creator</dc:creator>
+                    <dc:publisher>Test Publisher</dc:publisher>
+                    <dc:contributor>Test Contributor</dc:contributor>
+                    <dc:source>http://scap.nist.gov/</dc:source>
+                </metadata>
+                <Profile id="test_profile1">
+                    <title>Test Title for Profile 1</title>
+                    <description>Test Description for Profile 1</description>
+                    <select idref="test_rule1" selected="true"/>
+                </Profile>
+                <Rule id="test_rule1" selected="true" weight="10.0">
+                    <title>Test Title for Rule 1</title>
+                    <description>Test Description for Rule 1</description>
+                    <ident system="http://cce.mitre.org">CCE-2466-1</ident>
+                    <check system="http://oval.mitre.org/XMLSchema/oval-definitions-5">
+                        <check-content-ref href="minimal-oval.xml" name="oval:gov.nist.test.compliance:def:1"/>
+                    </check>
+                </Rule>
+            </Benchmark>
+        </content>
+    </report-request>
+</report-requests>
+```
+Ok, so far we know that:
+- ARF documents describe relationships between assets and reports
+- Assets are uniquely identified in ARF documents using asset identification
+
+In our example, the ARF document describes an XCCDF scan (the report), which was conducted for a Microsoft Windows Vista system (the asset). There's more detail about the asset in the `assets` section:
+```xml
+<assets>
+    <asset id="asset_1">
+        <ai:computing-device>
+            <ai:connections>
+                <ai:connection>
+                    <ai:ip-address>
+                        <ai:ip-v4>192.168.2.10</ai:ip-v4>
+                    </ai:ip-address>
+                </ai:connection>
+            </ai:connections>
+            <ai:fqdn>comp1234.tempuri.org</ai:fqdn>
+        </ai:computing-device>
+    </asset>
+</assets>
+```
+Great! Now we know that this XCCDF scan was requested for a Microsoft Windows Vista system with the IPv4 address `192.168.2.10` and hostname `comp1234.tempuri.org`.
+
+Finally, the XCCDF scan results are shown in the `reports` section. This section can contain many reports, but we only have one - an XCCDF scan for this system.
+```xml
+<report id="report_1">
+    <content>
+        <TestResult xmlns="http://checklists.nist.gov/xccdf/1.1" id="minimal-xccdf1280857747215" version="Test Version" test-system="cpe:/a:nist:scap_scanner:1.0"
+start-time="2010-08-03T13:44:07.657-04:00" end-time="2010-08-03T13:49:07.657-04:00">
+            <benchmark href="minimal-xccdf"/>
+            <title xml:lang="en-US">SCAP automated assessment for checklist minimal-xccdf performed at Tuesday, August 3, 2010</title>
+            <organization>National Institute of Standards and Technology</organization>
+            <identity authenticated="1" privileged="1">administrator</identity>
+            <profile idref="test_profile1"/>
+            <target>0:0:0:0:0:0:0:1</target>
+            <target>127.0.0.1</target>
+            <target>host.domain.tld</target>
+            <target-address>0:0:0:0:0:0:0:1</target-address>
+            <target-address>127.0.0.1</target-address>
+            <target-address>192.168.222.1</target-address>
+            <target-facts>
+                <fact name="urn:xccdf:fact:asset:identifier:host_name" type="string">0:0:0:0:0:0:0:1</fact>
+                <fact name="urn:xccdf:fact:asset:identifier:fqdn" type="string">0:0:0:0:0:0:0:1</fact>
+                <fact name="urn:xccdf:fact:asset:identifier:ipv6" type="string">0:0:0:0:0:0:0:1</fact>
+                <fact name="urn:xccdf:fact:asset:identifier:host_name" type="string">127.0.0.1</fact>
+                <fact name="urn:xccdf:fact:asset:identifier:fqdn" type="string">127.0.0.1</fact>
+                <fact name="urn:xccdf:fact:asset:identifier:ipv4" type="string">127.0.0.1</fact>
+                <fact name="urn:xccdf:fact:asset:identifier:mac" type="string"/>
+                <fact name="urn:xccdf:fact:asset:identifier:host_name" type="string">host.domain.tld</fact>
+                <fact name="urn:xccdf:fact:asset:identifier:fqdn" type="string">host.domain.tld</fact>
+                <fact name="urn:xccdf:fact:asset:identifier:ipv4" type="string">192.168.222.1</fact>
+                <fact name="urn:xccdf:fact:asset:identifier:mac" type="string">00:50:56:c0:00:01</fact>
+            </target-facts>
+            <rule-result idref="test_rule1" time="2010-08-03T13:49:07.650-04:00" weight="10.0">
+                <result>pass</result>
+                <ident system="http://cce.mitre.org">CCE-2466-1</ident>
+                <instance>host.domain.tld</instance>
+                <check system="http://oval.mitre.org/XMLSchema/oval-definitions-5">
+                    <check-content-ref href="minimal-oval-res.xml" name="oval:gov.nist.test.compliance:def:1"/>
+                </check>
+            </rule-result>
+            <score maximum="1" system="urn:xccdf:scoring:flat-unweighted">1</score>
+            <score maximum="10" system="urn:xccdf:scoring:flat">10</score>
+        </TestResult>
+    </content>
+</report>
+```
+
+## ARF in Action
+Now that we know about the ARF format let's see it in action. Firstly, I want to run a scan without ARF, and see what the results look like. Let's run an Australian ISM benchmark scan of a Red Hat Enteprise Linux 9 system using the 'official' level controls and collect the results in XCCDF format (not ARF).
+
+I want to show how ARF results can look for misconfigured systems, so let's place a world-writeable file in `/etc`:
+```
+touch /etc/my-wr-file
+chmod 777 /etc/my-wr-file
+```
+Let's find a profile to use for the scan. You can check the available XCCDF profiles available on a RHEL system with the `oscap info` command:
+```
+$ oscap info /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
+...
+Document type: Source Data Stream
+Imported: 2025-03-10T19:32:05
+
+Stream: scap_org.open-scap_datastream_from_xccdf_ssg-rhel9-xccdf.xml
+Generated: (null)
+Version: 1.3
+Checklists:
+	Ref-Id: scap_org.open-scap_cref_ssg-rhel9-xccdf.xml
+		Status: draft
+		Generated: 2025-02-25
+		Resolved: true
+		Profiles:
+			Title: ANSSI-BP-028 (enhanced)
+				Id: xccdf_org.ssgproject.content_profile_anssi_bp28_enhanced
+            ... .... ...
+            ... snip ...
+            ... .... ...
+			Title: Australian Cyber Security Centre (ACSC) ISM Official
+				Id: xccdf_org.ssgproject.content_profile_ism_o
+```
+Let's run a scan using the Australian ISM profile:
+```
+$ oscap xccdf eval --results results.xml --profile xccdf_org.ssgproject.content_profile_ism_o /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
+```
+Once this completes, you can see that the results file is XCCDF, not ARF:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<Benchmark xmlns="http://checklists.nist.gov/xccdf/1.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="xccdf_org.ssgproject.content_benchmark_RHEL-9" resolved="1" xml:lang="en-US" style="SCAP_1.2">
+  <status date="2025-02-25">draft</status>
+  <title xmlns:xhtml="http://www.w3.org/1999/xhtml" xml:lang="en-US">Guide to the Secure Configuration of Red Hat Enterprise Linux 9</title>
+...
+```
+Let's create a HTML file and serve it out with python, to make the results easier to read:
+```
+$ oscap xccdf generate report results.xml > results.html
+$ python -m http.server
+```
+The report intro describes the SCAP profile used and scan target:
+
+<Zoom>
+![xccdf1](/static/images/arf/xccdf1.png)
+</Zoom>
+
+Further down I can find the control that failed, because we created a world-writeable file:
+
+<Zoom>
+![xccdf2](/static/images/arf/xccdf2.png)
+</Zoom>
+
+If I click this control, I can bring up more detail:
+
+<Zoom>
+![xccdf3](/static/images/arf/xccdf3.png)
+</Zoom>
+
+<Zoom>
+![xccdf4](/static/images/arf/xccdf4.png)
+</Zoom>
+
+We can see that this system failed the 'world-writeable files' control. But, there's no information on *which* file failed the control. This makes it pretty difficult to remediate this system.
+
+How do we get actionable data? 
+
+## ARF to the rescue
+
+ARF to the rescue! Let's modify the scan to emit results in ARF:
+```
+$ oscap xccdf eval --results-arf results-arf.xml --profile xccdf_org.ssgproject.content_profile_ism_o /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
+```
+If we quickly check the file contents we can see that it contains the now-familiar `asset-report-collection` tags:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<arf:asset-report-collection xmlns:arf="http://scap.nist.gov/schema/asset-reporting-format/1.1" xmlns:core="http://scap.nist.gov/schema/reporting-core/1.1" xmlns:ai="http://scap.nist.gov/schema/asset-identification/1.1">
+```
+The relationships identify that this is an XCCDF scan for a system:
+```xml
+<core:relationships xmlns:arfvocab="http://scap.nist.gov/specifications/arf/vocabulary/relationships/1.0#">
+    <core:relationship type="arfvocab:createdFor" subject="xccdf1">
+        <core:ref>collection1</core:ref>
+    </core:relationship>
+    <core:relationship type="arfvocab:isAbout" subject="xccdf1">
+        <core:ref>asset0</core:ref>
+    </core:relationship>
+</core:relationships>
+```
+The assets section identifies the system evaluated via XCCDF controls:
+```xml
+<arf:assets>
+    <arf:asset id="asset0">
+        <ai:computing-device>
+        <ai:connections>
+            <ai:connection>
+            <ai:ip-address>
+                <ai:ip-v4>127.0.0.1</ai:ip-v4>
+            </ai:ip-address>
+            </ai:connection>
+            <ai:connection>
+            <ai:ip-address>
+                <ai:ip-v4>192.168.122.237</ai:ip-v4>
+            </ai:ip-address>
+            </ai:connection>
+            <ai:connection>
+            <ai:ip-address>
+                <ai:ip-v6>0:0:0:0:0:0:0:1</ai:ip-v6>
+            </ai:ip-address>
+            </ai:connection>
+            <ai:connection>
+            <ai:ip-address>
+                <ai:ip-v6>fe80:0:0:0:5054:ff:fe97:7f07</ai:ip-v6>
+            </ai:ip-address>
+            </ai:connection>
+            <ai:connection>
+            <ai:mac-address>00:00:00:00:00:00</ai:mac-address>
+            </ai:connection>
+            <ai:connection>
+            <ai:mac-address>52:54:00:97:7F:07</ai:mac-address>
+            </ai:connection>
+        </ai:connections>
+        <ai:fqdn>rhel-arf.rock.lab</ai:fqdn>
+        <ai:hostname>rhel-arf.rock.lab</ai:hostname>
+        </ai:computing-device>
+    </arf:asset>
+</arf:assets>
+```
+And finally, the `reports` section identifies the XCCDF scan content:
+```xml
+<arf:reports>
+    <arf:report id="xccdf1">
+      <arf:content>
+        <TestResult xmlns="http://checklists.nist.gov/xccdf/1.2" id="xccdf_org.open-scap_testresult_xccdf_org.ssgproject.content_profile_ism_o" start-time="2025-04-25T21:27:45+09:30" end-time="2025-04-25T21:29:09+09:30" version="0.1.76" test-system="cpe:/a:redhat:openscap:1.3.10">
+          <benchmark href="#scap_org.open-scap_comp_ssg-rhel9-xccdf.xml" id="xccdf_org.ssgproject.content_benchmark_RHEL-9"/>
+          <title>OSCAP Scan Result</title>
+          <identity authenticated="false" privileged="false">user1</identity>
+          <profile idref="xccdf_org.ssgproject.content_profile_ism_o"/>
+          <target>rhel-arf.rock.lab</target>
+          <target-address>127.0.0.1</target-address>
+        ... .... ...
+        ... snip ...
+        ... .... ...
+        </TestResult>
+      </arf:content>
+    </arf:report>
+</arf:reports>
+```
+
+While I'd love to continue breaking this XML down line-by-line, I think we need something more readable:
+```
+$ oscap xccdf generate report results-arf.xml > results-arf.html
+```
+The report looks pretty standard:
+
+<Zoom>
+![arf1](/static/images/arf/arf1.png)
+</Zoom>
+
+But, if I check the results, it now lists the files that have failed the XCCDF control.
+
+<Zoom>
+![arf2](/static/images/arf/arf2.png)
+</Zoom>
+
+This is great! Using ARF I can see why my security controls are failing tests, and remediate.
+
+## ARF and OpenShift
+OpenShift includes the [Compliance Operator](https://github.com/openshift/compliance-operator), and you can use this to emit results in ARF. In fact, the Compliance Operator will always generate results in ARF, and you can verify this in the code. 
+
+The Compliance Operator creates a [temporary file to hold the ARF report in `/tmp/report-arf.xml`](https://github.com/openshift/compliance-operator/blob/6715d79bc73c7e5cec8fe84454a1ac5ff72b83ca/pkg/controller/compliancescan/config.go#L52), It then appends `--results-arf` to the OpenSCAP scanner command - similar to how we defined this above - before running the scan:
+```bash
+var defaultOpenScapScriptContents = `#!/bin/bash
+
+ARF_REPORT=/tmp/report-arf.xml
+
+if [ -z $PROFILE ]; then
+    echo "profile not set"
+    exit 1
+fi
+
+... .... ...
+... snip ...
+... .... ...
+
+cmd+=(
+    --profile $PROFILE \
+    --results-arf $ARF_REPORT
+)
+
+if [ ! -z $RULE ]; then
+    cmd+=(--rule $RULE)
+fi
+
+cmd+=($CONTENT)
+exit 0`
+```
+Let's see this in action too. I'm going to use Red Hat Advanced Cluster Security for Kubernetes (RHACS) to schedule a compliance scan against this OpenShift cluster. If you want to configure this yourself, you can see my setup in the article [Who is watching the watchers?](/blog/who-is-watching-the-watchers)
+
+image 1
+
+image 2
+
+I can see that the scan is kicking off in OpenShift and results are being generated. 
+
+image 3
+
+The scan result s now complete:
+
+
