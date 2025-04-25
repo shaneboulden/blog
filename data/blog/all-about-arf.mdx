@@ -324,7 +324,7 @@ Let's run a scan using the Australian ISM profile:
 $ oscap xccdf eval --results results.xml --profile xccdf_org.ssgproject.content_profile_ism_o /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
 ```
 Once this completes, you can see that the results file is XCCDF, not ARF:
-```xml
+```xml:'results.xml' showLineNumbers {2}
 <?xml version="1.0" encoding="UTF-8"?>
 <Benchmark xmlns="http://checklists.nist.gov/xccdf/1.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="xccdf_org.ssgproject.content_benchmark_RHEL-9" resolved="1" xml:lang="en-US" style="SCAP_1.2">
   <status date="2025-02-25">draft</status>
@@ -369,12 +369,12 @@ ARF to the rescue! Let's modify the scan to emit results in ARF:
 $ oscap xccdf eval --results-arf results-arf.xml --profile xccdf_org.ssgproject.content_profile_ism_o /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
 ```
 If we quickly check the file contents we can see that it contains the now-familiar `asset-report-collection` tags:
-```xml
+```xml:'results-arf.xml' showLineNumbers {2}
 <?xml version="1.0" encoding="UTF-8"?>
 <arf:asset-report-collection xmlns:arf="http://scap.nist.gov/schema/asset-reporting-format/1.1" xmlns:core="http://scap.nist.gov/schema/reporting-core/1.1" xmlns:ai="http://scap.nist.gov/schema/asset-identification/1.1">
 ```
 The relationships identify that this is an XCCDF scan for a system:
-```xml
+```xml:'results-arf.xml'
 <core:relationships xmlns:arfvocab="http://scap.nist.gov/specifications/arf/vocabulary/relationships/1.0#">
     <core:relationship type="arfvocab:createdFor" subject="xccdf1">
         <core:ref>collection1</core:ref>
@@ -385,7 +385,7 @@ The relationships identify that this is an XCCDF scan for a system:
 </core:relationships>
 ```
 The assets section identifies the system evaluated via XCCDF controls:
-```xml
+```xml:'results-arf.xml'
 <arf:assets>
     <arf:asset id="asset0">
         <ai:computing-device>
@@ -424,7 +424,7 @@ The assets section identifies the system evaluated via XCCDF controls:
 </arf:assets>
 ```
 And finally, the `reports` section identifies the XCCDF scan content:
-```xml
+```xml:'results-arf.xml'
 <arf:reports>
     <arf:report id="xccdf1">
       <arf:content>
