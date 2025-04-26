@@ -1,28 +1,29 @@
 ---
 title: All About ARF
-date: '2025-04-28'
+date: '2025-04-30'
 tags: ['arf', 'scap', 'compliance', 'openshift', 'rhel']
-images: ['/static/images/linkedin-banners/who-watches-the-watchers.png']
+images: ['/static/images/arf/comic.png']
 draft: false
-summary: 'What sound does a SCAPendoes make? ARF!'
+summary: 'ARF is the best-kept secret for better asset security control reporting. In this article I take a closer look at ARF, and how it can be used to build better reports.'
 ---
-I think that the Asset Reporting Format (ARF) is one of the most useful NIST standards built-in to the OpenSCAP Scanner. With just a simple switch you can turn a frustratingly plain compliance report into something actionable, with information you can use to modify system configuration and return it to a compliant baseline.
 
-Before we dive in, I need to get a super quick compliance-related Dad-joke out the way. The inspiration for this is this [delightful comic](https://comicskingdom.com/mutts/2023-11-26) from Patrick McDonnell.
+<TOCInline toc={props.toc} />
+
+I think that the Asset Reporting Format (ARF) is one of the most useful NIST standards built-in to the OpenSCAP Scanner. With just a simple switch you can turn a frustratingly plain compliance report into something actionable, with information you can use to modify system configuration and return it to a compliant baseline!
+
+The inspiration for this article is a thread with [Ben Blasco](https://www.linkedin.com/in/benblasco/) on all things ARF, which included this wonderful pic:
 
 <Zoom>
-![mutts](/static/images/arf/mutts.png)
+![comic](/static/images/arf/comic.png)
 </Zoom>
+
+Before we dive in, I need to get a super quick compliance-related Dad joke out the way.
 
 <Quote quote="What sound does a SCAPendoes make?"/>
 
 <Quote quote="ARF!"/>
 
-I promise this will make more sense as the article progresses...
-
-A quick disclaimer - the first part of this article is pretty heavy with XML. You can skip to the [ARF in Action](/blog/all-about-arf#arf-in-action) section if you want to skip the XML deep-dive. 
-
-Let's explore ARF!
+With all that out the way - let's explore ARF!
 
 ## What is the Asset Reporting Format (ARF)?
 The [Asset Reporting Format (ARF)]() is an XML-based standard developed as part of the NIST [Security Content Automation Protocol (SCAP) suite](), designed to make it easier to report on the state of IT assets in a structured, machine-readable way.
@@ -219,8 +220,8 @@ ARF documents need to contain a section `report-requests`. This basically descri
 </report-requests>
 ```
 Ok, so far we know that:
-- ARF documents describe relationships between assets and reports
-- Assets are uniquely identified in ARF documents using asset identification
+- ARF reports describe relationships between assets and reports
+- Assets are uniquely identified in ARF reports
 
 In our example, the ARF document describes an XCCDF scan (the report), which was conducted for a Microsoft Windows Vista system (the asset). There's more detail about the asset in the `assets` section:
 ```xml
@@ -286,8 +287,7 @@ start-time="2010-08-03T13:44:07.657-04:00" end-time="2010-08-03T13:49:07.657-04:
 </report>
 ```
 
-<a id="arf-in-action"></a>
-## ARF in Action
+## Scanning systems with XCCDF and OpenSCAP
 Now that we know about the ARF format let's see it in action. Firstly, I want to run a scan without ARF, and see what the results look like. Let's run an Australian ISM benchmark scan of a Red Hat Enteprise Linux 9 system using the 'official' level controls and collect the results in XCCDF format (not ARF).
 
 I want to show how ARF results can look for misconfigured systems, so let's place a world-writeable file in `/etc`:
@@ -364,7 +364,7 @@ How do we get actionable data?
 
 ## ARF to the rescue
 
-ARF to the rescue! Let's modify the scan to emit results in ARF:
+We can use the `--results-arf` switch with the OpenSCAP scanner to emit results in ARF. Let's modify the scan we used previously:
 ```
 $ oscap xccdf eval --results-arf results-arf.xml --profile xccdf_org.ssgproject.content_profile_ism_o /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
 ```
@@ -385,7 +385,7 @@ The relationships identify that this is an XCCDF scan for a system:
 </core:relationships>
 ```
 The assets section identifies the system evaluated via XCCDF controls:
-```xml:'results-arf.xml'
+```xml:'results-arf.xml' showLineNumbers {2}
 <arf:assets>
     <arf:asset id="asset0">
         <ai:computing-device>
@@ -424,7 +424,7 @@ The assets section identifies the system evaluated via XCCDF controls:
 </arf:assets>
 ```
 And finally, the `reports` section identifies the XCCDF scan content:
-```xml:'results-arf.xml'
+```xml:'results-arf.xml' showLineNumbers {4-14}
 <arf:reports>
     <arf:report id="xccdf1">
       <arf:content>
