@@ -494,9 +494,29 @@ exit 0`
 ```
 Let's see this in action too. I'm going to use Red Hat Advanced Cluster Security for Kubernetes (RHACS) to schedule a compliance scan against this OpenShift cluster. If you want to configure this yourself, you can see my setup in the article [Who is watching the watchers?](/blog/who-is-watching-the-watchers)
 
-image 1
+Firstly, we need to ensure that the Compliance Operator is deployed to the target cluster and that the cluster is enrolled with RHACS Central:
 
-image 2
+<Zoom>
+![co1](/static/images/arf/co1.png)
+</Zoom>
+
+Now create a scan schedule via RHACS:
+
+<Zoom>
+![scan1](/static/images/arf/scan1.png)
+</Zoom>
+
+<Zoom>
+![scan2](/static/images/arf/scan2.png)
+</Zoom>
+
+<Zoom>
+![scan3](/static/images/arf/scan3.png)
+</Zoom>
+
+<Zoom>
+![scan4](/static/images/arf/scan4.png)
+</Zoom>
 
 I can see that the scan is kicking off in OpenShift and results are being generated. 
 
