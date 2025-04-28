@@ -7,14 +7,24 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Mon, 31 Mar 2025 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Wed, 30 Apr 2025 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
+
+  <item>
+    <guid>https://stb.id.au/blog/all-about-arf</guid>
+    <title>All About ARF</title>
+    <link>https://stb.id.au/blog/all-about-arf</link>
+    <description>ARF is the best-kept secret for better asset security control reporting. In this article I take a closer look at ARF, and how it can be used to build better reports.</description>
+    <pubDate>Wed, 30 Apr 2025 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>arf</category><category>scap</category><category>compliance</category><category>openshift</category><category>rhel</category>
+  </item>
 
   <item>
     <guid>https://stb.id.au/blog/who-watches-the-watchers</guid>
     <title>Who watches the watchers?</title>
     <link>https://stb.id.au/blog/who-watches-the-watchers</link>
-    <description>Exploring the age-old question of  &quot;who watches the watchers &quot;. Or more accurately for IT professionals - how do we provide governance for security platforms&#63;</description>
+    <description>Exploring the age-old question of &quot;who watches the watchers&quot;. Or more accurately for IT professionals - how do we provide governance for security platforms?</description>
     <pubDate>Mon, 31 Mar 2025 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>rhacm</category><category>rhacs</category><category>openshift</category><category>governance</category><category>security</category>
