@@ -9,7 +9,7 @@ summary: 'ARF is the best-kept secret for better asset security control reportin
 
 <TOCInline toc={props.toc} />
 
-I think that the Asset Reporting Format (ARF) is one of the most useful NIST standards built-in to the OpenSCAP Scanner. With just a simple switch you can turn a frustratingly plain compliance report into something actionable, with information you can use to modify system configuration and return it to a compliant baseline!
+I think that the Asset Reporting Format (ARF) is one of the best-kept secrets about the [OpenSCAP Scanner](https://www.open-scap.org/). With just a simple switch you can turn a frustratingly plain compliance report into something actionable, with information you can use to modify system configuration and return it to a compliant baseline!
 
 The inspiration for this article is a thread with [Ben Blasco](https://www.linkedin.com/in/benblasco/) on all things ARF, which included this wonderful pic:
 
@@ -23,10 +23,10 @@ Before we dive in, I need to get a super quick compliance-related Dad joke out t
 
 <Quote quote="ARF!"/>
 
-With all that out the way - let's explore ARF!
+With that out the way - let's explore ARF!
 
 ## What is the Asset Reporting Format (ARF)?
-The [Asset Reporting Format (ARF)]() is an XML-based standard developed as part of the NIST [Security Content Automation Protocol (SCAP) suite](), designed to make it easier to report on the state of IT assets in a structured, machine-readable way.
+The [Asset Reporting Format (ARF)](https://csrc.nist.gov/projects/security-content-automation-protocol/specifications/arf) is an XML-based standard developed as part of the NIST [Security Content Automation Protocol (SCAP) suite](https://csrc.nist.gov/projects/security-content-automation-protocol), designed to make it easier to report on the state of IT assets in a structured, machine-readable way.
 
 ARF provides an important role in organisations. One of the common challenges organisations is understanding "what do I actually own / have, and how is it configured?" ARF supports this by leveraging asset identification for ARF reports. Each asset in an ARF report is uniquely identified, and this provides a way to tie data about assets from different sources. In fact, the 'asset' section of ARF reports contains information just about the asset - independent of the relationship to reports.
 
@@ -518,10 +518,135 @@ Now create a scan schedule via RHACS:
 ![scan4](/static/images/arf/scan4.png)
 </Zoom>
 
-I can see that the scan is kicking off in OpenShift and results are being generated. 
+<Zoom>
+![scan5](/static/images/arf/scan5.png)
+</Zoom>
 
-image 3
+I can see that the scan is kicking off in OpenShift and results are being generated: 
 
-The scan result s now complete:
+<Zoom>
+![scan6](/static/images/arf/scan6.png)
+</Zoom>
 
+Once the scan completes, I can retrieve the raw ARF by creating a new pod and mounting the `ocp4-e8` PV that was created for the scan. Firstly, let's check which persistent volume claim is being used to hold compliance results storage:
+```json
+$ oc get compliancesuites -n openshift-compliance
+NAME          PHASE   RESULT
+ocp-e8-scan   DONE    NON-COMPLIANT
 
+$ oc get compliancesuites ocp-e8-scan -n openshift-compliance -o json | jq '.status.scanStatuses[].result
+sStorage'
+{
+  "name": "ocp4-e8",
+  "namespace": "openshift-compliance"
+}
+```
+Now that we know the PVC, let's create a pod to mount the PVC, and allow us to extract the raw ARF:
+```
+$ oc create -n openshift-compliance -f - <<EOF
+apiVersion: "v1"
+kind: Pod
+metadata:
+  name: pv-extract
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: pv-extract-pod
+      image: registry.access.redhat.com/ubi9/ubi
+      command: ["sleep", "3000"]
+      volumeMounts:
+      - mountPath: "/workers-scan-results"
+        name: workers-scan-vol
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
+  volumes:
+    - name: workers-scan-vol
+      persistentVolumeClaim:
+        claimName: ocp4-e8
+EOF
+```
+Check that the pod was created:
+```
+$ oc get pods -n openshift-compliance | grep pv-extract
+pv-extract                                        1/1     Running     0             39s
+```
+Now we can copy out the ARF results doc:
+```
+$ oc cp pv-extract:/workers-scan-results -n openshift-compliance .
+```
+What you'll get from the `copy` operation out of the pod is a list of directories, each containing the raw scan results in a `bzip2`-compressed file:
+```
+$ tree
+.
+├── 2
+│   └── ocp4-e8-api-checks-pod.xml.bzip2
+├── 3
+│   └── ocp4-e8-api-checks-pod.xml.bzip2
+├── 4
+│   └── ocp4-e8-api-checks-pod.xml.bzip2
+└── lost+found
+
+5 directories, 3 files
+```
+Let's take a look at the scan in directory `2`:
+```
+$ cd 2
+$ bzip2 -d ocp4-e8-api-checks-pod.xml.bzip2
+bzip2: Can't guess original name for ocp4-e8-api-checks-pod.xml.bzip2 -- using ocp4-e8-api-checks-pod.xml.bzip2.out
+$ mv ocp4-e8-api-checks-pod.xml.bzip2.out ocp4-e8-api-checks-pod.xml
+```
+Let's check out this new file, `ocp4-e8-api-checks-pod.xml`:
+```xml
+$ head ocp4-e8-api-checks-pod.xml
+
+<?xml version="1.0" encoding="UTF-8"?>
+<arf:asset-report-collection xmlns:arf="http://scap.nist.gov/schema/asset-reporting-format/1.1" xmlns:core="http://scap.nist.gov/schema/reporting-core/1.1" xmlns:ai="http://scap.nist.gov/schema/asset-identification/1.1">
+  <core:relationships xmlns:arfvocab="http://scap.nist.gov/specifications/arf/vocabulary/relationships/1.0#">
+    <core:relationship type="arfvocab:createdFor" subject="xccdf1">
+      <core:ref>collection1</core:ref>
+    </core:relationship>
+    <core:relationship type="arfvocab:isAbout" subject="xccdf1">
+      <core:ref>asset0</core:ref>
+    </core:relationship>
+  </core:relationships>
+...
+```
+Great! We've got our familiar `asset-report-collection` root element, signifying that this is an ARF document. Let's create a HTML report to make this easier to read:
+```
+$ oscap xccdf generate report ocp4-e8-api-checks-pod.xml > ocp4-e8-api-checks-pod.xml.html
+```
+The report looks pretty good so far:
+
+<Zoom>
+![scan7](/static/images/arf/scan7.png)
+</Zoom>
+
+Let's check out one of the failing rules, validating that OpenShift `Allowed registries are configured`:
+
+<Zoom>
+![scan8](/static/images/arf/scan8.png)
+</Zoom>
+
+Looking at this result in-detail, I can see that the compliance operator has pulled down the OpenShift config from the API, and determined that it is missing the `.spec.registry.allowedRegistries` config, which would limit the registries images are able to be pulled from.
+
+<Zoom>
+![scan9](/static/images/arf/scan9.png)
+</Zoom>
+
+<Zoom>
+![scan10](/static/images/arf/scan10.png)
+</Zoom>
+
+## Wrap up
+In this article I've taken a closer look at the Asset Reporting Format (ARF), and how you can use ARF to create actionable reports about platform security controls.
+
+I looked at a couple of examples of ARF "in action":
+- Creating ARF reports about Red Hat Enterprise Linux (RHEL) security controls, and showing which controls have failed.
+- Creating ARF reports using the OpenShift Compliance Operator, and extracting raw ARF and identifying failed controls.
+
+If you want to take a closer look at ARF you can find the schema and docs available at the NIST portal: https://csrc.nist.gov/projects/security-content-automation-protocol/specifications/arf
