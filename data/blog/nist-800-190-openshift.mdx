@@ -1,0 +1,285 @@
+---
+title: NIST SP 800-190 and OpenShift
+date: '2025-05-28'
+tags: ['nist', 'rhacs', 'openshift', 'governance', 'security']
+images: ['/static/images/linkedin-banners/nist-guide.png']
+draft: false
+summary: 'NIST Special Publication 800-190 represents a great baseline for container platform security. In this article I take a look at how to adopt NIST SP 800-190 with OpenShift and Red Hat Advanced Cluster Security for Kubernetes (RHACS).'
+---
+
+<TOCInline toc={props.toc} />
+
+The US National Institute of Standards and Technology (NIST) produces a lot of awesome content. I covered some of this in my last article, looking at the [Asset Reporting Format](/blog/all-about-arf). In this article I want to take a closer look at another awesome piece of NIST thought leadership - [NIST Special Publication (SP) 800-190](https://csrc.nist.gov/pubs/sp/800/190/final). 
+
+NIST SP 800-190 is really interesting because it covers container security specifically, and I think does a great job of really considering the context for container applications. One thing you might not know about NIST 800-190 is that the [StackRox](https://stackrox.io) team directly supported the creation of the document. It's even called out in the acknowledgements:
+
+<Zoom>
+![stackrox](/static/images/nist/stackrox.png)
+</Zoom>
+
+StackRox was [acquired by Red Hat in 2021](https://www.redhat.com/en/blog/red-hat-closes-acquisition-stackrox), and is now the upstream open source project for [Red Hat Advanced Cluster Security for Kubernetes (RHACS)](https://www.redhat.com/en/technologies/cloud-computing/openshift/advanced-cluster-security-kubernetes). What better way to explore NIST SP 800-190, than seeing the implementation of this through the work of StackRox? Let's take a look at how StackRox (RHACS) ensures OpenShift and Kubernetes clusters adhere to NIST SP 800-190.
+
+## Scanning clusters with RHACS
+RHACS (StackRox) has two ways of scanning clusters, and ensuring that they align with guidance and standards for container security. In this section I'll cover more info on how these two methods of compliance scanning work, and some of the differences.
+
+### Integration with the OpenShift compliance operator
+The [OpenShift Compliance Operator](https://github.com/ComplianceAsCode/compliance-operator) allows an administrator to run compliance scans, leveraging OpenSCAP to scan cluster configuration.
+
+The OpenShift Compliance Operator consumes NIST Security Content Automation Protocol (SCAP) content created through the open source [Compliance as Code](https://github.com/ComplianceAsCode/content) project. You can see an example of one of the profiles created for the compliance operator here, the [CIS Red Hat OpenShift Container Platform 4 Benchmark](https://github.com/ComplianceAsCode/content/blob/master/products/ocp4/profiles/cis-1-7.profile):
+
+```yaml:'content/products/ocp4/profiles/cis-1-7.profile' showLineNumbers
+documentation_complete: true
+
+title: 'CIS Red Hat OpenShift Container Platform 4 Benchmark'
+
+platform: ocp4
+
+metadata:
+    SMEs:
+        - rhmdnd
+        - Vincent056
+        - yuumasato
+    version: 1.7.0
+
+description: |-
+    This profile defines a baseline that aligns to the Center for Internet Security®
+    Red Hat OpenShift Container Platform 4 Benchmark™, V1.7.
+
+    This profile includes Center for Internet Security®
+    Red Hat OpenShift Container Platform 4 CIS Benchmarks™ content.
+
+    Note that this part of the profile is meant to run on the Platform that
+    Red Hat OpenShift Container Platform 4 runs on top of.
+
+    This profile is applicable to OpenShift versions 4.12 and greater.
+
+filter_rules: '"ocp4-node" not in platform and "ocp4-master-node" not in platform and "ocp4-node-on-sdn" not in platform and "ocp4-node-on-ovn" not in platform'
+
+selections:
+    - cis_ocp_1_4_0:all
+    ### Variables
+    - var_openshift_audit_profile=WriteRequestBodies
+    ### Helper Rules
+    ### This is a helper rule to fetch the required api resource for detecting OCP version
+    - version_detect_in_ocp
+    - version_detect_in_hypershift
+```
+We can see a few things from this file:
+- It is the v1.7.0 benchmark
+- It's based on v1.4.0 (`- cis_ocp_1_4:all)
+- It supports several helper rules, identifying whether a cluster is an OpenShift cluster (vs other k8s), and whether it is a `hypershift` cluster (i.e. it is running with a containerised control plane, in another cluster)
+
+The Compliance Operator provides a lot of control over compliance reporting and control selection, and supports standards like the CIS Benchmark for OpenShift. But, unfortunately it doesn't support NIST SP 800-190 (though could create a profile for it). Fortunately, there is another built-in RHACS feature with support for this standard.
+
+### Built-in compliance standards
+RHACS also supports a number of built-in compliance standards, separate to the compliance operator. You can see these in the RHACS console, under `Compliance` -> `Dashboard`.
+
+<Zoom>
+![compliance-dashboard](/static/images/nist/rhacs-dashboard.png)
+</Zoom>
+
+A little history - these existed in StackRox long before it became Red Hat Advanced Cluster Security for Kubernetes (RHACS), and the compliance operator integration was created. Hence, these standards are really targeted at *all* Kubernetes clusters, not just OpenShift.
+
+You might have noticed - NIST SP 800-190 is shown on the dashboard!
+
+<Zoom>
+![compliance-dashboard-190](/static/images/nist/rhacs-dashboard-190.png)
+</Zoom>
+
+If you click on it, you can see the NIST SP 800-190 standards, and a passing percentage for the cluster.
+
+<Zoom>
+![controls-190](/static/images/nist/rhacs-controls-190.png)
+</Zoom>
+
+## Exploring control NIST SP 800-190 control 4.1.1
+Let's dive into one of these NIST SP 800-190 controls that's currently at `0%` on the cluster, control 4.1.1. Here's the actual control from NIST SP 800-190:
+
+<Zoom>
+![control-411](/static/images/nist/800-190-411.png)
+</Zoom>
+
+Ok - so it sounds like to pass this check, we need to:
+- Integrate vulnerability scanning from the beginning of the build process, to the registry, to scanning for vulnerabilities at runtime
+- Look at all layers of the container image, not just the 'base' layer
+- Ensure we are using policy-driven enforcement to ensure that images that contain high-risk CVEs are not promoted to the registry, or deployed to the platform.
+
+Currently my cluster is reporting this control at `0%`:
+
+<Zoom>
+![rhacs-controls-hl](/static/images/nist/rhacs-controls-hl.png)
+</Zoom>
+
+So how do I get this control to pass?
+
+It turns out that RHACS (StackRox) is looking for very specific configuration on the cluster to meet this controls. This isn't documented in the platform - but in the code! [Here's the check](https://github.com/stackrox/stackrox/blob/2596e780bf2e592a9376fb12c5bc0c88ea07fcdc/central/compliance/checks/nist800-190/check411/check.go) for NIST SP 800-190 control 4.1.1, implemented in StackRox:
+```go:'stackrox/central/compliance/checks/nist800-190/check411/check.go'
+func checkNIST411(ctx framework.ComplianceContext) {
+	checkCVSS7PolicyEnforcedOnBuild(ctx)
+	checkCriticalVulnPolicyEnforcedOnDeploy(ctx)
+	common.CheckImageScannerInUseByCluster(ctx)
+	common.CheckAnyPolicyInLifecycleStageEnforced(ctx, storage.LifecycleStage_BUILD)
+}
+```
+Each of these functions must return success (`1`) for the control to pass. Let's look firstly at the `checkCVSS7PolicyEnforcedOnBuild` function:
+```go:'checkCVSS7PolicyEnforcedOnBuild'
+func checkCVSS7PolicyEnforcedOnBuild(ctx framework.ComplianceContext) {
+	policiesEnabledNotEnforced := []string{}
+	policies := ctx.Data().Policies()
+	passed := 0
+	for _, p := range policies {
+		if (!policyHasCVSS(p) && !policyHasSeverity(p)) || !pkg.AppliesAtBuildTime(p) {
+			continue
+		}
+		enabled := common.IsPolicyEnabled(p)
+		enforced := common.IsPolicyEnforced(p)
+		if enabled && !enforced {
+			policiesEnabledNotEnforced = append(policiesEnabledNotEnforced, p.GetName())
+			continue
+		}
+
+		if enabled && enforced {
+			passed++
+		}
+	}
+	if passed >= 1 {
+		framework.Pass(ctx, "At least one build-stage policy is enabled and enforced that disallows images with a critical vulnerability")
+	} else if len(policiesEnabledNotEnforced) > 0 {
+		framework.Failf(ctx, "Enforcement is not set on any build-stage policies that disallow images with a critical vulnerability (%v)", policiesEnabledNotEnforced)
+	} else {
+		framework.Fail(ctx, "No build-stage policy that disallows images with a critical vulnerability was found")
+	}
+}
+```
+Let's break down this function:
+- It only checks policies that have both a CVSS field and a severity field, and apply at build-time.
+- It skips all other policies
+- The policies that are found need to be both enabled and enforced at build-time.
+
+Out of the box RHACS contains a policy that meets all of these criteria, Fixable CVSS >= 7:
+
+<Zoom>
+![cvss7](/static/images/nist/cvss7.png)
+</Zoom>
+
+However, it's disabled, and also not enforcing at `build`. Let's update the policy to enforce at `build`, and also enable it.
+
+Instead of enabling the base policy, I'm going to clone this one to `[NIST SP 800-190]`, and ensure that it is enforcing at `build` time.
+
+<Zoom>
+![cvss7-enforcing](/static/images/nist/cvss7-enforcing.png)
+</Zoom>
+
+Great! This policy should pass the first function here, `checkCVSS7PolicyEnforcedOnBuild`. Let's take a look at the next one, `checkCriticalVulnPolicyEnforcedOnDeploy`:
+```go:'checkCriticalVulnPolicyEnforcedOnDeploy'
+func checkCriticalVulnPolicyEnforcedOnDeploy(ctx framework.ComplianceContext) {
+	policiesEnabledNotEnforced := []string{}
+	policies := ctx.Data().Policies()
+	passed := 0
+	for _, p := range policies {
+		if (!policyHasCVSS(p) && !policyHasSeverity(p)) || !pkg.AppliesAtDeployTime(p) {
+			continue
+		}
+		enabled := common.IsPolicyEnabled(p)
+		enforced := common.IsPolicyEnforced(p)
+		if enabled && !enforced {
+			policiesEnabledNotEnforced = append(policiesEnabledNotEnforced, p.GetName())
+			continue
+		}
+
+		if enabled && enforced {
+			passed++
+		}
+	}
+	if passed >= 1 {
+		framework.Pass(ctx, "Deploy time policies that disallows images with a critical vulnerability is enabled and enforced")
+	} else if len(policiesEnabledNotEnforced) > 0 {
+		framework.Failf(ctx, "Enforcement is not set on the deploy time policies that disallows images with a critical vulnerability (%v)", policiesEnabledNotEnforced)
+	} else {
+		framework.Fail(ctx, "No deploy time policy that disallows images with a critical vulnerability was found")
+	}
+}
+```
+This looks a lot like the last function, only this time it's looking for policies at the `deploy` lifecycle stage, and not `build`. Fortunately the `Fixable CVSS >= 7` policy we cloned also supports this criteria! Let's ensure that it's also enforcing at `deploy`:
+
+<Zoom>
+![cvss7-deploy](/static/images/nist/cvss7-deploy.png)
+</Zoom>
+
+You'll also need to enable the policy:
+
+<Zoom>
+![cvss7-enable](/static/images/nist/cvss7-enable.png)
+</Zoom>
+
+Great! This policy should now pass this function too.
+
+What about the last two functions? `common.CheckAnyPolicyInLifecycleStageEnforced(ctx, storage.LifecycleStage_BUILD)` looks straightforward; it's simply checking for any `build` stage policy that is also enforcing:
+```go:'CheckAnyPolicyInLifecycleStageEnforced'
+// CheckAnyPolicyInLifecycleStageEnforced checks if there is at least one
+// policy of the given lifecycle stage that is enabled and enforced.
+func CheckAnyPolicyInLifecycleStageEnforced(ctx framework.ComplianceContext, lifecycleStage storage.LifecycleStage) {
+	policies := ctx.Data().Policies()
+	for _, p := range policies {
+		if IsPolicyEnabled(p) && IsPolicyEnforced(p) && PolicyIsInLifecycleStage(p, lifecycleStage) {
+			framework.Passf(ctx, "At least one policy in lifecycle stage %q is enabled and enforced", lifecycleStage)
+			return
+		}
+	}
+
+	framework.Failf(ctx, "No policies in lifecycle stage %q are enabled and enforced", lifecycleStage)
+}
+```
+Our `Fixable CVSS >= 7` policy should meet this criteria also, so nothing to do here. What about the last function in this compliance check, `common.CheckImageScannerInUseByCluster(ctx)`? 
+
+It turns out that this check is simply looking for a RHACS `Image Integration` that is also configured as a Scanner:
+```go:''
+// CheckImageScannerInUseByCluster checks if we have atleast one image scanner in use.
+func CheckImageScannerInUseByCluster(ctx framework.ComplianceContext) {
+	var scanners []string
+	for _, integration := range ctx.Data().ImageIntegrations() {
+		for _, category := range integration.GetCategories() {
+			if category == storage.ImageIntegrationCategory_SCANNER {
+				scanners = append(scanners, integration.Name)
+			}
+		}
+	}
+
+	if len(scanners) > 0 {
+		framework.Pass(ctx, "Cluster has an image scanner in use")
+		return
+	}
+
+	framework.Fail(ctx, "No image scanners are being used in the cluster")
+}
+```
+Assuming that you configured / deployed the Scanner with RHACS, the cluster will already pass this check, as the integration is already created:
+
+<Zoom>
+![rhacs-scanner](/static/images/nist/rhacs-scanner.png)
+</Zoom>
+
+I think we're ready now to re-run this scan. Navigate to the `Compliance` dashboard in RHACS and click `Scan environment`:
+
+<Zoom>
+![rhacs-scan](/static/images/nist/rhacs-scan.png)
+</Zoom>
+
+Have a look now at control 4.1.1 and observe that it is now passing:
+
+<Zoom>
+![411pass](/static/images/nist/411pass.png)
+</Zoom>
+
+Awesome! We've been able to:
+- Identify how Red Hat Advanced Cluster Security for Kubernetes (RHACS) implements NIST SP 800-190 controls, by inspecting the StackRox source code
+- Configure a policy to meet the requirements of NIST SP 800-190 control 4.1.1
+- Identify the image scanning configuration checked as part of the NIST SP 800-190 control 4.1.1 implementation inside RHACS
+- Verify that making these changes passes the control
+
+## Wrapping up
+In this article I've taken a closer look at NIST Special Publication (SP) 800-190. This provides a guide to container application security, and covers many controls that help to harden container applications at build, deployment and runtime. 
+
+I've also looked at how NIST SP 800-190 is implemented in Red Hat Advanced Cluster Security for Kubernetes (RHACS) (StackRox). Specifically, I looked at NIST SP 800-190 control 4.1.1, and how RHACS assesses OpenShift and Kubernetes clusters against this control. I created a policy that meets the requirements RHACS is looking for, and verified that the control then passed.
+
+I hope that this helped better understand the NIST SP 800-190 implementation in RHACS, and how you can start to create compliant clusters. Thanks for reading!
