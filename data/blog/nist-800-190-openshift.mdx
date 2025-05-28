@@ -152,7 +152,7 @@ func checkCVSS7PolicyEnforcedOnBuild(ctx framework.ComplianceContext) {
 }
 ```
 Let's break down this function:
-- It only checks policies that have both a CVSS field and a severity field, and apply at build-time.
+- It checks policies that have a CVSS field or a severity field, and apply at build-time.
 - It skips all other policies
 - The policies that are found need to be both enabled and enforced at build-time.
 
