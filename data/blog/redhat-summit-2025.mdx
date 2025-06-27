@@ -1,30 +1,40 @@
 ---
 title: Red Hat Summit 2025
 date: '2025-06-28'
-tags: ['red hat', 'summit', '2025', 'ai', 'llm-d']
+tags: ['red','hat', 'summit', '2025', 'ai', 'llm-d']
 images: ['/static/images/summit/shane-hats.png']
 draft: false
-summary: 'This year I was fortunate to attend Red Hat Summit and visit historic Boston. I even had time to find a few filming locations from "The Departed"!'
+summary: 'This year I was fortunate to attend Red Hat Summit and visit historic Boston. I even had time to find a few filming locations from "The Departed"'
 ---
 This year I was incredibly fortunate to visit historic Boston for Red Hat Summit 2025. If you have't attended Red Hat Summit before, it's the flagship event of the year, where Red Hat customers and partners can hear about the latest innovation, see demonstrations of new open source technology in action, and join communities like OpenShift Commons and Ansible Commons to hear how others are using technology in the "real world."
 
 < pic - shane under the hats >
 
+I was incredibly fortunate that my partner Beth could join me for Summit too - I'll tell you why later on!
+
+< pic - shane and Beth RHEL10 >
+
 ## Announcements
 Red Hat Summit kicked off on the Tuesday morning with a number of announcements. You can get a glimpse here of what it was like walking into the theatre.
 
-< video - walking into the theatre >
+<YoutubeEmbed embedId="nOZWX2Rfc_A" />
 
-< pic - theatre before the announcements >
+And a pic inside:
+
+<Zoom>
+![summit-announce](/static/images/summit-2025/summit-announce.jpg)
+</Zoom>
 
 ### llm-d
 Artificial intelligence (AI) was a key focus at Red Hat Summit this year, and my favourite announcement was the creation of the open source [llm-d](https://llm-d.ai/) project. [Brian Stevens](https://www.linkedin.com/in/brianmarkstevens/), previously Red Hat CTO and now back at Red Hat following the [Neural Magic acquisition](https://www.redhat.com/en/about/press-releases/red-hat-completes-acquisition-neural-magic-fuel-optimized-generative-ai-innovation-across-hybrid-cloud), announced this on-stage. I snapped a pic here:
 
-< pic - Brian Stevens and llm-d>
+<Zoom>
+![cto-llm-d](/static/images/summit-2025/cto-llm-d.jpg)
+</Zoom>
 
 So what is [llm-d](https://llm-d.ai/)? One of the challenges with generative AI inference is that everything happens on the same GPU, on the same server. This makes it difficult to scale resources needed to support AI platforms. llm-d changes the LLM inference game - it enables an inference session to span multiple nodes, within a Kubernetes cluster. You can see a video here showing llm-d in action:
 
-< youtube embed - llm-d >
+<YoutubeEmbed embedId="pYujrc3rGjk" />
 
 You can also read a blog [here](https://liming.dev/articles/2025-05-25-llmd/) about why llm-d is a gamechanger for AI inference from one of Red Hat's AI experts in Singapore, Li Ming Tsai. Fun fact - Li Ming and I both joined Red Hat in the same month back in 2016, and were both part of the professional services organisation working on the same product, [Red Hat CloudForms](https://www.redhat.com/en/technologies/management/cloudforms).
 
@@ -33,11 +43,13 @@ Another exciting AI announcement was the release of [Red Hat AI Inference Server
 
 I know many of you reading this might be security professionals, and read that as "zero day". But this is very different - it means that when a new LLM drops from Meta, or other organisations, it already has engineered support within vLLM (Red Hat AI inference server). This means that you don't need to wait for the runtime to catch up with the model - it supports it from "day zero". How great is that!
 
-vLLM is a really interesting technology. It was born out of a research paper that included researchers from UC Berkeley, UC San Diego and Stanford University, titled [Efficient memory management for Large Language Model serving with PagedAttention](https://arxiv.org/abs/2309.06180). The paper demonstrates how existing LLM serving runtimes are limited in how they manage something called ["KV cache"](https://huggingface.co/blog/not-lain/kv-caching), a popular technique to speed up LLM inference. KV cache suffers from some of the same problems that operating systems do when they run out of working memory, and start "paging" - swapping memory pages to the disk, and back to working memory. You can see how KV caching works in this diagram from huggingface:
+vLLM is a really interesting technology. It was born out of a research paper that included researchers from UC Berkeley, UC San Diego and Stanford University, titled [Efficient memory management for Large Language Model serving with PagedAttention](https://arxiv.org/abs/2309.06180). The paper demonstrates how existing LLM serving runtimes are limited in how they manage something called ["KV cache"](https://huggingface.co/blog/not-lain/kv-caching), a popular technique to speed up LLM inference. KV cache suffers from some of the same problems that operating systems do when they run out of working memory, and start "paging" - swapping memory pages to the disk, and back to working memory. You can see how KV caching works in this diagram from [huggingface](https://huggingface.co/blog/not-lain/kv-caching):
 
-< pic - image of KV cache from huggingface >
+<Zoom>
+![kv-cache](/static/images/summit-2025/kv-cache.png)
+</Zoom>
 
-The paper introduces a new algorithm inspired by paging mechanisms of operating systems to manage memory cache, PagedAttention, that results in 2-4x throughput improvement. 
+The [vLLM paper](https://arxiv.org/abs/2309.06180) introduces a new algorithm inspired by paging mechanisms of operating systems to manage memory cache, PagedAttention, that results in 2-4x throughput improvement. 
 
 [NB: I mentioned llm-d above. One of the core llm-d capabilities is distributing KV cache lookups across multiple nodes]
 
@@ -46,7 +58,9 @@ If you want to read more about [Red Hat AI Inference Server](https://www.redhat.
 ### Post-quantum cryptography
 Another one of my favourites was from [Ashesh Badani](https://www.linkedin.com/in/asheshbadani/), announcing support for post-quantum cryptography (PQC) in Red Hat Enterprise Linux (RHEL). RHEL now includes a system-wide post-quantum cryptographic profile, enabling you to enable support for some of the NIST-approved PQC ciphers currently available. 
 
-< pic - ashesh announcing support for PQC >
+<Zoom>
+![ashesh-pqc](/static/images/summit-2025/ashesh-pqc.jpg)
+</Zoom>
 
 Why this is important is because the timeline for a cryptographically-relevant quantum computer is getting *scarily close*. By 2030 it's expected that a cryprographically-relevant quantum computer will be able to break classical encryption, including factoring RSA and retrieving private keys. You can see this reflected in current guidance from cybersecurity bodies, like the Australian Information Security Manual (ISM):
 
@@ -59,20 +73,46 @@ Definitely one of the Red Hat Summit highlights this year was heading to Fenway 
 
 Never have I seen so many red fedoras at one sporting event. It was amazing. I managed to snap a quick video here:
 
-< video - Red Hat at Fenway park >
+<YoutubeEmbed embedId="CA25UjhK_XU" />
 
 Sadly, the Red Sox were trounced. We had a blast though - Go Sox!
 
 ## Seeing 'The Departed' filming locations
 One of my all-time favourite films is ["The Departed"](https://www.imdb.com/title/tt0407887/). The movie is set in Boston, and while a lot of it was filmed in Brooklyn and New York, I wanted to see if I could find any filming locations in Boston.
 
-One of these was actually really easy. We were staying in the Seaport district of Boston, and if you head up the road less than a kilometre to 12 Franklin Street, you can see an iconic scene from The Departed. I won't spoil the plot for you if you haven't seen it - but here's the scene, and the spot it was filmed.
+One of these was actually really easy. We were staying in the Seaport district of Boston, and if you head up the road less than a kilometer to 12 Franklin Street, you can see an iconic scene from The Departed. I won't spoil the plot for you if you haven't seen it - but here's the scene, and the spot it was filmed.
 
-< pic 1 - scene from movie, with Leo outside the body >
-< pic 2 - queenan entering the building >
-< pic 3 - my pic >
-< pic 4 - leo on the staircase >
-< pic 5 - the staircase >
+<Zoom>
+![shane-departed-1](/static/images/summit-2025/shane-departed-1.jpg)
+</Zoom>
+
+<Zoom>
+![movie-departed-1-1](/static/images/summit-2025/movie-departed-1-1.png)
+</Zoom>
+
+<Zoom>
+![movie-departed-1-2](/static/images/summit-2025/movie-departed-1-2.png)
+</Zoom>
+
+If you look the other direction, you can see some of the green windows in this scene:
+
+<Zoom>
+![shane-departed-2](/static/images/summit-2025/shane-departed-2.jpg)
+</Zoom>
+
+<Zoom>
+![movie-departed-2](/static/images/summit-2025/movie-departed-2.png)
+</Zoom>
+
+12 Franklin doesn't actually have a fire escape, and I think this scene was filed on a nearby building, just around the corner:
+
+<Zoom>
+![shane-departed-3](/static/images/summit-2025/shane-departed-3.jpg)
+</Zoom>
+
+<Zoom>
+![movie-departed-3](/static/images/summit-2025/movie-departed-3.png)
+</Zoom>
 
 While you're there, make sure you check out the nearby ["Flour"](https://www.flourbakery.com/) cafe. I often find it hard to get a decent coffee in the USA, but this was amazing. Definitely worth it!
 
@@ -101,16 +141,21 @@ I was never really a student of American history, and while I had the name "Paul
 ### Trailblazer award
 So what was I doing in Boston for Red Hat Summit anyway? This year I was incredibly honoured to be the recipient of the Paul Cormier Trailblazer award. For those not in the know, Paul Cormier was the Red Hat CEO and President, and was ... (from linkedin post). Each year Red Hatters are nominated by their peers to receive the award. 
 
-< pic - trailblazer award on my shelf >
+<Zoom>
+![trailblazer-award](/static/images/summit-2025/trailblazer-award.jpg)
+</Zoom>
 
 The first event on the Trailblazer agenda was a tour of Fenway park. It was facinating hearing the history of the stadium and the Boston Red Sox, including the background to the ["green monster"](https://en.wikipedia.org/wiki/Green_Monster) and why the "monster seats" are so expensive (~ USD $1000 per game!), and the ["Curse of the Bambino"](https://en.wikipedia.org/wiki/Curse_of_the_Bambino). 
 
 < pic - fenway park tour guide >
-< pic - monster seats >
 < pic me at fenway park >
 
 Part of the award was a dinner with Trailblazer award winners and Red Hat leaders, including Paul Cormier himself. I had an awesome time speaking with the other Red Hatters, and hearing their stories of innovation and "trailblazing". [Richard Chun](https://www.linkedin.com/in/richardchun) also graciously snapped a pic of me with the Red Hat CEO, Matt Hicks.
 
-< pic - me with Matt Hicks >
+<Zoom>
+![shane-matt](/static/images/summit-2025/shane-matt.jpg)
+</Zoom>
 
-I'm incredibly thankful to the Red Hatters who nominated me. It was an awesome time at Summit and in Boston, and definitely a once-in-a-lifetime experience. A huge thank you also to my wife Beth, for all your support, and coming along and celebrating with me.
+I'm incredibly thankful to the Red Hatters who nominated me, it was an awesome time at Summit and in Boston. A huge thank you also to Kara Strang and Kelia Pless, who made the week a once-in-a-lifetime experience.
+
+A very special thank you to my wife Beth, for all your support, and coming along and celebrating with me. You're the best :)
