@@ -6,7 +6,7 @@ images: ['/static/images/summit/shane-hats.png']
 draft: false
 summary: 'This year I was fortunate to attend Red Hat Summit and visit historic Boston, and even had time to find a few filming locations from "The Departed".'
 ---
-This year I was incredibly fortunate to visit historic Boston for Red Hat Summit 2025. If you have't attended Red Hat Summit before, it's the flagship event of the year, where Red Hat customers and partners can hear about the latest innovation, see demonstrations of new open source technology in action, and join communities like OpenShift Commons and Ansible Commons to hear how others are using technology in the "real world."
+This year I was incredibly fortunate to visit historic Boston for Red Hat Summit 2025. If you have't attended Red Hat Summit before, it's Red Hat's flagship event of the year. It's where Red Hat customers and partners can hear about the latest innovation, see demonstrations of new capabilities in action, and join communities like OpenShift Commons and Ansible Commons to hear how others are using open source technology across the hybrid cloud.
 
 <Zoom>
 ![shane-hats](/static/images/summit-2025/shane-hats.jpg)
@@ -19,7 +19,7 @@ This year Red Hat Summit was held at the Boston Convention and Exhibition Centre
 </Zoom>
 
 ## Announcements
-Red Hat Summit kicked off on the Tuesday morning with a number of announcements. You can get a glimpse here of what it was like walking into the theatre.
+Red Hat Summit kicked off on the Tuesday morning with a number of announcements. You can get a glimpse here of what it was like walking into the amphitheatre.
 
 <YoutubeEmbed embedId="nOZWX2Rfc_A" />
 
@@ -36,16 +36,16 @@ Artificial intelligence (AI) was a key focus at Red Hat Summit this year, and my
 ![cto-llm-d](/static/images/summit-2025/cto-llm-d.jpg)
 </Zoom>
 
-So what is [llm-d](https://llm-d.ai/)? One of the challenges with generative AI inference is that everything happens on the same GPU, on the same server. This makes it difficult to scale resources needed to support AI platforms. llm-d solves these challenges by leveraging distributed inference optimisations, like KV-cache aware routing and disaggregated serving. You can find a video here showing llm-d in action:
+So what is [llm-d](https://llm-d.ai/)? One of the challenges with generative AI inference is that everything happens on the same accelerator (like a GPU), on the same server. This makes it difficult to scale resources needed to support AI-enabled applications. llm-d solves these challenges by introducing a model for distributed inference; splitting the inference process into two distinct phases, prefill and decode, and running each in separate pods on Kubernetes (OpenShift). llm-d also includes distributed inference optimisations, like KV-cache aware routing and disaggregated serving. You can find a video here showing llm-d in action:
 
 <YoutubeEmbed embedId="pYujrc3rGjk" />
 
-You can also read a blog [here](https://liming.dev/articles/2025-05-25-llmd/) about why llm-d is a gamechanger for AI inference from one of Red Hat's AI experts in Singapore, Li Ming Tsai. Li Ming and I both joined Red Hat in the same month back in 2016, and were both part of the professional services organisation working on the same product, [Red Hat CloudForms](https://www.redhat.com/en/technologies/management/cloudforms).
+You can also read a blog [here](https://liming.dev/articles/2025-05-25-llmd/) about why llm-d is a gamechanger for AI inference from one of Red Hat's AI experts in Singapore, Li Ming Tsai. Another fun fact - Li Ming and I both joined Red Hat in the same month back in 2016, and were both part of the professional services organisation working on the same product, [Red Hat CloudForms](https://www.redhat.com/en/technologies/management/cloudforms).
 
 ### Red Hat AI Inference Server
-Another exciting AI announcement was the release of [Red Hat AI Inference Server](https://www.redhat.com/en/products/ai/inference-server). This is the enterprise-grade, Red Hat-supported version of the [vLLM](https://github.com/vllm-project/vllm) open source project, which is effectively the standard runtime now for AI inference. You might have already seen some of the innovation Red Hat and Meta are building with vLLM already, like [day zero support for Llama 4](https://www.redhat.com/en/blog/llama-4-herd-here-and-already-available-openshift-ai).
+Another exciting AI announcement was the release of [Red Hat AI Inference Server](https://www.redhat.com/en/products/ai/inference-server). This is the enterprise-grade, Red Hat-supported product derived from the [vLLM](https://github.com/vllm-project/vllm) open source project, which is now effectively the standard runtime now for AI inference. You might have already seen some of the innovation Red Hat and Meta are building with vLLM already, like [day zero support for Llama 4](https://www.redhat.com/en/blog/llama-4-herd-here-and-already-available-openshift-ai).
 
-I know many of you reading this might be security professionals, and read that as "zero day". But this is very different - it means that when a new LLM drops from Meta, or other organisations, it already has engineered support within vLLM (Red Hat AI inference server). This means that you don't need to wait for the runtime to catch up with the model - it supports it from "day zero". How great is that!
+I know many of you reading this might be security professionals, and read that as "zero day". But "day zero" is very different - it means that when a new LLM drops from Meta, or other organisations, it already has engineered support within vLLM (Red Hat AI inference server). This means that you don't need to wait for the runtime to catch up with the model - it supports it from "day zero". How great is that!
 
 vLLM is a really interesting technology. It was born out of a research paper that included researchers from UC Berkeley, UC San Diego and Stanford University, titled [Efficient memory management for Large Language Model serving with PagedAttention](https://arxiv.org/abs/2309.06180). The paper demonstrates how existing LLM serving runtimes are limited in how they manage something called ["KV cache"](https://huggingface.co/blog/not-lain/kv-caching), a popular technique to speed up LLM inference. KV cache suffers from some of the same problems that operating systems do when they run out of working memory, and start "paging" - swapping memory pages to the disk, and back to working memory. You can see how KV caching works in this diagram from [huggingface](https://huggingface.co/blog/not-lain/kv-caching):
 
@@ -55,7 +55,7 @@ vLLM is a really interesting technology. It was born out of a research paper tha
 
 The [vLLM paper](https://arxiv.org/abs/2309.06180) introduces a new algorithm inspired by paging mechanisms of operating systems to manage memory cache, PagedAttention, that results in 2-4x throughput improvement. 
 
-[NB: I mentioned llm-d above. One of the core llm-d capabilities is distributing KV cache lookups across multiple nodes]
+[NB: I mentioned [llm-d](https://llm-d.ai/) above. One of the core llm-d capabilities is distributing KV cache lookups across multiple nodes]
 
 If you want to read more about [Red Hat AI Inference Server](https://www.redhat.com/en/products/ai/inference-server) check out the article [here](https://www.redhat.com/en/about/press-releases/red-hat-unlocks-generative-ai-any-model-and-any-accelerator-across-hybrid-cloud-red-hat-ai-inference-server).
 
@@ -72,7 +72,7 @@ Why this is important is because the timeline for a cryptographically-relevant q
 ![ism-pqc](/static/images/summit-2025/ism-pqc.png)
 </Zoom>
 
-So - by 2030, RSA, ECDSA, ECHDH and other cryptographic ciphers will no longer be approved by the Australian Signals Directorate (ASD) for use, and we should *really* be looking at PQC now, while we have a lot of time to prepare. You can see an awesome article [here](https://www.redhat.com/en/blog/post-quantum-cryptography-red-hat-enterprise-linux-10) from [Clemens Lang](https://www.redhat.com/en/authors/clemens-lang) if you want to read more on Red Hat Enteprise Linux and post-quantum cryptography.
+So - by 2030, RSA, ECDSA, ECHDH and other cryptographic ciphers built on classical encryption will no longer be approved by the Australian Signals Directorate (ASD) for use, and we should *really* be looking at PQC now, while we have a lot of time to prepare. You can see an awesome article [here](https://www.redhat.com/en/blog/post-quantum-cryptography-red-hat-enterprise-linux-10) from [Clemens Lang](https://www.redhat.com/en/authors/clemens-lang) if you want to read more on Red Hat Enteprise Linux and post-quantum cryptography.
 
 ## Red Hat at Fenway park
 Definitely one of the Red Hat Summit highlights this year was heading to Fenway Park to see the Boston Red Sox take on the NY Mets - with all of the Red Hat customers and partners!
@@ -86,7 +86,7 @@ Sadly, the Red Sox were trounced. We had a blast though - Go Sox!
 ## Seeing 'The Departed' filming locations
 One of my all-time favourite films is ["The Departed"](https://www.imdb.com/title/tt0407887/). The movie is set in Boston, and while a lot of it was filmed in Brooklyn and New York, I wanted to see if I could find any filming locations in Boston.
 
-One of these was actually really easy. We were staying in the Seaport district of Boston, and if you head up the road less than a kilometer to 12 Franklin Street, you can see an iconic scene from The Departed. I won't spoil the plot for you if you haven't seen it - but here's the scene, and the spot it was filmed.
+One of these was actually really easy. We were staying in the Seaport district of Boston, and if you head up the road less than a kilometer to 12 Franklin Street you can see an iconic scene from The Departed. I won't spoil the plot for you if you haven't seen it - but here's the scene, and the spot it was filmed.
 
 <Zoom>
 ![shane-departed-1](/static/images/summit-2025/shane-departed-1.jpg)
@@ -148,13 +148,13 @@ I was also recommended [Ristorante Limoncello](https://www.ristorantelimoncello.
 </Zoom>
 
 ### Trailblazer award
-So what was I doing in Boston for Red Hat Summit anyway? This year I was incredibly honoured to be the recipient of the Paul Cormier Trailblazer award. For those not in the know, Paul Cormier was the Red Hat CEO and President, and was ... (from linkedin post). Each year Red Hatters are nominated by their peers to receive the award. 
+So what was I doing in Boston for Red Hat Summit anyway? This year I was incredibly honoured to be the recipient of the Paul Cormier Trailblazer award. For those not in the know, Paul Cormier was the Red Hat President and CEO, and set an example for leadership, courage, and strength, that is still felt today. Each year Red Hatters are nominated by their peers to receive the award. 
 
 <Zoom>
 ![trailblazer-award](/static/images/summit-2025/trailblazer-award.jpg)
 </Zoom>
 
-The first event on the Trailblazer agenda was a tour of Fenway park. It was facinating hearing the history of the stadium and the Boston Red Sox, including the background to the ["green monster"](https://en.wikipedia.org/wiki/Green_Monster) and why the "monster seats" are so expensive (~ USD $1000 per game!).
+The first event on the Trailblazer agenda was a tour of Fenway park. It was facinating hearing the history of the stadium and the Boston Red Sox, including the background to the ["green monster"](https://en.wikipedia.org/wiki/Green_Monster) and why the "monster seats" are so expensive (~ USD $700-1000 per game!).
 
 <Zoom>
 ![fenway-park](/static/images/summit-2025/fenway-park.jpg)
@@ -174,7 +174,7 @@ I also learned about the ["Curse of the Bambino"](https://en.wikipedia.org/wiki/
 ![bat-2](/static/images/summit-2025/babe-ruth-bat-2.jpg)
 </Zoom>
 
-Part of the award was a dinner with Trailblazer award winners and Red Hat leaders, including Paul Cormier himself. I had an awesome time speaking with the other Red Hatters, and hearing their stories of innovation, and creating solutions to really interesting problems. [Richard Chun](https://www.linkedin.com/in/richardchun) also graciously snapped a pic of me with the Red Hat President and CEO, Matt Hicks.
+Part of the award was a dinner with Trailblazer award winners and Red Hat leaders, including Paul Cormier himself. I had an awesome time speaking with the other Trailblazers, and hearing their stories of innovation, and creating solutions to really interesting problems. [Richard Chun](https://www.linkedin.com/in/richardchun) also graciously snapped a pic of me with the Red Hat President and CEO, Matt Hicks.
 
 <Zoom>
 ![shane-matt](/static/images/summit-2025/shane-matt.jpg)
