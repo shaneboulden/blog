@@ -10,6 +10,27 @@
       <lastBuildDate>Wed, 30 Apr 2025 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
 
+
+   <item>
+    <guid>https://stb.id.au/blog/redhat-summit-2025</guid>
+    <title>Red Hat Summit 2025</title>
+    <link>https://stb.id.au/blog/redhat-summit-2025</link>
+    <description>This year I was fortunate to attend Red Hat Summit and visit historic Boston, and even had time to find a few filming locations from "The Departed".</description>
+    <pubDate>Sat, 28 June 2025 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>red</category>hat<category>summit</category><category>2025</category>ai<category>llm-d</category><category>boston</category><category>trailblazer</category><category>fenway</category><category>departed</category>
+  </item>
+  
+   <item>
+    <guid>https://stb.id.au/blog/nist-800-190-openshift</guid>
+    <title>NIST SP 800-190 and OpenShift</title>
+    <link>https://stb.id.au/blog/nist-800-190-openshift</link>
+    <description>NIST Special Publication 800-190 represents a great baseline for container platform security. In this article I take a look at how to adopt NIST SP 800-190 with OpenShift and Red Hat Advanced Cluster Security for Kubernetes (RHACS).</description>
+    <pubDate>Thu, 28 May 2025 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>nist</category><category>rhacs</category><category>openshift</category><category>governance</category><category>security</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/all-about-arf</guid>
     <title>All About ARF</title>
