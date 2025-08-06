@@ -1,0 +1,660 @@
+---
+title: OpenShift X509 auth with Keycloak
+date: '2024-07-20'
+tags: ['openshift','x509','keycloak','authentication','kubernetes', 'identity']
+images: ['/static/images/linkedin-banners/openshift-x509.png']
+draft: false
+summary: "Identity is a core part of operating a platform. In this article I want to explore one of the ways you can authenticate users to OpenShift, using X509 certificates and OpenShift."
+---
+I think there's three things you can't escape in life - death, taxes, and X509 certificates.
+
+X509 certificates are everywhere, tying  Everytime you access a website protected by HTTPS, you're presented with an X509 certificate, establishing the site's identity.Everytime you access a website and see the happy 'Connection is secure' message in your browser, it means that the website is presenting an X509 certificate that has been verified by a trusted certificate authority (CA).
+
+X509 certificates are also core to [Sigstore](https://www.sigstore.dev/) artifact signing, which I've covered in a couple of blogs previously:
+
+- [Sigstore - Signature Sorcery](blog/sigstore-sorcery)
+
+- [Sigstore and StackRox](/blog/sigstore-and-stackrox)
+
+X509 certificates have a time period that they are valid for. This is designed to enforce trust boundaries, and limit risk. For example, if a private key associated with an X509 certificate is stolen, the attacker could impersonate the certificate holder, and a validity period ensures the key can't be used forever. Certificate expiration also encourages rotation; as algorithms and key sizes become obsolete over time (e.g. SHA-1, RSA-1024), expiration forces regular updates to newer, safer cryptographic algorithms.
+
+You can see an example of this here, for [redhat.com](https://www.redhat.com):
+
+<Zoom>
+![x509-redhat](/static/images/x509-keycloak/redhat.png)
+</Zoom>
+
+Note that this certificate was only recently rotated - it was re-issued 23 June 2025, and expires 23 June 2026.
+
+Sigstore uses X509 certificates and this validity period in a novel way to support its keyless signing workflow. Specifically, the [Fulcio](https://docs.sigstore.dev/certificate_authority/overview/) component of Sigstore signs X509 certificates that are valid for only 10 minutes, and embeds these in a transparency ledger, [Rekor](https://docs.sigstore.dev/logging/overview/). This ensures that the user identity was valid at the time that the container image was signed, but also ensures that the certificates can no longer be used for signing other artifacts.
+
+You can see this by inspecting a Rekor entry. I've signed the image `quay.io/smileyfritz/chat-client@sha256:b9ba5b4bb6c9b8793edd17196682912afca2b59b559fd1c3326b382f90489d79` (it's best practice to sign images by digest with Sigstore). You can see that the image is signed at quay.io:
+
+<Zoom>
+![signed-image](/static/images/x509-keycloak/signed-image.png)
+</Zoom>
+
+If I take a look at the rekor entry directly we can see the embedded X509 certificates. Firstly let's search for the rekor entry:
+
+```json
+$ rekor-cli get --log-index 356023054 --format json | jq
+{
+  "Attestation": "",
+  "AttestationType": "",
+  "Body": {
+    "HashedRekordObj": {
+      "data": {
+        "hash": {
+          "algorithm": "sha256",
+          "value": "aacf700ada3bac8186eb749b143c328e00e7a92e81953ea5427cdc6107bbaa3b"
+        }
+      },
+      "signature": {
+        "content": "MEQCICajk2dOGirg2FT3WGIdMzKWvcSM6CFaDV1siM9/o+uhAiAEk2uBnS9Rg0nOX40ky+WvgLq5nWK9aE108CZi/Zwhrg==",
+        "publicKey": {
+          "content": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUMxVENDQWx5Z0F3SUJBZ0lVSW1BbzNuYW1uYUJHbVVPNFhXNjhUNVNaRTFBd0NnWUlLb1pJemowRUF3TXcKTnpFVk1CTUdBMVVFQ2hNTWMybG5jM1J2Y21VdVpHVjJNUjR3SEFZRFZRUURFeFZ6YVdkemRHOXlaUzFwYm5SbApjbTFsWkdsaGRHVXdIaGNOTWpVd09EQTJNRGd4TlRNMldoY05NalV3T0RBMk1EZ3lOVE0yV2pBQU1Ga3dFd1lICktvWkl6ajBDQVFZSUtvWkl6ajBEQVFjRFFnQUVLbEtmU3ZqajlVUlY4dUpYcU8vcktWdVNrS3Z6bUFXSWk0eDQKT05qMTFkcnRXMjk3T3d1elFOTi9BeU5ybW5hR3FrMUwrNVd0TXdMdjQyS1NLaFIxOGFPQ0FYc3dnZ0YzTUE0RwpBMVVkRHdFQi93UUVBd0lIZ0RBVEJnTlZIU1VFRERBS0JnZ3JCZ0VGQlFjREF6QWRCZ05WSFE0RUZnUVVGdFE5ClRzMS9jUjhOR3A0MmFCb3dFbTZSbjVrd0h3WURWUjBqQkJnd0ZvQVUzOVBwejFZa0VaYjVxTmpwS0ZXaXhpNFkKWkQ4d0pRWURWUjBSQVFIL0JCc3dHWUVYYzJoaGJtVXVZbTkxYkdSbGJrQm5iV0ZwYkM1amIyMHdMQVlLS3dZQgpCQUdEdnpBQkFRUWVhSFIwY0hNNkx5OW5hWFJvZFdJdVkyOXRMMnh2WjJsdUwyOWhkWFJvTUM0R0Npc0dBUVFCCmc3OHdBUWdFSUF3ZWFIUjBjSE02THk5bmFYUm9kV0l1WTI5dEwyeHZaMmx1TDI5aGRYUm9NSUdLQmdvckJnRUUKQWRaNUFnUUNCSHdFZWdCNEFIWUEzVDB3YXNiSEVUSmpHUjRjbVdjM0FxSktYcmplUEszL2g0cHlnQzhwN280QQpBQUdZZm5NMXFBQUFCQU1BUnpCRkFpQW8vVk5Db3VDaUV0dExJR0dBN3o1VEw3RUt2YU5jT1dZVUpkMjVVM2JCCm5nSWhBTVJRWmltTFFqTE44eHVyMHJNdjAvNXlQZndIcHBtY1dhRThKOHZrTVZONE1Bb0dDQ3FHU000OUJBTUQKQTJjQU1HUUNNR3BHZ1IyOERublpBRHJVdlhPODBmU3R5Z3c4MHpOWTZOMWliTjFhaUpOTUxRVDlIbGFPWXBLaQo0cGJmbXQ2aWVnSXdJV3VpanlyWEFVKzgzWW9DZmVmZ0I2ZHdyQkVPSVBUK0lPMXA1VDZUbEIreU1mM0htNHJRCmdtcEZ1UmtwSyt0NgotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg=="
+        }
+      }
+    }
+  },
+  "LogIndex": 356023054,
+  "IntegratedTime": 1754468139,
+  "UUID": "108e9186e8c5677ac1a9f6f1fc5783526f687932f20ebfaf8f53cfbbe5d78bf671d675c59c48bcc4",
+  "LogID": "c0d23d6ad406973f9559f3ba2d1ca01f84147d8ffc5b8445c224f98b9591801d"
+}
+```
+
+The certificates we want are in the `content`, so let's extract and display with `openssl`:
+```
+$ rekor-cli get --log-index 356023054 --format json | jq -r '.Body.HashedRekordObj.signature.publicKey.content' | base64 -d | openssl x509 -noout -text
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number:
+            22:60:28:de:76:a6:9d:a0:46:99:43:b8:5d:6e:bc:4f:94:99:13:50
+        Signature Algorithm: ecdsa-with-SHA384
+        Issuer: O=sigstore.dev, CN=sigstore-intermediate
+        Validity
+            Not Before: Aug  6 08:15:36 2025 GMT
+            Not After : Aug  6 08:25:36 2025 GMT
+        Subject:
+        Subject Public Key Info:
+            Public Key Algorithm: id-ecPublicKey
+                Public-Key: (256 bit)
+                pub:
+                    04:2a:52:9f:4a:f8:e3:f5:44:55:f2:e2:57:a8:ef:
+                    eb:29:5b:92:90:ab:f3:98:05:88:8b:8c:78:38:d8:
+                    f5:d5:da:ed:5b:6f:7b:3b:0b:b3:40:d3:7f:03:23:
+                    6b:9a:76:86:aa:4d:4b:fb:95:ad:33:02:ef:e3:62:
+                    92:2a:14:75:f1
+                ASN1 OID: prime256v1
+                NIST CURVE: P-256
+        X509v3 extensions:
+            X509v3 Key Usage: critical
+                Digital Signature
+            X509v3 Extended Key Usage:
+                Code Signing
+            X509v3 Subject Key Identifier:
+                16:D4:3D:4E:CD:7F:71:1F:0D:1A:9E:36:68:1A:30:12:6E:91:9F:99
+            X509v3 Authority Key Identifier:
+                DF:D3:E9:CF:56:24:11:96:F9:A8:D8:E9:28:55:A2:C6:2E:18:64:3F
+            X509v3 Subject Alternative Name: critical
+                email:shane.boulden@gmail.com
+            1.3.6.1.4.1.57264.1.1:
+                https://github.com/login/oauth
+            1.3.6.1.4.1.57264.1.8:
+                ..https://github.com/login/oauth
+            CT Precertificate SCTs:
+                Signed Certificate Timestamp:
+                    Version   : v1 (0x0)
+                    Log ID    : DD:3D:30:6A:C6:C7:11:32:63:19:1E:1C:99:67:37:02:
+                                A2:4A:5E:B8:DE:3C:AD:FF:87:8A:72:80:2F:29:EE:8E
+                    Timestamp : Aug  6 08:15:36.360 2025 GMT
+                    Extensions: none
+                    Signature : ecdsa-with-SHA256
+                                30:45:02:20:28:FD:53:42:A2:E0:A2:12:DB:4B:20:61:
+                                80:EF:3E:53:2F:B1:0A:BD:A3:5C:39:66:14:25:DD:B9:
+                                53:76:C1:9E:02:21:00:C4:50:66:29:8B:42:32:CD:F3:
+                                1B:AB:D2:B3:2F:D3:FE:72:3D:FC:07:A6:99:9C:59:A1:
+                                3C:27:CB:E4:31:53:78
+    Signature Algorithm: ecdsa-with-SHA384
+    Signature Value:
+        30:64:02:30:6a:46:81:1d:bc:0e:79:d9:00:3a:d4:bd:73:bc:
+        d1:f4:ad:ca:0c:3c:d3:33:58:e8:dd:62:6c:dd:5a:88:93:4c:
+        2d:04:fd:1e:56:8e:62:92:a2:e2:96:df:9a:de:a2:7a:02:30:
+        21:6b:a2:8f:2a:d7:01:4f:bc:dd:8a:02:7d:e7:e0:07:a7:70:
+        ac:11:0e:20:f4:fe:20:ed:69:e5:3e:93:94:1f:b2:31:fd:c7:
+        9b:8a:d0:82:6a:45:b9:19:29:2b:eb:7a
+```
+There it is - an X509 certificate, embedded in the Rekor entry. You can see the novel X509 usage here; the certificate is only valid for 10 minutes:
+```yaml
+        Validity
+            Not Before: Aug  6 08:15:36 2025 GMT
+            Not After : Aug  6 08:25:36 2025 GMT
+```
+
+X509 certificates are even found in spacecraft communications. 
+
+...
+
+So, we can use X509 to verify the identity of a server, and establish that a specific user signed an artifact (like a container image). One of the other use cases for X509 certificates is establishing the identity of a *client*. If you've ever worked at a bank, or for a government organisation, you may have come across this. It provides a high-degree of assurance that you are the user accessing a website, and extracts your username from *your own* X509 certificate - essentially, an X509 certificate tied to your username. This is typically called 'mutual TLS', as it requires the client to establish the identity of the server, but also the server to establish the identity of the client. 
+
+You can think of this as an earlier implementation of [passkeys](https://www.cyber.gov.au/protect-yourself/secure-your-accounts/passkeys). Passkeys don't use X509 certificates, but [FIDO2 credentials](https://www.microsoft.com/en-us/security/business/security-101/what-is-fido2) - essentially a simpler implementation of X509 client authentication. Passkeys and associated WebAuthn standard are quickly gaining traction, and I wrote an article on how you can use WebAuthn with OpenShift and Keycloak to support [phishing-resistant multifactor authentication for OpenShift](/blog/openshift-mfa). But, X509 client authentication is still used in many places. 
+
+In this article I'll show how you can configure X509 client authentication for OpenShift, using [Keycloak](https://www.keycloak.org/). Let's take a look!
+
+### Creating certificates
+Keycloak requires a valid domain and TLS certificates. I'm going to use my own domain for this and Letsencrypt to generate certificates.
+
+You can use [certbot](https://certbot.eff.org/) to generate certificates using Letsencrypt. I've created a Python virtual environment: 
+```
+python3 -m venv certbot-venv
+source ~/certbot-venv/bin/activate
+pip3 install certbot certbot_dns_route53
+```
+Because my domain is hosted via Route53, I've created an IAM role for `certbot` to use to generate certificates, and can create these via the client:
+```
+AWS_PROFILE=certbot certbot certonly --logs-dir /home/user/certbot/log --config-dir /home/user/certbot/config --work-dir /home/user/certbot/work -d keycloak.blueradish.net --dns-route53 -m shane.boulden@gmail.com --agree-tos --non-interactive
+```
+Now I have TLS certificates available:
+```
+Successfully received certificate.
+Certificate is saved at: /home/user/certbot/config/live/keycloak.blueradish.net/fullchain.pem
+Key is saved at:         /home/user/certbot/config/live/keycloak.blueradish.net/privkey.pem
+```
+I also need to point my CNAME record for `keycloak.blueradish.net` to the OpenShift router, so that the route works. You can get the canonical hostname for OpenShift via:
+```
+$ oc get route/console -n openshift-console -o json | jq -r '.status.ingress[0].routerCanonicalHostname'
+router-default.apps.cluster1.sandbox247.opentlc.com
+```
+And now create a CNAME record for `router-default.apps.cluster1.sandbox247.opentlc.com` to `keycloak.blueradish.net`:
+
+<Zoom>
+![keycloak-route53](/static/images/x509-keycloak/keycloak-route53.png)
+</Zoom>
+
+We also need a secret created in OpenShift to hold the TLS certificates. I'm going to install Keycloak into the `keycloak` project, and create a secret like this:
+
+```
+oc create secret tls keycloak-tls --cert /home/user/certbot/config/live/keycloak.blueradish.net/fullchain.pem --key /home/user/certbot/config/live/keycloak.blueradish.net/privkey.pem -n keycloak
+```
+
+### Setting up PostgreSQL
+I'm going to use the [Red Hat Build of Keycloak](https://access.redhat.com/products/red-hat-build-of-keycloak/) for this article. This is an enterprise-grade product created from the Keycloak open source project.
+
+RHBK uses PostgreSQL for a database. Firstly, let's create a secret for the database credentials:
+
+```
+oc create secret generic keycloak-db-secret \
+  --from-literal=username=keycloak-user \
+  --from-literal=password=keycloak-password
+```
+Now create a PostgreSQL instance using a StatefulSet:
+```yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgresql-db
+spec:
+  serviceName: postgresql-db-service
+  selector:
+    matchLabels:
+      app: postgresql-db
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: postgresql-db
+    spec:
+      containers:
+        - name: postgresql-db
+          image: postgres:15
+          volumeMounts:
+            - mountPath: /data
+              name: cache-volume
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db-secret
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db-secret
+                  key: password
+            - name: PGDATA
+              value: /data/pgdata
+            - name: POSTGRES_DB
+              value: keycloak
+      volumes:
+        - name: cache-volume
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-db
+spec:
+  selector:
+    app: postgresql-db
+  type: LoadBalancer
+  ports:
+  - port: 5432
+    targetPort: 5432
+```
+Once the pods are deployed, check that PostgreSQL is happy:
+
+<Zoom>
+![postgresql-status](/static/images/x509-keycloak/postgresql-status.png)
+</Zoom>
+
+### Installing Keycloak
+Now we're ready to install the Red Hat Build of Keycloak. The first thing to do is install the Red Hat build of Keycloak operator on OpenShift. You can find this in the OperatorHub:
+
+<Zoom>
+![keycloak-operator](/static/images/x509-keycloak/keycloak-operator.png)
+</Zoom>
+
+Install the operator into the `keycloak` namespace:
+
+<Zoom>
+![keycloak-install](/static/images/x509-keycloak/keycloak-install.png)
+</Zoom>
+
+Once the operator is installed you can see the available APIs:
+
+<Zoom>
+![keycloak-apis](/static/images/x509-keycloak/keycloak-apis.png)
+</Zoom>
+
+Let's create a new Keycloak instance. Now that the APIs are available, I can simply define this as YAML, specifying the `keycloak-db-secret` and `keycloak-tls` secrets created earlier:
+```yaml
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: Keycloak
+metadata:
+  name: keycloak-poc
+spec:
+  instances: 1
+  db:
+    vendor: postgres
+    host: postgres-db
+    usernameSecret:
+      name: keycloak-db-secret
+      key: username
+    passwordSecret:
+      name: keycloak-db-secret
+      key: password
+  http:
+    tlsSecret: keycloak-tls
+  hostname:
+    hostname: keycloak.blueradish.net
+  proxy:
+    headers: xforwarded
+```
+Once the instance is created you should see a new StatefulSet created, and pods deploying:
+
+<Zoom>
+![keycloak-deploy1](/static/images/x509-keycloak/keycloak-deploy1.png)
+</Zoom>
+
+<Zoom>
+![keycloak-deploy2](/static/images/x509-keycloak/keycloak-deploy2.png)
+</Zoom>
+
+<Zoom>
+![keycloak-deploy3](/static/images/x509-keycloak/keycloak-deploy3.png)
+</Zoom>
+
+Finally, verify that Keycloak is running by accessing the domain from above. There's a secret created for the `temp-admin` user in the `keycloak` namespace, created by the operator:
+```
+$ oc get secrets -n keycloak | grep keycloak-poc-initial-admin
+keycloak-poc-initial-admin      kubernetes.io/basic-auth   2      5m21s
+```
+
+<Zoom>
+![keycloak-login](/static/images/x509-keycloak/keycloak-login.png)
+</Zoom>
+
+### Creating client X509 certificates
+
+Now that we have Keycloak up and running we can start creating certificates for our users to authenticate. If your own PKI already available, you can simply request user certificates. But for this article, I'm going to roll my own certificate authority (CA):
+
+I can do this using `openssl`. Note that you'll need to provide a password for the CA key. OpenSSL will prompt you for values for the CA identity, but for this article it doesn't really matter.
+```
+PW=my-super-secret-password
+openssl req -x509  -passin pass:$PW -sha256 -days 3650 -newkey rsa:4096 -keyout rootCA.key -out rootCA.crt
+```
+I'm going to be using Firefox to access OpenShift, and it requires certain V3 extensions in certificates to support client authentication. A little background - X.509 v3 extensions are fields added to X.509 digital certificates to provide extra information and control how certificates are used. These were introduced in X.509 version 3, defined by the ITU-T recommendation X.509 (03/2000) and earlier drafts in the 1990s. They allow X.509 certificates to be more flexible and usable in a wide range of real-world scenarios, such as web server authentication, certificate authority chaining, and code signing.
+
+Let's create a config file to specify these V3 extensions:
+
+```ini:'openssl.cnf' showLineNumbers
+[ req ]
+default_bits        = 2048
+default_keyfile     = client.key
+distinguished_name  = req_distinguished_name
+attributes          = req_attributes
+x509_extensions     = v3_client_cert
+
+[ req_distinguished_name ]
+countryName_default             = AU
+organizationalUnitName_default  = ClientCertificates
+commonName_default              = user3
+emailAddress_default            = user3@blueradish.net
+
+[ req_attributes ]
+challengePassword_default       = A_strong_password
+
+[ v3_client_cert ]
+basicConstraints = CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = clientAuth
+subjectAltName = @alt_names
+
+[ alt_names ]
+DNS.1 = blueradish.net
+email.1 = user3@blueradish.net
+```
+Now we can create a key together with a certificate signing request (CSR) for `user3`:
+```
+openssl req -new -newkey rsa:4096 -nodes -keyout user3.key -subj "/CN=user3" -out user3.csr -config openssl.cnf
+```
+And sign it with the CA key:
+```
+openssl x509 -req -CA rootCA.crt -CAkey rootCA.key -in user3.csr -out user3.crt -days 365 -CAcreateserial -days 365 -sha256 -extfile openssl.cnf -extensions v3_client_cert
+```
+The last step here is to create a PKCS12 file for the user certificate, which can be imported into Firefox. You'll need to provide a password for this operation also:
+```
+openssl pkcs12 -export -out user3.p12 -name "user3" -inkey user3.key -in user3.crt
+```
+
+Great! I've imported this key into my Firefox browser. You can see that the user name is listed as the certificate common name, which we'll use for login to OpenShift. Because I didn't specify thbe country / locality / organization when creating the CA, they're simply listed as defaults.
+
+<Zoom>
+![user-cert1](/static/images/x509-keycloak/user-cert1.png)
+</Zoom>
+
+Importantly, you can see that the Extended Key Usages for this certificate is set to 'Client Authentication', meaning we can use this X509 certificate to authenticate with Keycloak (and OpenShift).
+
+<Zoom>
+![user-cert2](/static/images/x509-keycloak/user-cert2.png)
+</Zoom>
+
+### Keycloak - revisited
+There's a little more configuration required before this is working for client authentication. Keycloak trusts a number of certificate authorities by default, but because we created our own, we need to explicitly add this to the Keycloak trust configuration.
+
+Keycloak can use PKCS12 or PEM files for trusted certificates. A PKCS12 file requires both the key and certificate - and I don't really want to have to expose the CA key. Really there's no difference in the content between a `.crt` and `.pem` file though - it's just a convention. So let's rename the `rootCA.crt` file to `root.pem`:
+```
+cp rootCA.crt root.pem
+```
+Now we can create a secret to hold the file:
+```
+oc create secret generic --from-file=root.pem x509-trust-secret
+```
+Now let's update the Keycloak configuration to reflect that this file should be trusted:
+```yaml:'openssl.cnf' showLineNumbers{22-30}
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: Keycloak
+metadata:
+  name: keycloak-poc
+spec:
+  instances: 1
+  db:
+    vendor: postgres
+    host: postgres-db
+    usernameSecret:
+      name: keycloak-db-secret
+      key: username
+    passwordSecret:
+      name: keycloak-db-secret
+      key: password
+  http:
+    tlsSecret: keycloak-tls
+  hostname:
+    hostname: keycloak.blueradish.net
+  proxy:
+    headers: xforwarded # double check your reverse proxy sets and overwrites the X-Forwarded-* headers
+  truststores:
+    userCA:
+      secret:
+        name: x509-trust-secret
+  additionalOptions:
+    - name: https-client-auth
+      value: "request"
+    - name: https-trust-store-file
+      value: "/opt/keycloak/conf/truststores/secret-x509-trust-secret/root.pem"
+```
+You should see the Keycloak pod recreated:
+
+<Zoom>
+![keycloak-redeploy1](/static/images/x509-keycloak/keycloak-redeploy1.png)
+</Zoom>
+
+And if you check the logs, it will reflect the new certificate authority is trusted:
+```
+2025-08-06 04:46:19,279 INFO [org.keycloak.truststore.TruststoreBuilder] (main) Found the following truststore files under directories specified in the truststore paths [/opt/keycloak/bin/../conf/truststores/secret-x509-trust-secret/root.pem, /opt/keycloak/bin/../conf/truststores/secret-x509-trust-secret/..data/root.pem, /opt/keycloak/bin/../conf/truststores/secret-x509-trust-secret/..2025_08_06_04_46_07.2946640639/root.pem]
+```
+
+### Creating a client and authentication flow
+Now we need to create a new authentication flow in Keycloak, so that it knows how to authenticate users presenting X509 client certificates.
+
+Login to Keycloak and select 'Realms'. Select 'Create Realm':
+
+<Zoom>
+![keycloak-realm1](/static/images/x509-keycloak/keycloak-realm1.png)
+</Zoom>
+
+I'm just going to call this new realm `openshift`:
+
+<Zoom>
+![keycloak-realm2](/static/images/x509-keycloak/keycloak-realm2.png)
+</Zoom>
+
+Select `Authentication`, and next to the `browser` flow select `Duplicate`.
+
+<Zoom>
+![keycloak-auth1](/static/images/x509-keycloak/keycloak-auth1.png)
+</Zoom>
+
+I'm going to call this new flow `browser-x509`:
+
+<Zoom>
+![keycloak-auth2](/static/images/x509-keycloak/keycloak-auth2.png)
+</Zoom>
+
+Delete all of the steps from the flow except for `Cookie`, `Kerberos` and `Identity Provider Redirector`:
+
+<Zoom>
+![keycloak-flow1](/static/images/x509-keycloak/keycloak-flow1.png)
+</Zoom>
+
+Click `Add execution`, and search for `x509`. From the list, select `X509/Validate Username Form`, and add it. Set this flow to `Required`.
+
+<Zoom>
+![keycloak-flow2](/static/images/x509-keycloak/keycloak-flow2.png)
+</Zoom>
+
+<Zoom>
+![keycloak-flow3](/static/images/x509-keycloak/keycloak-flow3.png)
+</Zoom>
+
+Select the settings next to the `X509/Validate Username Form` and make the following changes:
+
+- **User Identity Source**: Subject's Common Name
+- **User Mapping Method**: Username or Email
+- **A name of user attribute**: username
+
+Select 'Save'.
+
+Now that our X509 authentication flow is setup, we need to assign it to the `openshift` client. Navigate to the `openshift` client settings and select the `Advanced` tab:
+
+<Zoom>
+![keycloak-flow4](/static/images/x509-keycloak/keycloak-flow4.png)
+</Zoom>
+
+Right at the bottom is an option for `Authentication flow overrides`. Change the `Browser flow` to `browser-x509`:
+
+<Zoom>
+![keycloak-flow5](/static/images/x509-keycloak/keycloak-flow5.png)
+</Zoom>
+
+### Configuring an OpenShift OpenID Connect (OIDC) provider
+The last step here is to configure a client for OpenShift in the Keycloak realm.
+
+Select 'Clients' and 'Create client'. Give the client an ID and name, and select 'Next'.
+
+<Zoom>
+![keycloak-client1](/static/images/x509-keycloak/keycloak-client1.png)
+</Zoom>
+
+Set 'Client authentication to 'On' and leave the authentication flow for the standard flow. Select 'Next'.
+
+<Zoom>
+![keycloak-client2](/static/images/x509-keycloak/keycloak-client2.png)
+</Zoom>
+
+This next part is really important, as it's where we set the redirect URIs for OpenShift OAuth. If these are incorrect, Keycloak will prevent the login. There's two that we need to provide:
+
+- Valid redirect URIs: If my cluster console login is https://console-openshift-console.apps.cluster1.sandbox247.opentlc.com/, then this will be https://oauth-openshift.apps.cluster1.sandbox247.opentlc.com/oauth2callback/*
+
+- Web origins: This will be the same, but without `oauth2callback`, so https://oauth-openshift.apps.cluster1.sandbox247.opentlc.com
+
+<Zoom>
+![keycloak-client3](/static/images/x509-keycloak/keycloak-client3.png)
+</Zoom>
+
+Navigate to the `Credentials` tab and copy the OpenShift client credential:
+
+<Zoom>
+![keycloak-client4](/static/images/x509-keycloak/keycloak-client4.png)
+</Zoom>
+
+The last thing we need to do is configure the OpenShift OpenID Connect provider. You can find this in the `Oauth` section of the cluster administration view:
+
+<Zoom>
+![openshift-oidc1](/static/images/x509-keycloak/openshift-oidc1.png)
+</Zoom>
+
+Enter the configuration from Keycloak:
+
+- **Client name**: openshift
+- **Credentials**: copied above
+- **Issuer**: This will be the Keycloak URL, with `/realms/your-realm` appended. So for me, it's `https://keycloak.blueradish.net/realms/openshift`
+
+Leave everything else as-is, and select 'Add'. 
+
+<Zoom>
+![openshift-oidc2](/static/images/x509-keycloak/openshift-oidc2.png)
+</Zoom>
+
+OpenShift will now update the cluster OAuth configuration. If you check the cluster operators, you will see that the `authentication` operator is applying the updates:
+
+```
+$ oc get co
+NAME                                       VERSION   AVAILABLE   PROGRESSING   DEGRADED   SINCE   MESSAGE
+authentication                             4.19.3    True        True          False      13d     OAuthServerDeploymentProgressing: deployment/oauth-openshift.openshift-authentication: observed generation is 7, desired generation is 8.
+baremetal                                  4.19.3    True        False         False      13d
+cloud-controller-manager                   4.19.3    True        False         False      13d
+cloud-credential                           4.19.3    True        False         False      13d
+cluster-autoscaler                         4.19.3    True        False         False      13d
+config-operator                            4.19.3    True        False         False      13d
+console                                    4.19.3    True        False         False      13d
+control-plane-machine-set                  4.19.3    True        False         False      13d
+csi-snapshot-controller                    4.19.3    True        False         False      13d
+```
+
+### Testing everything out
+Great! Now we're ready to test this out.
+
+Our authentication flow matches users by Subject in the certificate, but they need to exist first in the Keycloak database. Let's create a new user in the `openshift` realm:
+
+<Zoom>
+![keycloak-user1](/static/images/x509-keycloak/keycloak-user1.png)
+</Zoom>
+
+Let's give it a shot! If you log out of OpenShift, you'll notice a new login option.
+
+<Zoom>
+![keycloak-login1](/static/images/x509-keycloak/keycloak-login1.png)
+</Zoom>
+
+Selecting this option will prompt you for a certificate. In my case, it's selected the `user3` certificate we created earlier, by default:
+
+<Zoom>
+![keycloak-login2](/static/images/x509-keycloak/keycloak-login2.png)
+</Zoom>
+
+One the next page you'll be shown a screen with the user's certificate, and the user that you will be logged in as.
+
+<Zoom>
+![keycloak-login3](/static/images/x509-keycloak/keycloak-login3.png)
+</Zoom>
+
+That's it! You can now see that I'm `user3`, successfully logged into OpenShift via X509 client certificates.
+
+### Extending auth to Red Hat Advanced Cluster Security for Kubernetes (RHACS)
+
+Red Hat Advanced Cluster Security for Kubernetes (RHACS) allows you to use OpenShift authentication. Which means we can re-use this same client certificate auth flow for RHACS too!
+
+Login to RHACS and select `Access Control` from the `Platform Configuration` menu.
+
+<Zoom>
+![rhacs-auth1](/static/images/x509-keycloak/rhacs-auth1.png)
+</Zoom>
+
+Select `Create Auth Provider` -> `OpenShift Auth`. I'm going to name this auth provider `OpenShift`. 
+
+RHACS allows you to set the minimum access role for all users. This means that all OpenShift users who login will be provided a 'minimum' role, as well as any additional roles specified under the 'Rules. I'm going to set the minimum access role as 'None':
+
+<Zoom>
+![rhacs-auth2](/static/images/x509-keycloak/rhacs-auth2.png)
+</Zoom>
+
+The last step here is to create a rule assigning a rule for this user. I know that my user is named `user3`, so let's create a rule that gives this user the `Analyst` role when they login via X509 auth.
+
+<Zoom>
+![rhacs-auth3](/static/images/x509-keycloak/rhacs-auth3.png)
+</Zoom>
+
+Great! Let's save the config.
+
+Now when you login to Red Hat Advanced Cluster Security for Kubernetes (RHACS) you should be presented an option to login with `OpenShift`:
+
+<Zoom>
+![rhacs-auth4](/static/images/x509-keycloak/rhacs-auth4.png)
+</Zoom>
+
+Selecting this option redirects you to OpenShift, where you can select the `openid` auth option. If you're prompted for a certificate again, select the `user3` certificate created earlier. You'll be prompted to authorise access for this user, and simply click `Allow selected permissions`:
+
+<Zoom>
+![rhacs-auth5](/static/images/x509-keycloak/rhacs-auth5.png)
+</Zoom>
+
+<Zoom>
+![rhacs-auth6](/static/images/x509-keycloak/rhacs-auth6.png)
+</Zoom>
+
+All things going well, you will be logged in as `user3`, and can see that the `Analyst` role defined in the auth rule has been correctly applied.
+
+<Zoom>
+![rhacs-auth7](/static/images/x509-keycloak/rhacs-auth7.png)
+</Zoom>
+
+## Wrapping up
+X509 certificates are everywhere - everytime you access a website, container image, or happen to be on a spacecraft, X509 certificates are establishing the identity of the service you're communicating with, and protecting your data.
+
+While X509 certificates are usually used to identify servers, they can also be used to identify clients. X509 client authentication is frequently used by banks and government organisations, and in this article I explored X509 client authentication for OpenShift and Red Hat Advanced Cluster Security for Kubernetes (RHACS). I implemented this using the Red Hat Build of Keycloak, which I installed with an operator to OpenShift, and created a custom authentication flow.
+
+There's several ways you could extend this authentication flow:
+
+- Assigning users groups in Keycloak, and tying those groups to roles in OpenShift. This allows you to centrally manage user identity and group associations, though will need you to expose group mappings in the OpenID Connect claims.
+
+- Mapping group claims to Red Hat Advanced Cluster Security for Kubernetes (RHACS) users, instead of directly tying RHACS roles to user IDs.
+
+- Logging user login / failed login events and pushing these to the SIEM, via the Keycloak RESTful API (what if someone tries to forge a certificate?)
+
+- Adding support for certificate revocation lists (CRLs), and revoking user access
+
+I'll explore these use cases and more in future articles. Stay tuned!
+
