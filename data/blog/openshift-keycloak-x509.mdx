@@ -1,32 +1,40 @@
 ---
-title: OpenShift X509 auth with Keycloak
-date: '2024-07-20'
-tags: ['openshift','x509','keycloak','authentication','kubernetes', 'identity']
-images: ['/static/images/linkedin-banners/openshift-x509.png']
+title: OpenShift X.509 auth with Keycloak
+date: '2025-08-16'
+tags: ['openshift','X509','keycloak','authentication','kubernetes', 'identity']
+images: ['/static/images/linkedin-banners/openshift-X.509.png']
 draft: false
-summary: "Identity is a core part of operating a platform. In this article I want to explore one of the ways you can authenticate users to OpenShift, using X509 certificates and OpenShift."
+summary: "Identity is a core part of operating a platform. In this article I want to explore one of the ways you can authenticate users to OpenShift, using X.509 certificates and Keycloak."
 ---
-I think there's three things you can't escape in life - death, taxes, and X509 certificates.
+I think there's three things you can't escape in life - death, taxes, and X.509 certificates.
 
-X509 certificates are everywhere, tying  Everytime you access a website protected by HTTPS, you're presented with an X509 certificate, establishing the site's identity.Everytime you access a website and see the happy 'Connection is secure' message in your browser, it means that the website is presenting an X509 certificate that has been verified by a trusted certificate authority (CA).
+X.509 certificates are everywhere. Everytime you access a website protected by HTTPS you're presented with an X.509 certificate establishing the site's identity, and establishing identity is one of the core uses for X.509 certificates. X.509 certificates are used to establish identity because they provide a trusted, verifiable binding between a cryptographic key and an entity. The entity could be the identity of a server (like in this example), a software artifact (like a container image), a hardware manufacturer, or even a person / user (which we'll look at later). Let's take a look at a few examples.
 
-X509 certificates are also core to [Sigstore](https://www.sigstore.dev/) artifact signing, which I've covered in a couple of blogs previously:
+NASA's [high performance space flight computing project](https://www.nasa.gov/game-changing-development-projects/high-performance-spaceflight-computing-hpsc/) is a great example. The aim of this project is to develop a next-generation flight computing system that addresses computational performance, power management, fault tolerance, and connectivity needs of NASA missions through 2040 and beyond. The [white paper](https://www.nasa.gov/wp-content/uploads/2024/07/hpsc-white-paper-tmg-23jul2024.pdf) is a really interesting read, and makes specific reference to X.509 certificates:
+
+<Quote quote="HPSC is manufactured using secure manufacturing techniques, which include the use of Hardware Security Modules (HSMs) during fabrication process to ensure authenticity of wafer, die and packaged parts. Every HPSC device has a factory inserted, unique X.509 certificates traceable to a trusted certificate authority (CA)." />
+
+In this instance, X.509 certificates are not identifying a server, but the identity of the hardware manufacturer. It provides a way of verifying the software supply-chain for high-performance computing hardware.
+
+X.509 certificates are also core to [Sigstore](https://www.sigstore.dev/) artifact signing, which I've covered in a couple of blogs previously:
 
 - [Sigstore - Signature Sorcery](blog/sigstore-sorcery)
 
 - [Sigstore and StackRox](/blog/sigstore-and-stackrox)
 
-X509 certificates have a time period that they are valid for. This is designed to enforce trust boundaries, and limit risk. For example, if a private key associated with an X509 certificate is stolen, the attacker could impersonate the certificate holder, and a validity period ensures the key can't be used forever. Certificate expiration also encourages rotation; as algorithms and key sizes become obsolete over time (e.g. SHA-1, RSA-1024), expiration forces regular updates to newer, safer cryptographic algorithms.
+In this case X.509 certificates are used to identify the signer of an artifact. Sigstore also uses a novel mechanism to do this using short-lived X.509 certificates.
+
+X.509 certificates have a time period that they are valid for. This is designed to enforce trust boundaries and limit risk. For example, if a private key associated with an X.509 certificate is stolen, the attacker could impersonate the certificate holder, and a validity period ensures the key can't be used forever. Certificate expiration also encourages rotation; as algorithms and key sizes become obsolete over time (e.g. SHA-1, RSA-1024), expiration forces regular updates to newer, safer cryptographic algorithms.
 
 You can see an example of this here, for [redhat.com](https://www.redhat.com):
 
 <Zoom>
-![x509-redhat](/static/images/x509-keycloak/redhat.png)
+![X509-redhat](/static/images/x509-keycloak/redhat-x509.png)
 </Zoom>
 
 Note that this certificate was only recently rotated - it was re-issued 23 June 2025, and expires 23 June 2026.
 
-Sigstore uses X509 certificates and this validity period in a novel way to support its keyless signing workflow. Specifically, the [Fulcio](https://docs.sigstore.dev/certificate_authority/overview/) component of Sigstore signs X509 certificates that are valid for only 10 minutes, and embeds these in a transparency ledger, [Rekor](https://docs.sigstore.dev/logging/overview/). This ensures that the user identity was valid at the time that the container image was signed, but also ensures that the certificates can no longer be used for signing other artifacts.
+Sigstore uses X.509 certificates and this validity period in a novel way to support its keyless signing workflow. Specifically, the [Fulcio](https://docs.sigstore.dev/certificate_authority/overview/) component of Sigstore signs X.509 certificates that are valid for only 10 minutes, and embeds these in a transparency ledger, [Rekor](https://docs.sigstore.dev/logging/overview/). This ensures that the user identity was valid at the time that the container image was signed, but also ensures that the certificates can no longer be used for signing other artifacts.
 
 You can see this by inspecting a Rekor entry. I've signed the image `quay.io/smileyfritz/chat-client@sha256:b9ba5b4bb6c9b8793edd17196682912afca2b59b559fd1c3326b382f90489d79` (it's best practice to sign images by digest with Sigstore). You can see that the image is signed at quay.io:
 
@@ -34,7 +42,7 @@ You can see this by inspecting a Rekor entry. I've signed the image `quay.io/smi
 ![signed-image](/static/images/x509-keycloak/signed-image.png)
 </Zoom>
 
-If I take a look at the rekor entry directly we can see the embedded X509 certificates. Firstly let's search for the rekor entry:
+If I take a look at the rekor entry directly we can see the embedded X.509 certificates. Firstly let's search for the rekor entry:
 
 ```json
 $ rekor-cli get --log-index 356023054 --format json | jq
@@ -126,25 +134,21 @@ Certificate:
         ac:11:0e:20:f4:fe:20:ed:69:e5:3e:93:94:1f:b2:31:fd:c7:
         9b:8a:d0:82:6a:45:b9:19:29:2b:eb:7a
 ```
-There it is - an X509 certificate, embedded in the Rekor entry. You can see the novel X509 usage here; the certificate is only valid for 10 minutes:
+There it is - an X.509 certificate, embedded in the Rekor entry. You can see the novel X.509 usage here; the certificate is only valid for 10 minutes:
 ```yaml
         Validity
             Not Before: Aug  6 08:15:36 2025 GMT
             Not After : Aug  6 08:25:36 2025 GMT
 ```
 
-X509 certificates are even found in spacecraft communications. 
+So, we can use X.509 certificates to verify the identity of a server, or the identity of an entity that signed an artifact (like a container image), or a hardware manufacturer. One of the other use cases for X.509 certificates is establishing the identity of a *client*. If you've ever worked at a bank, or for a government organisation, you may have come across this. It provides a high-degree of assurance that you are the user accessing a website, and extracts your username from *your own* X.509 certificate - essentially, an X.509 certificate tied to your username. This is typically called 'mutual TLS', as it requires the client to establish the identity of the server, but also the server to establish the identity of the client. 
 
-...
+You can think of this as an earlier implementation of [passkeys](https://www.cyber.gov.au/protect-yourself/secure-your-accounts/passkeys). Passkeys don't use X.509 certificates, but [FIDO2 credentials](https://www.microsoft.com/en-us/security/business/security-101/what-is-fido2). Passkeys and the associated WebAuthn standard are quickly gaining traction, and I wrote an article on how you can use WebAuthn with OpenShift and Keycloak to support [phishing-resistant multifactor authentication for OpenShift](/blog/openshift-mfa). But, X.509 client authentication is still used in many places. 
 
-So, we can use X509 to verify the identity of a server, and establish that a specific user signed an artifact (like a container image). One of the other use cases for X509 certificates is establishing the identity of a *client*. If you've ever worked at a bank, or for a government organisation, you may have come across this. It provides a high-degree of assurance that you are the user accessing a website, and extracts your username from *your own* X509 certificate - essentially, an X509 certificate tied to your username. This is typically called 'mutual TLS', as it requires the client to establish the identity of the server, but also the server to establish the identity of the client. 
-
-You can think of this as an earlier implementation of [passkeys](https://www.cyber.gov.au/protect-yourself/secure-your-accounts/passkeys). Passkeys don't use X509 certificates, but [FIDO2 credentials](https://www.microsoft.com/en-us/security/business/security-101/what-is-fido2) - essentially a simpler implementation of X509 client authentication. Passkeys and associated WebAuthn standard are quickly gaining traction, and I wrote an article on how you can use WebAuthn with OpenShift and Keycloak to support [phishing-resistant multifactor authentication for OpenShift](/blog/openshift-mfa). But, X509 client authentication is still used in many places. 
-
-In this article I'll show how you can configure X509 client authentication for OpenShift, using [Keycloak](https://www.keycloak.org/). Let's take a look!
+In this article I'll show how you can configure X.509 client authentication for OpenShift, using [Keycloak](https://www.keycloak.org/). Let's take a look!
 
 ### Creating certificates
-Keycloak requires a valid domain and TLS certificates. I'm going to use my own domain for this and Letsencrypt to generate certificates.
+Before we get started and installing and configuring Keycloak, we need a valid domain and TLS certificate. I'm going to use my own domain for this and [Letsencrypt](https://letsencrypt.org/) to generate certificates.
 
 You can use [certbot](https://certbot.eff.org/) to generate certificates using Letsencrypt. I've created a Python virtual environment: 
 ```
@@ -156,13 +160,13 @@ Because my domain is hosted via Route53, I've created an IAM role for `certbot` 
 ```
 AWS_PROFILE=certbot certbot certonly --logs-dir /home/user/certbot/log --config-dir /home/user/certbot/config --work-dir /home/user/certbot/work -d keycloak.blueradish.net --dns-route53 -m shane.boulden@gmail.com --agree-tos --non-interactive
 ```
-Now I have TLS certificates available:
+Now I have a TLS certificate and key available:
 ```
 Successfully received certificate.
 Certificate is saved at: /home/user/certbot/config/live/keycloak.blueradish.net/fullchain.pem
 Key is saved at:         /home/user/certbot/config/live/keycloak.blueradish.net/privkey.pem
 ```
-I also need to point my CNAME record for `keycloak.blueradish.net` to the OpenShift router, so that the route works. You can get the canonical hostname for OpenShift via:
+I also need to point my CNAME record for `keycloak.blueradish.net` to the OpenShift router, so that the route works once Keycloak is deployed to OpenShift. You can get the canonical hostname for OpenShift via:
 ```
 $ oc get route/console -n openshift-console -o json | jq -r '.status.ingress[0].routerCanonicalHostname'
 router-default.apps.cluster1.sandbox247.opentlc.com
@@ -183,7 +187,6 @@ oc create secret tls keycloak-tls --cert /home/user/certbot/config/live/keycloak
 I'm going to use the [Red Hat Build of Keycloak](https://access.redhat.com/products/red-hat-build-of-keycloak/) for this article. This is an enterprise-grade product created from the Keycloak open source project.
 
 RHBK uses PostgreSQL for a database. Firstly, let's create a secret for the database credentials:
-
 ```
 oc create secret generic keycloak-db-secret \
   --from-literal=username=keycloak-user \
@@ -316,7 +319,7 @@ keycloak-poc-initial-admin      kubernetes.io/basic-auth   2      5m21s
 ![keycloak-login](/static/images/x509-keycloak/keycloak-login.png)
 </Zoom>
 
-### Creating client X509 certificates
+### Creating client X.509 certificates
 
 Now that we have Keycloak up and running we can start creating certificates for our users to authenticate. If your own PKI already available, you can simply request user certificates. But for this article, I'm going to roll my own certificate authority (CA):
 
@@ -335,7 +338,7 @@ default_bits        = 2048
 default_keyfile     = client.key
 distinguished_name  = req_distinguished_name
 attributes          = req_attributes
-x509_extensions     = v3_client_cert
+X509_extensions     = v3_client_cert
 
 [ req_distinguished_name ]
 countryName_default             = AU
@@ -375,7 +378,7 @@ Great! I've imported this key into my Firefox browser. You can see that the user
 ![user-cert1](/static/images/x509-keycloak/user-cert1.png)
 </Zoom>
 
-Importantly, you can see that the Extended Key Usages for this certificate is set to 'Client Authentication', meaning we can use this X509 certificate to authenticate with Keycloak (and OpenShift).
+Importantly, you can see that the Extended Key Usages for this certificate is set to 'Client Authentication', meaning we can use this X.509 certificate to authenticate with Keycloak (and OpenShift).
 
 <Zoom>
 ![user-cert2](/static/images/x509-keycloak/user-cert2.png)
@@ -414,7 +417,7 @@ spec:
   hostname:
     hostname: keycloak.blueradish.net
   proxy:
-    headers: xforwarded # double check your reverse proxy sets and overwrites the X-Forwarded-* headers
+    headers: xforwarded
   truststores:
     userCA:
       secret:
@@ -433,11 +436,11 @@ You should see the Keycloak pod recreated:
 
 And if you check the logs, it will reflect the new certificate authority is trusted:
 ```
-2025-08-06 04:46:19,279 INFO [org.keycloak.truststore.TruststoreBuilder] (main) Found the following truststore files under directories specified in the truststore paths [/opt/keycloak/bin/../conf/truststores/secret-x509-trust-secret/root.pem, /opt/keycloak/bin/../conf/truststores/secret-x509-trust-secret/..data/root.pem, /opt/keycloak/bin/../conf/truststores/secret-x509-trust-secret/..2025_08_06_04_46_07.2946640639/root.pem]
+2025-08-06 04:46:19,279 INFO [org.keycloak.truststore.TruststoreBuilder] (main) Found the following truststore files under directories specified in the truststore paths [/opt/keycloak/bin/../conf/truststores/secret-X.509-trust-secret/root.pem, /opt/keycloak/bin/../conf/truststores/secret-X.509-trust-secret/..data/root.pem, /opt/keycloak/bin/../conf/truststores/secret-X.509-trust-secret/..2025_08_06_04_46_07.2946640639/root.pem]
 ```
 
 ### Creating a client and authentication flow
-Now we need to create a new authentication flow in Keycloak, so that it knows how to authenticate users presenting X509 client certificates.
+Now we need to create a new authentication flow in Keycloak, so that it knows how to authenticate users presenting X.509 client certificates.
 
 Login to Keycloak and select 'Realms'. Select 'Create Realm':
 
@@ -457,7 +460,7 @@ Select `Authentication`, and next to the `browser` flow select `Duplicate`.
 ![keycloak-auth1](/static/images/x509-keycloak/keycloak-auth1.png)
 </Zoom>
 
-I'm going to call this new flow `browser-x509`:
+I'm going to call this new flow `browser-X.509`:
 
 <Zoom>
 ![keycloak-auth2](/static/images/x509-keycloak/keycloak-auth2.png)
@@ -469,7 +472,7 @@ Delete all of the steps from the flow except for `Cookie`, `Kerberos` and `Ident
 ![keycloak-flow1](/static/images/x509-keycloak/keycloak-flow1.png)
 </Zoom>
 
-Click `Add execution`, and search for `x509`. From the list, select `X509/Validate Username Form`, and add it. Set this flow to `Required`.
+Click `Add execution`, and search for `X509`. From the list, select `X509/Validate Username Form`, and add it. Set this flow to `Required`.
 
 <Zoom>
 ![keycloak-flow2](/static/images/x509-keycloak/keycloak-flow2.png)
@@ -487,7 +490,7 @@ Select the settings next to the `X509/Validate Username Form` and make the follo
 
 Select 'Save'.
 
-Now that our X509 authentication flow is setup, we need to assign it to the `openshift` client. Navigate to the `openshift` client settings and select the `Advanced` tab:
+Now that our X.509 authentication flow is setup, we need to assign it to the `openshift` client. Navigate to the `openshift` client settings and select the `Advanced` tab:
 
 <Zoom>
 ![keycloak-flow4](/static/images/x509-keycloak/keycloak-flow4.png)
@@ -591,7 +594,7 @@ One the next page you'll be shown a screen with the user's certificate, and the 
 ![keycloak-login3](/static/images/x509-keycloak/keycloak-login3.png)
 </Zoom>
 
-That's it! You can now see that I'm `user3`, successfully logged into OpenShift via X509 client certificates.
+That's it! You can now see that I'm `user3`, successfully logged into OpenShift via X.509 client certificates.
 
 ### Extending auth to Red Hat Advanced Cluster Security for Kubernetes (RHACS)
 
@@ -611,7 +614,7 @@ RHACS allows you to set the minimum access role for all users. This means that a
 ![rhacs-auth2](/static/images/x509-keycloak/rhacs-auth2.png)
 </Zoom>
 
-The last step here is to create a rule assigning a rule for this user. I know that my user is named `user3`, so let's create a rule that gives this user the `Analyst` role when they login via X509 auth.
+The last step here is to create a rule assigning a rule for this user. I know that my user is named `user3`, so let's create a rule that gives this user the `Analyst` role when they login via X.509 auth.
 
 <Zoom>
 ![rhacs-auth3](/static/images/x509-keycloak/rhacs-auth3.png)
@@ -642,9 +645,9 @@ All things going well, you will be logged in as `user3`, and can see that the `A
 </Zoom>
 
 ## Wrapping up
-X509 certificates are everywhere - everytime you access a website, container image, or happen to be on a spacecraft, X509 certificates are establishing the identity of the service you're communicating with, and protecting your data.
+X.509 certificates are everywhere - everytime you access a website, container image, or happen to be on a spacecraft, X.509 certificates are establishing the identity of the service you're communicating with, and protecting your data.
 
-While X509 certificates are usually used to identify servers, they can also be used to identify clients. X509 client authentication is frequently used by banks and government organisations, and in this article I explored X509 client authentication for OpenShift and Red Hat Advanced Cluster Security for Kubernetes (RHACS). I implemented this using the Red Hat Build of Keycloak, which I installed with an operator to OpenShift, and created a custom authentication flow.
+While X.509 certificates are usually used to identify servers, they can also be used to identify clients. X.509 client authentication is frequently used by banks and government organisations, and in this article I explored X.509 client authentication for OpenShift and Red Hat Advanced Cluster Security for Kubernetes (RHACS). I implemented this using the Red Hat Build of Keycloak, which I installed with an operator to OpenShift, and created a custom authentication flow.
 
 There's several ways you could extend this authentication flow:
 
@@ -657,4 +660,3 @@ There's several ways you could extend this authentication flow:
 - Adding support for certificate revocation lists (CRLs), and revoking user access
 
 I'll explore these use cases and more in future articles. Stay tuned!
-

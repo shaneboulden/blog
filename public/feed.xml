@@ -7,26 +7,55 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Wed, 30 Apr 2025 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Sat, 16 Aug 2025 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
+      
+  <item>
+    <guid>https://stb.id.au/blog/openshift-keycloak-x509</guid>
+    <title>OpenShift X.509 auth with Keycloak</title>
+    <link>https://stb.id.au/blog/openshift-keycloak-x509</link>
+    <description>Identity is a core part of operating a platform. In this article I want to explore one of the ways you can authenticate users to OpenShift, using X.509 certificates and Keycloak.</description>
+    <pubDate>Sat, 16 Aug 2025 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>X509</category><category>keycloak</category><category>authentication</category><category>kubernetes</category><category>identity</category>
+  </item>
 
-
-   <item>
+  <item>
     <guid>https://stb.id.au/blog/redhat-summit-2025</guid>
     <title>Red Hat Summit 2025</title>
     <link>https://stb.id.au/blog/redhat-summit-2025</link>
-    <description>This year I was fortunate to attend Red Hat Summit and visit historic Boston, and even had time to find a few filming locations from "The Departed".</description>
-    <pubDate>Sat, 28 June 2025 00:00:00 GMT</pubDate>
+    <description>This year I was fortunate to attend Red Hat Summit and visit historic Boston, and even had time to find a few filming locations from &quot;The Departed&quot;.</description>
+    <pubDate>Sat, 28 Jun 2025 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
-    <category>red</category>hat<category>summit</category><category>2025</category>ai<category>llm-d</category><category>boston</category><category>trailblazer</category><category>fenway</category><category>departed</category>
+    <category>red</category><category>hat</category><category>summit</category><category>2025</category><category>ai</category><category>llm-d</category><category>boston</category><category>trailblazer</category><category>fenway</category><category>departed</category>
   </item>
-  
-   <item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/nist-800-190-openshift</guid>
+    <title>NIST SP 800-190 and OpenShift</title>
+    <link>https://stb.id.au/blog/en/nist-800-190-openshift</link>
+    <description>NIST Special Publication 800-190 represents a great baseline for container platform security. In this article I take a look at how to adopt NIST SP 800-190 with OpenShift and Red Hat Advanced Cluster Security for Kubernetes (RHACS).</description>
+    <pubDate>Wed, 28 May 2025 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>nist</category><category>rhacs</category><category>openshift</category><category>governance</category><category>security</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/jp/nist-800-190-openshift</guid>
+    <title>NIST SP 800-190 および OpenShift</title>
+    <link>https://stb.id.au/blog/jp/nist-800-190-openshift</link>
+    <description>NIST特別刊行物800-190は、コンテナプラットフォームのセキュリティにおける優れた基準となります。この記事では、OpenShiftとRed Hat Advanced Cluster Security for Kubernetes（RHACS）を使用して、NIST SP 800-190をどのように採用するかを見ていきます。</description>
+    <pubDate>Wed, 28 May 2025 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>nist</category><category>rhacs</category><category>openshift</category><category>governance</category><category>security</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/nist-800-190-openshift</guid>
     <title>NIST SP 800-190 and OpenShift</title>
     <link>https://stb.id.au/blog/nist-800-190-openshift</link>
     <description>NIST Special Publication 800-190 represents a great baseline for container platform security. In this article I take a look at how to adopt NIST SP 800-190 with OpenShift and Red Hat Advanced Cluster Security for Kubernetes (RHACS).</description>
-    <pubDate>Thu, 28 May 2025 00:00:00 GMT</pubDate>
+    <pubDate>Wed, 28 May 2025 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>nist</category><category>rhacs</category><category>openshift</category><category>governance</category><category>security</category>
   </item>
@@ -39,6 +68,36 @@
     <pubDate>Mon, 28 Apr 2025 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>arf</category><category>scap</category><category>compliance</category><category>openshift</category><category>rhel</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/all-about-arf</guid>
+    <title>All About ARF</title>
+    <link>https://stb.id.au/blog/en/all-about-arf</link>
+    <description>ARF is the best-kept secret for better asset security control reporting. In this article I take a closer look at ARF, and how it can be used to build better reports.</description>
+    <pubDate>Mon, 28 Apr 2025 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>arf</category><category>scap</category><category>compliance</category><category>openshift</category><category>rhel</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/rhacs-and-pipelines</guid>
+    <title>RHACS and Pipelines</title>
+    <link>https://stb.id.au/blog/en/rhacs-and-pipelines</link>
+    <description>Looking at the OpenShift internal registry, delegated scanning, and creating better pipelines with RHACS.</description>
+    <pubDate>Tue, 22 Apr 2025 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>rhacs</category><category>rhacs</category><category>openshift</category><category>pipelines</category><category>security</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/who-watches-the-watchers</guid>
+    <title>Who watches the watchers?</title>
+    <link>https://stb.id.au/blog/en/who-watches-the-watchers</link>
+    <description>Exploring the age-old question of &quot;who watches the watchers&quot;. Or more accurately for IT professionals - how do we provide governance for security platforms?</description>
+    <pubDate>Mon, 31 Mar 2025 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>rhacm</category><category>rhacs</category><category>openshift</category><category>governance</category><category>security</category>
   </item>
 
   <item>
@@ -62,6 +121,26 @@
   </item>
 
   <item>
+    <guid>https://stb.id.au/blog/en/demystifying-rhacs-adm-control</guid>
+    <title>Demystifying RHACS Admission Control</title>
+    <link>https://stb.id.au/blog/en/demystifying-rhacs-adm-control</link>
+    <description>Understanding Red Hat Advanced Cluster Security for Kubernetes (RHACS) admission control can be challenging. This article takes a closer look at admission control, and the different configuration settings.</description>
+    <pubDate>Wed, 26 Feb 2025 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>rhacs</category><category>stackrox</category><category>admission</category><category>control</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/rhacs-policy-as-code</guid>
+    <title>Getting started with RHACS Policy-as-Code</title>
+    <link>https://stb.id.au/blog/en/rhacs-policy-as-code</link>
+    <description>Red Hat Advanced Cluster Security for Kubernetes 4.6 has landed, with one of the mostly hotly requested features - policy-as-code!</description>
+    <pubDate>Fri, 31 Jan 2025 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>rhacs</category><category>stackrox</category><category>policy</category><category>code</category><category>gitops</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/rhacs-policy-as-code</guid>
     <title>Getting started with RHACS Policy-as-Code</title>
     <link>https://stb.id.au/blog/rhacs-policy-as-code</link>
@@ -69,6 +148,16 @@
     <pubDate>Fri, 31 Jan 2025 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>openshift</category><category>rhacs</category><category>stackrox</category><category>policy</category><category>code</category><category>gitops</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/instructlab-netpol</guid>
+    <title>Teaching AI models about Kubernetes network policy</title>
+    <link>https://stb.id.au/blog/en/instructlab-netpol</link>
+    <description>Learning Kubernetes network policy can be challenging for new platform engineers. Generative AI provides an excellent way to help generate and understand network policy, and in this article, I look at how we can teach an AI model to create network policy using InstructLab.</description>
+    <pubDate>Wed, 11 Dec 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>instructlab</category><category>kubernetes</category><category>network</category><category>policy</category><category>security</category>
   </item>
 
   <item>
@@ -82,6 +171,16 @@
   </item>
 
   <item>
+    <guid>https://stb.id.au/blog/en/taming-openshift-audit</guid>
+    <title>Taming OpenShift Audit with RHACS</title>
+    <link>https://stb.id.au/blog/en/taming-openshift-audit</link>
+    <description>In this article I look at some approaches to &quot;tame&quot; OpenShift audit and event data, and show how you can use Red Hat Advanced Cluster Security for Kubernetes (RHACS) to create immediate alerts from OpenShift audit events.</description>
+    <pubDate>Wed, 30 Oct 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>audit</category><category>rhacs</category><category>security</category><category>compliance</category><category>stackrox</category><category>tlog</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/taming-openshift-audit</guid>
     <title>Taming OpenShift Audit with RHACS</title>
     <link>https://stb.id.au/blog/taming-openshift-audit</link>
@@ -89,6 +188,16 @@
     <pubDate>Wed, 30 Oct 2024 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>openshift</category><category>audit</category><category>rhacs</category><category>security</category><category>compliance</category><category>stackrox</category><category>tlog</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/instructlab-wsl</guid>
+    <title>Making InstructLab &#39;go fast&#39; on WSL</title>
+    <link>https://stb.id.au/blog/en/instructlab-wsl</link>
+    <description>InstructLab is an open source framework for adding skills and knowledge to generative AI models, and I want to make it &quot;go fast&quot; on WSL.</description>
+    <pubDate>Mon, 23 Sep 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>instructlab</category><category>gpus</category><category>nvidia</category><category>windows</category><category>linux</category><category>wsl</category>
   </item>
 
   <item>
@@ -102,6 +211,16 @@
   </item>
 
   <item>
+    <guid>https://stb.id.au/blog/en/iam-anywhere-ansible</guid>
+    <title>Ansible and AWS IAM Roles Anywhere</title>
+    <link>https://stb.id.au/blog/en/iam-anywhere-ansible</link>
+    <description>AWS IAM Roles Anywhere allows you to grant secure, temporary access to AWS services, for workloads anywhere. In this article I&#39;m going to take a look at how you can use IAM Roles Anywhere together with Ansible.</description>
+    <pubDate>Mon, 02 Sep 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>ansible</category><category>aws</category><category>iam</category><category>anywhere</category><category>idm</category><category>security</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/iam-anywhere-ansible</guid>
     <title>Ansible and AWS IAM Roles Anywhere</title>
     <link>https://stb.id.au/blog/iam-anywhere-ansible</link>
@@ -109,6 +228,16 @@
     <pubDate>Mon, 02 Sep 2024 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>ansible</category><category>aws</category><category>iam</category><category>anywhere</category><category>idm</category><category>security</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/openshift-gpus</guid>
+    <title>Get to grips with NVIDIA GPUs and OpenShift</title>
+    <link>https://stb.id.au/blog/en/openshift-gpus</link>
+    <description>GPUs are the tools-of-the-trade for artificial intelligence and machine learning. In this article I look at how to use NVIDIA GPUs on OpenShift, and expose GPUs to both containers and virtual machines.</description>
+    <pubDate>Mon, 05 Aug 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>gpus</category><category>nvidia</category><category>ai</category><category>llm</category><category>virtualization</category>
   </item>
 
   <item>
@@ -122,6 +251,16 @@
   </item>
 
   <item>
+    <guid>https://stb.id.au/blog/en/ontoserver-openshift</guid>
+    <title>Ontoserver on OpenShift</title>
+    <link>https://stb.id.au/blog/en/ontoserver-openshift</link>
+    <description>Recently I&#39;ve been involved in a project to run a healthcare data service on OpenShift. It&#39;s been really interesting learning about FHIR, SNOMED CT, and all manner of health-related application protocols and frameworks.</description>
+    <pubDate>Mon, 08 Jul 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>ontoserver</category><category>csiro</category><category>aehrc</category><category>kubernetes</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/ontoserver-openshift</guid>
     <title>Ontoserver on OpenShift</title>
     <link>https://stb.id.au/blog/ontoserver-openshift</link>
@@ -129,6 +268,16 @@
     <pubDate>Mon, 08 Jul 2024 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>openshift</category><category>ontoserver</category><category>csiro</category><category>aehrc</category><category>kubernetes</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/rhacs-scanner-v4</guid>
+    <title>Getting started with RHACS Scanner V4</title>
+    <link>https://stb.id.au/blog/en/rhacs-scanner-v4</link>
+    <description>Red Hat Advanced Cluster Security for Kubernetes (RHACS) v4.4 introduces a new container image scanning capability, Scanner V4. This article takes a closer look at Scanner V4 and how it compares with the existing RHACS scanning capability.</description>
+    <pubDate>Sun, 16 Jun 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>scanner</category><category>v4</category><category>security</category><category>openshift</category><category>stackrox</category><category>rhacs</category><category>vulnerability</category><category>management</category>
   </item>
 
   <item>
@@ -142,6 +291,16 @@
   </item>
 
   <item>
+    <guid>https://stb.id.au/blog/en/openshift-mfa</guid>
+    <title>Phishing-resistant MFA for OpenShift</title>
+    <link>https://stb.id.au/blog/en/openshift-mfa</link>
+    <description>Phishing-resistant multi-factor authentication is a critical security control in 2024, and this article takes you through configuring it for OpenShift with Keycloak</description>
+    <pubDate>Mon, 29 Apr 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>phishing</category><category>resistant</category><category>mfa</category><category>keycloak</category><category>kubernetes</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/openshift-mfa</guid>
     <title>Phishing-resistant MFA for OpenShift</title>
     <link>https://stb.id.au/blog/openshift-mfa</link>
@@ -149,6 +308,16 @@
     <pubDate>Mon, 29 Apr 2024 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>openshift</category><category>phishing</category><category>resistant</category><category>mfa</category><category>keycloak</category><category>kubernetes</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/openshift-virt-lab</guid>
+    <title>OpenShift Virtualization Lab Build</title>
+    <link>https://stb.id.au/blog/en/openshift-virt-lab</link>
+    <description>A detailed look at my OpenShift Virtualization lab build.</description>
+    <pubDate>Wed, 06 Mar 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>dell</category><category>r620</category><category>poweredge</category><category>metal</category><category>kubernetes</category><category>virtualization</category><category>kvm</category>
   </item>
 
   <item>
@@ -162,6 +331,16 @@
   </item>
 
   <item>
+    <guid>https://stb.id.au/blog/en/openshift-on-an-r620</guid>
+    <title>OpenShift on an R620</title>
+    <link>https://stb.id.au/blog/en/openshift-on-an-r620</link>
+    <description>Can you install OpenShift and OpenShift Virtualization in your home lab? The answer is a definitive *yes*</description>
+    <pubDate>Thu, 29 Feb 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>dell</category><category>r620</category><category>poweredge</category><category>metal</category><category>kubernetes</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/openshift-on-an-r620</guid>
     <title>OpenShift on an R620</title>
     <link>https://stb.id.au/blog/openshift-on-an-r620</link>
@@ -169,6 +348,16 @@
     <pubDate>Thu, 29 Feb 2024 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>openshift</category><category>dell</category><category>r620</category><category>poweredge</category><category>metal</category><category>kubernetes</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/meet-kacti</guid>
+    <title>Introducing Kacti</title>
+    <link>https://stb.id.au/blog/en/meet-kacti</link>
+    <description>Over the last few months I have been busily building out the Kacti open source project. This is an intro to the project, its goals and roadmap, and a quick-start tutorial.</description>
+    <pubDate>Mon, 12 Feb 2024 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>kacti</category><category>kubernetes</category><category>security</category><category>verification</category><category>openshift</category><category>containers</category>
   </item>
 
   <item>
@@ -182,13 +371,23 @@
   </item>
 
   <item>
-    <guid>https://stb.id.au/blog/minecraft-metallb</guid>
+    <guid>https://stb.id.au/blog/en/minecraft-metallb</guid>
     <title>Exposing Minecraft on OpenShift with MetalLB</title>
-    <link>https://stb.id.au/blog/minecraft-metallb</link>
+    <link>https://stb.id.au/blog/en/minecraft-metallb</link>
     <description>Exposing non-HTTP traffic on OpenShift presents some interesting challenges, and Minecraft provides a great opportunity to explore MetalLB on my bare-metal, single-node OpenShift instance.</description>
     <pubDate>Mon, 15 Jan 2024 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>openshift</category><category>kubernetes</category><category>openshift</category><category>metallb</category><category>loadbalancer</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/screensaver-video-calls</guid>
+    <title>Building a screensaver for your video calls with open source</title>
+    <link>https://stb.id.au/blog/en/screensaver-video-calls</link>
+    <description>This article looks at how you can build a screensaver for your video calls. It works across all video calling platforms and the best part is - it&#39;s all open source!</description>
+    <pubDate>Sun, 17 Dec 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>collaboration</category><category>video</category><category>screensaver</category><category>msteams</category><category>gmeet</category><category>zoom</category><category>obs</category>
   </item>
 
   <item>
@@ -212,6 +411,16 @@
   </item>
 
   <item>
+    <guid>https://stb.id.au/blog/en/cis-benchmarks-containers</guid>
+    <title>Exploring the CIS benchmarks and containers</title>
+    <link>https://stb.id.au/blog/en/cis-benchmarks-containers</link>
+    <description>The Center for Internet Security (CIS) Benchmarks provide a system hardening profile for servers and applications. What parts of the benchmark apply to containers? And how do we use them?</description>
+    <pubDate>Tue, 28 Nov 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>cis</category><category>benchmarks</category><category>containers</category><category>scap</category><category>security</category><category>kubernetes</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/devsecops-metrics-rhacs</guid>
     <title>A new metric for DevSecOps adoption</title>
     <link>https://stb.id.au/blog/devsecops-metrics-rhacs</link>
@@ -219,6 +428,26 @@
     <pubDate>Tue, 21 Nov 2023 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>rhacs</category><category>stackrox</category><category>cicd</category><category>build</category><category>kubernetes</category><category>security</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/devsecops-metrics-rhacs</guid>
+    <title>A new metric for DevSecOps adoption</title>
+    <link>https://stb.id.au/blog/en/devsecops-metrics-rhacs</link>
+    <description>Core to any DevSecOps program is measurement and metrics. How many releases did we perform this week? How did that compare with last week? What was the lead time for changes? In this article I want to introduce a new metric for DevSecOps adoption, and how we can start to measure this throughout the cloud-native application lifecycle.</description>
+    <pubDate>Tue, 21 Nov 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>rhacs</category><category>stackrox</category><category>cicd</category><category>build</category><category>kubernetes</category><category>security</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/rhsa-cves-rhacs-oh-my</guid>
+    <title>RHSAs, CVEs, and RHACS (oh my)</title>
+    <link>https://stb.id.au/blog/en/rhsa-cves-rhacs-oh-my</link>
+    <description>A deep dive into Red Hat Advanced Cluster Security for Kubernetes (RHACS), Red Hat Security Advisories (RHSAs), and Common Vulnerabilities and Exposures (CVEs). No mention of lions, tigers, or bears.</description>
+    <pubDate>Mon, 16 Oct 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>rhsa</category><category>cve</category><category>security</category><category>openshift</category><category>stackrox</category><category>containers</category><category>vulnerability</category><category>management</category>
   </item>
 
   <item>
@@ -232,6 +461,16 @@
   </item>
 
   <item>
+    <guid>https://stb.id.au/blog/en/gtfobins-stackrox-p2</guid>
+    <title>GTFOBins and StackRox - part II</title>
+    <link>https://stb.id.au/blog/en/gtfobins-stackrox-p2</link>
+    <description>A couple of months ago I wrote an article on StackRox and another open source project, GTFOBins. The first article looked at identifying GTFOBins components during development, and this article looks at identifying GTFOBins execution inside containers at runtime.</description>
+    <pubDate>Tue, 19 Sep 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>gtfobins</category><category>kubernetes</category><category>security</category><category>openshift</category><category>stackrox</category><category>containers</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/gtfobins-stackrox-p2</guid>
     <title>GTFOBins and StackRox - part II</title>
     <link>https://stb.id.au/blog/gtfobins-stackrox-p2</link>
@@ -239,6 +478,16 @@
     <pubDate>Tue, 19 Sep 2023 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>gtfobins</category><category>kubernetes</category><category>security</category><category>openshift</category><category>stackrox</category><category>containers</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/qmk-openshift</guid>
+    <title>Hacking OpenShift Productivity with QMK</title>
+    <link>https://stb.id.au/blog/en/qmk-openshift</link>
+    <description>Recently I picked up a QMK-compatible keyboard, and wanted to see how I could modify my OpenShift development workflows to suit.</description>
+    <pubDate>Sun, 13 Aug 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>qmk</category><category>developer</category><category>kubernetes</category><category>keyboard</category><category>containers</category>
   </item>
 
   <item>
@@ -262,6 +511,26 @@
   </item>
 
   <item>
+    <guid>https://stb.id.au/blog/en/demystifying-ocp-release-image</guid>
+    <title>Demystifying the OpenShift release image</title>
+    <link>https://stb.id.au/blog/en/demystifying-ocp-release-image</link>
+    <description>The OpenShift release image is a critical component of the software supply-chain for OpenShift. In this article I want to take a closer look at the release image, and how it&#39;s verified.</description>
+    <pubDate>Mon, 17 Jul 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>supply</category><category>chain</category><category>release</category><category>security</category><category>kubernetes</category><category>signatures</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/gtfobins-stackrox</guid>
+    <title>GTFOBins and StackRox</title>
+    <link>https://stb.id.au/blog/en/gtfobins-stackrox</link>
+    <description>A few weeks I wrote an article on &#39;Living off the Land&#39; and containers. GTFOBins is an open source project tracking binaries that could be used to support a &#39;Living off the Land&#39; strategy, and this article explores integrations with StackRox.</description>
+    <pubDate>Mon, 03 Jul 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>gtfobins</category><category>kubernetes</category><category>security</category><category>openshift</category><category>stackrox</category><category>containers</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/gtfobins-stackrox</guid>
     <title>GTFOBins and StackRox</title>
     <link>https://stb.id.au/blog/gtfobins-stackrox</link>
@@ -269,6 +538,16 @@
     <pubDate>Mon, 03 Jul 2023 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>gtfobins</category><category>kubernetes</category><category>security</category><category>openshift</category><category>stackrox</category><category>containers</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/sigstore-and-stackrox</guid>
+    <title>Sigstore and StackRox</title>
+    <link>https://stb.id.au/blog/en/sigstore-and-stackrox</link>
+    <description>Sigstore and StackRox are open source projects helping to address security challenges. Sigstore looks at the software supply chain, and StackRox at Kubernetes-native security models - what do they look like together?</description>
+    <pubDate>Sun, 11 Jun 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>sigstore</category><category>stackrox</category><category>containers</category><category>kubernetes</category><category>security</category>
   </item>
 
   <item>
@@ -282,6 +561,16 @@
   </item>
 
   <item>
+    <guid>https://stb.id.au/blog/en/living-off-the-land-containers</guid>
+    <title>Living off the land and containers</title>
+    <link>https://stb.id.au/blog/en/living-off-the-land-containers</link>
+    <description>A recent Microsoft threat intelligence report called attention to &quot;living off the land&quot; techniques. I thought it would be interesting to see how containers and containerised applications inherently help to mitigate these techniques.</description>
+    <pubDate>Fri, 26 May 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>living</category><category>off</category><category>land</category><category>kubernetes</category><category>security</category><category>containers</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/living-off-the-land-containers</guid>
     <title>Living off the land and containers</title>
     <link>https://stb.id.au/blog/living-off-the-land-containers</link>
@@ -292,6 +581,16 @@
   </item>
 
   <item>
+    <guid>https://stb.id.au/blog/en/keycloak-user-create</guid>
+    <title>Pre-creating users and roles in Keycloak</title>
+    <link>https://stb.id.au/blog/en/keycloak-user-create</link>
+    <description>Keycloak can support some interesting authentication and authorisation flows, one of which is creating users and assigning roles ahead of upstream identity provider authentication.</description>
+    <pubDate>Thu, 04 May 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>keycloak</category><category>users</category><category>roles</category><category>idp</category><category>rhsso</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/keycloak-user-create</guid>
     <title>Pre-creating users and roles in Keycloak</title>
     <link>https://stb.id.au/blog/keycloak-user-create</link>
@@ -299,6 +598,16 @@
     <pubDate>Thu, 04 May 2023 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>keycloak</category><category>users</category><category>roles</category><category>idp</category><category>rhsso</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/sigstore-sorcery</guid>
+    <title>Sigstore - Signature Sorcery</title>
+    <link>https://stb.id.au/blog/en/sigstore-sorcery</link>
+    <description>Sigstore is an open source project enabling anyone to sign and validate software releases, including container images. This article takes a closer look at Sigstore and some of the innovation happening around the project.</description>
+    <pubDate>Fri, 14 Apr 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>sigstore</category><category>signatures</category><category>containers</category><category>kubernetes</category><category>security</category>
   </item>
 
   <item>
@@ -322,9 +631,29 @@
   </item>
 
   <item>
+    <guid>https://stb.id.au/blog/en/ansible-fortigate</guid>
+    <title>Automating Fortinet FortiGate devices with Ansible</title>
+    <link>https://stb.id.au/blog/en/ansible-fortigate</link>
+    <description>A recent FortiOS vulnerability is being actively exploited. Ansible can be used to implement a mitigation.</description>
+    <pubDate>Tue, 17 Jan 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>security</category><category>open</category><category>source</category><category>ansible</category><category>fortinet</category><category>fortigate</category><category>aws</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/ansible-chatgpt</guid>
     <title>Creating Ansible playbooks with ChatGPT</title>
     <link>https://stb.id.au/blog/ansible-chatgpt</link>
+    <description>Did you know that you can create Ansible playbooks with ChatGPT?</description>
+    <pubDate>Mon, 09 Jan 2023 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>ansible</category><category>automation</category><category>chatgpt</category><category>tls</category><category>certificate</category><category>checking</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/ansible-chatgpt</guid>
+    <title>Creating Ansible playbooks with ChatGPT</title>
+    <link>https://stb.id.au/blog/en/ansible-chatgpt</link>
     <description>Did you know that you can create Ansible playbooks with ChatGPT?</description>
     <pubDate>Mon, 09 Jan 2023 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
@@ -342,6 +671,16 @@
   </item>
 
   <item>
+    <guid>https://stb.id.au/blog/en/e8-assessment-metrics</guid>
+    <title>Measuring Essential Eight Assessment Activity</title>
+    <link>https://stb.id.au/blog/en/e8-assessment-metrics</link>
+    <description>In the last article I looked at automating some of the tests available for Windows servers and desktops in the ACSC Essential Eight assessment guide. This article looks at how we can measure assessment activity - how often are we assessing systems, and are they passing the tests?</description>
+    <pubDate>Fri, 23 Dec 2022 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>essential</category><category>eight</category><category>ansible</category><category>automation</category><category>windows</category><category>e8</category><category>security</category><category>metrics</category><category>assessment</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/automating-e8-assessments</guid>
     <title>Automating the Essential Eight Assessment Guide</title>
     <link>https://stb.id.au/blog/automating-e8-assessments</link>
@@ -352,11 +691,41 @@
   </item>
 
   <item>
+    <guid>https://stb.id.au/blog/en/automating-e8-assessments</guid>
+    <title>Automating the Essential Eight Assessment Guide</title>
+    <link>https://stb.id.au/blog/en/automating-e8-assessments</link>
+    <description>Recently the Australian Cyber Security Centre released an Essential Eight assessment guide. This article looks at automating some of the tests in the guide with Ansible.</description>
+    <pubDate>Thu, 08 Dec 2022 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>functional</category><category>verification</category><category>ansible</category><category>automation</category><category>windows</category><category>e8</category><category>security</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/improved-functional-verification</guid>
+    <title>Improved Functional Verification Testing with Ansible</title>
+    <link>https://stb.id.au/blog/en/improved-functional-verification</link>
+    <description>Ansible provides a way to automate functional verification tests. This article looks at an improved approach to automating functional verification tests that I introduced in an earlier article.</description>
+    <pubDate>Wed, 02 Nov 2022 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>functional</category><category>verification</category><category>ansible</category><category>automation</category><category>security</category><category>compliance</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/improved-functional-verification</guid>
     <title>Improved Functional Verification Testing with Ansible</title>
     <link>https://stb.id.au/blog/improved-functional-verification</link>
     <description>Ansible provides a way to automate functional verification tests. This article looks at an improved approach to automating functional verification tests that I introduced in an earlier article.</description>
     <pubDate>Wed, 02 Nov 2022 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>functional</category><category>verification</category><category>ansible</category><category>automation</category><category>security</category><category>compliance</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/functional-verification-ansible</guid>
+    <title>Functional Verification Testing with Ansible</title>
+    <link>https://stb.id.au/blog/en/functional-verification-ansible</link>
+    <description>Functional verification provides a way that we can attest to the configuration of a device or system, and verify compliance controls. This article looks at a functional verification approach using Ansible.</description>
+    <pubDate>Fri, 30 Sep 2022 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>functional</category><category>verification</category><category>ansible</category><category>automation</category><category>security</category><category>compliance</category>
   </item>
@@ -372,6 +741,16 @@
   </item>
 
   <item>
+    <guid>https://stb.id.au/blog/en/gartner-swag-wheel</guid>
+    <title>The Red Hat Swag Wheel at Gartner</title>
+    <link>https://stb.id.au/blog/en/gartner-swag-wheel</link>
+    <description>What do you do when you need to give away swag, but don&#39;t have a wheel? You build one on OpenShift!</description>
+    <pubDate>Wed, 14 Sep 2022 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>gartner</category><category>swag</category><category>openshift</category><category>react</category><category>patternfly</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/gartner-swag-wheel</guid>
     <title>The Red Hat Swag Wheel at Gartner</title>
     <link>https://stb.id.au/blog/gartner-swag-wheel</link>
@@ -379,6 +758,16 @@
     <pubDate>Wed, 14 Sep 2022 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>gartner</category><category>swag</category><category>openshift</category><category>react</category><category>patternfly</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/fapolicyd-analyzer</guid>
+    <title>Up and running with the File Access Policy Analyzer</title>
+    <link>https://stb.id.au/blog/en/fapolicyd-analyzer</link>
+    <description>A quick look at the File Access Policy Analyzer, an open source tool simplifying application control implementation</description>
+    <pubDate>Sun, 24 Jul 2022 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>application</category><category>control</category><category>integrity</category><category>risk</category><category>security</category><category>linux</category>
   </item>
 
   <item>
@@ -402,6 +791,26 @@
   </item>
 
   <item>
+    <guid>https://stb.id.au/blog/en/automated-patching</guid>
+    <title>Automated security patching with Ansible</title>
+    <link>https://stb.id.au/blog/en/automated-patching</link>
+    <description>RSA Conference 2022 again highlighted that many data breaches are due to unpatched systems. In this article I look at some of the technologies available to help organisations ensure that updates are applied across their hybrid cloud environments</description>
+    <pubDate>Wed, 29 Jun 2022 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>ansible</category><category>automation</category><category>patching</category><category>security</category><category>risk</category><category>management</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/hands-on-app-control</guid>
+    <title>Hands-on with Application Control for Linux</title>
+    <link>https://stb.id.au/blog/en/hands-on-app-control</link>
+    <description>Application control is a critical security control, allowing you to specifically authorise applications, processes and shared libraries. This blog introduces some ofthe resources you can use to learn more about application control, and get hands-on.</description>
+    <pubDate>Tue, 21 Jun 2022 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>linux</category><category>application</category><category>control</category><category>fapolicyd</category><category>threat</category><category>risk</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/hands-on-app-control</guid>
     <title>Hands-on with Application Control for Linux</title>
     <link>https://stb.id.au/blog/hands-on-app-control</link>
@@ -422,6 +831,26 @@
   </item>
 
   <item>
+    <guid>https://stb.id.au/blog/en/access-and-agents</guid>
+    <title>Access &amp; Agents</title>
+    <link>https://stb.id.au/blog/en/access-and-agents</link>
+    <description>Many organisations take the same approach to securing virtual machines, which I call &#39;Access &amp; Agents&#39;. While effective for virtual machines and other legacy infrastructure, this approach doesn&#39;t translate across to containers and Kubernetes, and this article looks at why.</description>
+    <pubDate>Sat, 19 Mar 2022 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>kubernetes</category><category>security</category><category>devsecops</category><category>containers</category><category>access</category><category>agents</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/internal-registry-acs</guid>
+    <title>Scanning the OpenShift Internal Registry</title>
+    <link>https://stb.id.au/blog/en/internal-registry-acs</link>
+    <description>Did you know that you can scan the internal OpenShift registry for security issues? Read on to find out how.</description>
+    <pubDate>Fri, 04 Mar 2022 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>kubernetes</category><category>openshift</category><category>risk</category><category>security</category><category>CVE</category><category>registry</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/internal-registry-acs</guid>
     <title>Scanning the OpenShift Internal Registry</title>
     <link>https://stb.id.au/blog/internal-registry-acs</link>
@@ -429,6 +858,16 @@
     <pubDate>Fri, 04 Mar 2022 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>kubernetes</category><category>openshift</category><category>risk</category><category>security</category><category>CVE</category><category>registry</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/quay-and-acs</guid>
+    <title>Scanning Quay.io private repositories for CVEs</title>
+    <link>https://stb.id.au/blog/en/quay-and-acs</link>
+    <description>A quick guide on how to integrate a Kubernetes-native security platform with quay.io private repositories</description>
+    <pubDate>Wed, 26 Jan 2022 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>kubernetes</category><category>registries</category><category>security</category><category>devsecops</category><category>containers</category>
   </item>
 
   <item>
@@ -452,6 +891,26 @@
   </item>
 
   <item>
+    <guid>https://stb.id.au/blog/en/automating-app-control</guid>
+    <title>Automating application control</title>
+    <link>https://stb.id.au/blog/en/automating-app-control</link>
+    <description>Automation allows organisations to scale security workflows across hybrid cloud environments. In this article I take a closer look at automating application control, and how you can use Ansible roles to create reusable automation content.</description>
+    <pubDate>Fri, 26 Nov 2021 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>ansible</category><category>application</category><category>control</category><category>risk</category><category>security</category><category>linux</category><category>automation</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/knowledge-balance</guid>
+    <title>Maintaining a knowledge balance</title>
+    <link>https://stb.id.au/blog/en/knowledge-balance</link>
+    <description>What&#39;s the difference between institutional and industry knowledge, and what can you do to bring these into balance?</description>
+    <pubDate>Thu, 28 Oct 2021 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>institutional</category><category>industry</category><category>knowledge</category><category>balance</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/knowledge-balance</guid>
     <title>Maintaining a knowledge balance</title>
     <link>https://stb.id.au/blog/knowledge-balance</link>
@@ -462,6 +921,16 @@
   </item>
 
   <item>
+    <guid>https://stb.id.au/blog/en/kubernetes-native-security-surprise</guid>
+    <title>Kubernetes-native security and least surprise</title>
+    <link>https://stb.id.au/blog/en/kubernetes-native-security-surprise</link>
+    <description>What does it mean to be &quot;Kubernetes-native&quot;? And what does Kubernetes-native security look like?</description>
+    <pubDate>Sun, 17 Oct 2021 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>kubernetes</category><category>native</category><category>risk</category><category>security</category><category>least</category><category>surprise</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/kubernetes-native-security-surprise</guid>
     <title>Kubernetes-native security and least surprise</title>
     <link>https://stb.id.au/blog/kubernetes-native-security-surprise</link>
@@ -469,6 +938,16 @@
     <pubDate>Sun, 17 Oct 2021 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>openshift</category><category>kubernetes</category><category>native</category><category>risk</category><category>security</category><category>least</category><category>surprise</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/fapolicyd-integrity</guid>
+    <title>Application control and integrity checks</title>
+    <link>https://stb.id.au/blog/en/fapolicyd-integrity</link>
+    <description>Injecting integrity checks to application control processes is a winning security combination. Application control allows you to specify that only certain processes can execute on a system - but how do you know they are the right processes? How can you ensure that the code that you want to execute is the code that actually executes?</description>
+    <pubDate>Wed, 06 Oct 2021 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>application</category><category>control</category><category>integrity</category><category>risk</category><category>security</category><category>linux</category>
   </item>
 
   <item>
@@ -492,6 +971,26 @@
   </item>
 
   <item>
+    <guid>https://stb.id.au/blog/en/app-control-for-everyone</guid>
+    <title>Application control for everyone</title>
+    <link>https://stb.id.au/blog/en/app-control-for-everyone</link>
+    <description>Application control seems to be one of those elusive security controls that organisations spend years chasing. How can we validate which processes are authorised to run on a system, and then enforce this?</description>
+    <pubDate>Wed, 15 Sep 2021 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>application</category><category>control</category><category>risk</category><category>security</category><category>linux</category><category>openshift</category><category>kubernetes</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/misp-on-rhel</guid>
+    <title>Open source threat intelligence and SELinux</title>
+    <link>https://stb.id.au/blog/en/misp-on-rhel</link>
+    <description>How do you protect your threat intelligence sharing platform from compromise? Read on to learn how SELinux and podman can support a containerised MISP deployment.</description>
+    <pubDate>Sun, 29 Aug 2021 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>linux</category><category>open</category><category>source</category><category>threat</category><category>intelligence</category><category>selinux</category><category>containers</category>
+  </item>
+
+  <item>
     <guid>https://stb.id.au/blog/misp-on-rhel</guid>
     <title>Open source threat intelligence and SELinux</title>
     <link>https://stb.id.au/blog/misp-on-rhel</link>
@@ -505,6 +1004,16 @@
     <guid>https://stb.id.au/blog/compliance-is-mislabelled</guid>
     <title>Compliance is mislabelled</title>
     <link>https://stb.id.au/blog/compliance-is-mislabelled</link>
+    <description>Compliance evokes images of checking boxes. The real purpose of IT system compliance is risk migitation, and it probably just needs a better name</description>
+    <pubDate>Wed, 18 Aug 2021 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>compliance</category><category>risk</category><category>security</category>
+  </item>
+
+  <item>
+    <guid>https://stb.id.au/blog/en/compliance-is-mislabelled</guid>
+    <title>Compliance is mislabelled</title>
+    <link>https://stb.id.au/blog/en/compliance-is-mislabelled</link>
     <description>Compliance evokes images of checking boxes. The real purpose of IT system compliance is risk migitation, and it probably just needs a better name</description>
     <pubDate>Wed, 18 Aug 2021 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
