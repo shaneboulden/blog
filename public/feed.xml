@@ -12,7 +12,7 @@
       
   <item>
     <guid>https://stb.id.au/blog/openshift-keycloak-x509</guid>
-    <title>OpenShift X.509 auth with Keycloak</title>
+    <title>OpenShift X.509 Authentication with Keycloak</title>
     <link>https://stb.id.au/blog/openshift-keycloak-x509</link>
     <description>Identity is a core part of operating a platform. In this article I want to explore one of the ways you can authenticate users to OpenShift, using X.509 certificates and Keycloak.</description>
     <pubDate>Sat, 16 Aug 2025 00:00:00 GMT</pubDate>
