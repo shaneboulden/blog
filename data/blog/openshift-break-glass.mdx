@@ -124,10 +124,8 @@ At this point you can either create a secret and specify the provider as code, o
 ![htpasswd 3](/static/images/openshift-break-glass/htpasswd3.png)
 </Zoom>
 
-Once updated you'll see that the OAuth cluster operator is temporarily degraded while it rolls out new config:
+Once updated you'll see that the OAuth cluster operator rolls out new config:
 ```
-$ oc get co
-
 $ oc get co
 NAME                                       VERSION   AVAILABLE   PROGRESSING   DEGRADED   SINCE   MESSAGE
 authentication                             4.19.11   True        True          False      3d6h    OAuthServerDeploymentProgressing: deployment/oauth-openshift.openshift-authentication: 1/3 pods have been updated to the latest generation and 2/3 pods are available
