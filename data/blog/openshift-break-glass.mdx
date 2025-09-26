@@ -1,8 +1,258 @@
 ---
-title: Unpacking OpenShift breakglass
-date: '2025-09-22'
-tags: ['openshift','breakglass','security','authentication','authorization','compliance']
-images: ['/static/images/linkedin-banners/openshift-gpus.png']
+title: Unpacking OpenShift break-glass access
+date: '2025-09-26'
+tags: ['openshift','breakglass','security','authentication','authorisation','compliance']
+images: ['/static/images/linkedin-banners/logo.png']
 draft: false
-summary: 'Break-glass access to clusters is critical in case of emergency. In this article I take a look at some of the ways you can configure break-glass access for OpenShift, and audit access to break-glass credentials.'
+summary: '"Break glass" access to OpenShift clusters is critical in case of emergency, and in this article I take a look at some of the ways you can configure emergency access for OpenShift.'
 ---
+Have you ever been locked out of an OpenShift cluster?
+
+I get locked out every time I build a cluster - deliberately 🙂. I'll explain:
+
+When you first install an OpenShift cluster, the `kube-apiserver`, `kube-controller-manager`, `kube-scheduler`, `kubelet`, and many other internal components get signed certificates by the cluster’s own PKI (the Cluster Machine Approver and the Kubernetes CSR signing controller).
+
+These certificates expire within the first 24 hours, and are rotated automatically. But, if the If the cluster nodes are not running when the certificate expiry occurs, then rotation won't occur, and you get a bunch of pending certificate signing requests on the cluster, like this:
+
+```
+$ oc get csr
+NAME        AGE     SIGNERNAME                                    REQUESTOR                                                                   CONDITION
+csr-btq25   36h     kubernetes.io/kube-apiserver-client-kubelet   system:serviceaccount:openshift-machine-config-operator:node-bootstrapper   Pending
+csr-fwntw   5m17s   kubernetes.io/kube-apiserver-client-kubelet   system:serviceaccount:openshift-machine-config-operator:node-bootstrapper   Pending
+csr-lshgr   5m22s   kubernetes.io/kube-apiserver-client-kubelet   system:serviceaccount:openshift-machine-config-operator:node-bootstrapper   Pending
+csr-ncxfl   35h     kubernetes.io/kube-apiserver-client-kubelet   system:serviceaccount:openshift-machine-config-operator:node-bootstrapper   Pending
+csr-qkjls   36h     kubernetes.io/kube-apiserver-client-kubelet
+csr-whmr5   5m22s   kubernetes.io/kube-apiserver-client-kubelet   system:serviceaccount:openshift-machine-config-operator:node-bootstrapper   Pending
+csr-wntm7   5m5s    kubernetes.io/kube-apiserver-client-kubelet   system:serviceaccount:openshift-machine-config-operator:node-bootstrapper   Pending
+csr-ww55q   34s     kubernetes.io/kube-apiserver-client-kubelet   system:serviceaccount:openshift-machine-config-operator:node-bootstrapper   Pending
+```
+If this happens, several key components in OpenShift (like the web console, and the OAuth server) are not available. You can't login via the web console, or using `oc login`.
+
+I mentioned earlier that I do this deliberately; when I create an OpenShift cluster in the public cloud I don't want to leave it running for 24 hours just to perform a certificate rotation. I want to provision it, then shut down the nodes to save costs, and start it again when I need it. 
+
+This means that practically every time I deploy a cluster to public cloud, the first certificate rotation has not occurred, and the OAuth server is not available. I end up with this situation where I need to login to the cluster using a "break glass" mechanism, approve the certificate signing requests, and bring the cluster services back up.
+
+Break glass / emergency access is incredibly important to support the ["CIA triad"](https://www.cisecurity.org/insights/spotlight/ei-isac-cybersecurity-spotlight-cia-triad) - a model for information security that refers to confidentiality, integrity and availability. If my OpenShift cluster is broken, and there is no emergency access, I can't remediate it and ensure service availability.
+
+Break glass access is also explicitly called out as a requirement in the [Australian Information Security Manual](https://www.cyber.gov.au/business-government/asds-cyber-security-frameworks/ism), published by the [Australian Signals Directorate](https://www.asd.gov.au/). I've included some excerpts here:
+
+<Zoom>
+![ism break glass 1](/static/images/openshift-break-glass/ism1.png)
+</Zoom>
+
+<Zoom>
+![ism break glass 2](/static/images/openshift-break-glass/ism2.png)
+</Zoom>
+
+In this article I want to take a look at some of the ways I've seen break glass access configured, and some of the "gotchas". Let's take a look!
+
+## Understanding OpenShift authentication
+
+Before diving into "break glass" with OpenShift, I think it's important to understand how OpenShift authentication works.
+
+Ok, before we do that, I need to look at [OAuth](). OAuth is an industry standard for delegation. Essentially, OAuth a way for users to grant websites or applications access to their information without giving away their passwords.
+
+Let's say I build an app that draws moustaches on people in photos. I want to give you, the user, the ability to do this with your Google photos. I could use OAuth to provide delegated access to the app to some of your Google photos - and you could allow the app to authenticate with Google Photos, without giving it your Google password.
+
+Here it is in a diagram:
+```json
++----------------+                                   +--------------+
+|   Service A |  |                                   |   Service B  |
+| (the moustache |                                   |  ( Google    |
+|       app)     |                                   |    Photos )  |
++----------------+                                   +--------------+
+        |                                               ^
+        |                                               |
+        | 1. Redirect user to login + consent ----------|
+        |                                               |
+        v                                               |
++------------------+                                    |
+|   User + Browser |                                    |
++------------------+                                    |
+        |                                               |
+        | 2. User logs in & approves access             |
+        |---------------------------------------------->|
+        |                                               |
+        |   3. Auth Code                                |
+        |<----------------------------------------------|
+        |                                               |
+        | 4. Auth Code -> exchanged for Token           |
+        |---------------------------------------------->|
+        |                                               |
+        |   5. Access Token                             |
+        |<----------------------------------------------|
+        |                                               |
+        | 6. Use Access Token to call APIs              |
+        |---------------------------------------------->|
+        |                                               |
+        |        Protected resources returned           |
+        |<----------------------------------------------|
+```
+
+So what does this have to do with OpenShift? OpenShift includes a built-in OAuth server. You can think of the " moustache app" and "Google photos" as separate components within Openshift - the OpenShift console is like the moustache app, and the OpenShift API server is like Google photos, providing access to resources.
+
+When you use `oc login` to access an OpenShift cluster, or login to the OpenShift web console, you're not providing your password directly to the platform. Instead, you're redirected under the hood to the OpenShift OAuth server. The OAuth server authenticates you using whatever identity provider OpenShift is configured with (LDAP, GitHub, Google, htpasswd, etc.), and once you're authenticated, you get an OAuth access token to interact with APIs (via the console / `oc`).
+
+BUT - there is an alternative way of authenticating with OpenShift, which bypasses the OAuth server. You can authenticate directly with the OpenShift API server using X.509 certificates!
+
+This is the same mechanism that the `kubelet` uses to authenticate with the OpenShift / Kubernetes API, inside the cluster. When you login as a user, you're redirected to the OAuth server, and provided an access token for the API. But the `kubelet` has X.509 certificates available on the node, and uses this to authenticate with the API *directly*. 
+
+If you've installed an OpenShift cluster recently, you'll have noticed a file `auth/kubeconfig` created in the directory that you ran `openshift-install`. This file contains X509 certificates that can be used to authenticate to the cluster as the `system:admin` user, who has the `cluster-admin` role.
+
+There is now third mechanism to authenticate, which is new in OpenShift 4.19, and that's using an external OpenID Connect provider to directly authenticate with OpenShift. This bypasses the built-in OAuth server and uses the external identity provider directly. This can be really useful, because it means you are not limited by the capabilities of the built-in OAuth server, but can leverage the advanced capabilities of external OpenID Connect providers (Keycloak, Microsoft Entra, etc).
+
+Direct authentication with an external OpenID Connect provider is currently a technology preview in OpenShift 4.19, and you can read more about it [here](https://docs.redhat.com/en/documentation/openshift_container_platform/4.19/html-single/authentication_and_authorization/#external-auth)
+
+## Break-glass with htpasswd
+Ok, let's see one of the ways I've seen break-glass access configured, using the `htpasswd` identify provider supported with the OpenShift OAuth server. This mechanism provides access to the OpenShift console and API via `oc`.
+
+Firstly, create a htpasswd file with a user `temp-admin` and the password `1800redhat` created:
+```
+htpasswd -c -B -b htpasswd temp-admin 1800redhat
+```
+At this point you can either create a secret and specify the provider as code, or create an identify provider via the OpenShift console:
+
+<Zoom>
+![htpasswd 1](/static/images/openshift-break-glass/htpasswd1.png)
+</Zoom>
+
+<Zoom>
+![htpasswd 2](/static/images/openshift-break-glass/htpasswd2.png)
+</Zoom>
+
+<Zoom>
+![htpasswd 3](/static/images/openshift-break-glass/htpasswd3.png)
+</Zoom>
+
+Once updated you'll see that the OAuth cluster operator is temporarily degraded while it rolls out new config:
+```
+$ oc get co
+
+$ oc get co
+NAME                                       VERSION   AVAILABLE   PROGRESSING   DEGRADED   SINCE   MESSAGE
+authentication                             4.19.11   True        True          False      3d6h    OAuthServerDeploymentProgressing: deployment/oauth-openshift.openshift-authentication: 1/3 pods have been updated to the latest generation and 2/3 pods are available
+baremetal                                  4.19.11   True        False         False      3d6h
+cloud-controller-manager                   4.19.11   True        False         False      3d6h
+cloud-credential                           4.19.11   True        False         False      3d6h
+cluster-autoscaler                         4.19.11   True        False         False      3d6h
+config-operator                            4.19.11   True        False         False      3d6h
+```
+And once complete, the new option to login is shown in the OpenShift console:
+
+![htpasswd 4](/static/images/openshift-break-glass/htpasswd4.png)
+
+Before we test then login we should create a role for our `temp-admin` user, so that they have the right access for emergency situations:
+```
+$ oc adm policy add-cluster-role-to-user cluster-admin temp-admin
+Warning: User 'temp-admin' not found
+clusterrole.rbac.authorization.k8s.io/cluster-admin added: "temp-admin"
+```
+The warning message is shown because our user hasn't yet logged in for the first time, and been created on the cluster. This role binding will work fine though.
+
+Let's test it out. Try logging in using the `htpasswd`-based "break glass", and see that the user has access.
+
+<Zoom>
+![htpasswd 5](/static/images/openshift-break-glass/htpasswd5.png)
+</Zoom>
+
+Great! Now we have a mechanism for "break glass" access to the OpenShift console. 
+
+There is one **huge issue** with this break glass access mechanism though - and that's that it relies on the OpenShift OAuth server being available. Let's replicate a situation where the OAuth server is not available, like my example at the start of this article where the certificate rotation has not been performed.
+
+```
+$ oc get deploy -n openshift-oauth-apiserver
+NAME        READY   UP-TO-DATE   AVAILABLE   AGE
+apiserver   3/3     3            3           3d7h
+
+$ oc scale deploy/apiserver -n openshift-oauth-apiserver --replicas 0
+deployment.apps/apiserver scaled
+
+$ oc get pods -n openshift-oauth-apiserver
+NAME                        READY   STATUS        RESTARTS   AGE
+apiserver-ddb5559d9-6jk2l   0/1     Terminating   2          3d6h
+apiserver-ddb5559d9-7rl4g   0/1     Pending       0          20s
+apiserver-ddb5559d9-jnggg   0/1     Terminating   2          3d6h
+apiserver-ddb5559d9-p4tql   0/1     Pending       0          20s
+apiserver-ddb5559d9-r5gm9   0/1     Terminating   2          3d6h
+apiserver-ddb5559d9-s2fth   0/1     Pending       0          20s
+```
+We have to be pretty quick here, as the OAuth operator is already scaling the pods back again. But if you're quick, and try to login via htpasswd, you'll see the following:
+```json
+{"error":"server_error","error_description":"The authorization server encountered an unexpected condition that prevented it from fulfilling the request.","state":"025bb0fbf40dd280d8accbc359ff98c8"}
+```
+
+Hmm - well that's not great. Our "emergency" access method should work in emergency situations, and that's clearly not the case here.
+
+I mentioned earlier in this article that direct authentication with an external OpenID Connect provider is now in technology preview. I would equate this method with the OAuth server for "break glass" - it's still reliant on an external IDP, and if it's not available, then using this for "emergency" access is fundamentally flawed.
+
+Let's look at another method for break-glass access that is natively available with OpenShift
+
+## Break-glass with X509 certificates
+Clearly there's some challenges with `htpasswd`-based "break glass" access - or any mechanism that relies on the built-in OAuth server, or an external OpenID Connect provider. If the OpenShift OAuth server is not available, or the external OIDC provider is not available, our "break glass" mechanism is not available - which is not good for an 'emergency' access mechanism.
+
+Another option is X509-based break-glass access. This is natively available inside OpenShift - in fact, it's also how the `kubelet` interacts with the OpenShift / Kubernetes API! It's also very simple to configure, because everything is done for you at install time. 
+
+If you remember at the start of this article, I said that I deliberately get "locked out" of OpenShift when I provision a cluster, because I shut down the nodes and the certificate rotation does not occur. This X509 mechanism is how I can authenticate, and sign all the `pending` certificate signing requests (which requires access to the API). 
+
+Let's take a closer look at X509 authentication to the OpenShift API. When you create an OpenShift cluster using `openshift-install` you will see a folder created that looks like this:
+```bash
+drwxr-x--- 2 auth
+-rw-r----- 1 metadata.json
+-rw-r----- 1 terraform.platform.auto.tfvars.json
+-rw-r----- 1 terraform.tfvars.json
+drwxr-x--- 2 tls
+```
+
+To authenticate using X509 certificates you can simply do an `export KUBECONFIG=auth/kubeconfig`, and select the correct context via `oc config`:
+```yaml
+$ export KUBECONFIG=auth/kubeconfig
+$ oc config get-contexts
+CURRENT   NAME                                                           CLUSTER                                    AUTHINFO                                              NAMESPACE
+          admin                                                          cluster1                                   admin                                       
+          default/api-cluster1-sandbox285-opentlc-com:6443/kube:admin    api-cluster1-sandbox285-opentlc-com:6443   kube:admin/api-cluster1-sandbox285-opentlc-com:6443   default
+*         policies/api-cluster1-sandbox285-opentlc-com:6443/kube:admin   api-cluster1-sandbox285-opentlc-com:6443   kube:admin/api-cluster1-sandbox285-opentlc-com:6443   policies
+```
+In this example I have already logged in as a `kube-admin` user, and need to select the `admin` context:
+```
+$ oc config use-context admin
+Switched to context "admin".
+$ oc whoami
+system:admin
+```
+Great! I've logged in as the `system:admin` user that was created during installation, using X509 certificates to authenticate directly with the API and bypass the OpenShift OAuth server. Now for the big test - let's kill off the OAuth server pods, and see if this auth mechanism still works.
+```
+$ oc scale deploy/apiserver -n openshift-oauth-apiserver --replicas 0
+deployment.apps/apiserver scaled
+
+$ oc get pods -n openshift-oauth-apiserver
+NAME                        READY   STATUS        RESTARTS   AGE
+apiserver-ddb5559d9-4hh2h   0/1     Pending       0          7s
+apiserver-ddb5559d9-6xkf6   0/1     Pending       0          7s
+apiserver-ddb5559d9-7rl4g   1/1     Terminating   0          13m
+apiserver-ddb5559d9-lzjcw   0/1     Pending       0          7s
+apiserver-ddb5559d9-p4tql   1/1     Terminating   0          13m
+apiserver-ddb5559d9-s2fth   1/1     Terminating   0          13m
+```
+Does it still work, even when the OAuth server pods are not available?
+```
+$ oc get co
+NAME                                       VERSION   AVAILABLE   PROGRESSING   DEGRADED   SINCE   MESSAGE
+authentication                             4.19.11   False       False         False      14s     APIServerDeploymentAvailable: no apiserver.openshift-oauth-apiserver pods available on any node....
+baremetal                                  4.19.11   True        False         False      3d7h
+cloud-controller-manager                   4.19.11   True        False         False      3d7h
+cloud-credential                           4.19.11   True        False         False      3d7h
+cluster-autoscaler                         4.19.11   True        False         False      3d7h
+config-operator                            4.19.11   True        False         False      3d7h
+```
+Great! Even though the OAuth server is unavailable, I can still access the API. 
+
+I think this is far better than using `htpasswd` - it is easy to configure, easy to use, and works when the OAuth server is unavailable.
+
+PS. If you want to look at some other ways you can use X509 certificates for user access in OpenShift, [take a look at my article here](/blog/openshift-keycloak-x509).
+
+## Wrapping up
+This was a pretty brief intro to break-glass / emergency access in OpenShift. I looked at how authentication works in OpenShift, the limitations configuring emergency access via `htpasswd` and the built-in OpenShift OAuth server, and a better mechanism for emergency acccess using X509 certificates, bypassing the OAuth server.
+
+There's still a few outstanding issues though. Many organisations require emergency credentials to be rotated after use, and access to these credentials needs to be monitored and audited. In a future article I'll take a closer look at governance around emergency credentials usage, and how you can bring this into an OpenShift model for "break-glass" access.
+
+Thanks for reading!
