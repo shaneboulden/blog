@@ -1,0 +1,215 @@
+---
+title: Trying out the OpenShift Virtualization Engine registry-less installer
+date: '2025-11-26'
+tags: ['openshift', 'disconnected', 'registryless', 'installer', 'virtualization']
+images: ['/static/images/linkedin-banners/nist-guide.png']
+draft: false
+summary: 'OpenShift 4.20 introduces a new ISO-based registry-less installer in technology preview, and in this article I give it a go in my lab environment.'
+---
+OpenShift 4.20 was released 21 Oct 2025, and is a particularly exciting release. You can find more info in the [release notes](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html/release_notes/index), or the ['What's new in OpenShift 4.20' video](https://www.youtube.com/watch?v=2VrIfk2QbsU), but here's just a few of my favourites:
+
+- [**Two node architecture**](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html-single/release_notes/index#ocp-4-20-edge-computing-arbiter-node_release-notes): You can configure an OpenShift Container Platform cluster with two control plane nodes and one local arbiter node to retain high availability (HA) while reducing infrastructure costs. This is particularly helpful at the edge, where compute is limited.
+
+- [**Support for BGP**](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html-single/release_notes/index#ocp-4-20-support-for-bgp-routing-protocol_release-notes): The OpenShift Cluster Network Operator (CNO) now supports enabling Border Gateway Protocol (BGP) routing. With BGP, you can import and export routes to the underlying provider network and use multi-homing, link redundancy, and fast convergence. Note that there is also now support for BGP route advertisements for cluster user-defined networks (UDNs).
+
+- [**Migrating a br-ex cluster to NMState**](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html-single/release_notes/index#ocp-4-20-migration-configure-ovs-nmstate_release-notes): This doesn't sound that exciting, but it makes my list because it fixes a well-known race condition with `br-ex` configured clusters. Essentially - if you have a cluster with multiple NICs, `br-ex` can sometimes get moved to the secondary NIC - which is not fun. Now you can 'pin' br-ex to an interface with NMState. Happy days!
+
+And of course, one of my favourite additions to OpenShift 4.20 is the registry-less ISO deployment method for OpenShift Virtualization. This is available in a technology preview, and allows you to deploy a fully-functioning OpenShift Virtualization Engine cluster simply using an ISO, even in air-gapped or disconnected environments.
+
+Firstly, a few notes on OpenShift Virtualization Engine (OVE). OVE is an OpenShift edition focused specifically on running and managing virtual machines. It's based on OpenShift - including all the security benefits that come with running workloads on OpenShift - and KVM, the open source hypervisor that's also used in Red Hat Enterprise Linux (RHEL).
+
+Let's take a look!
+
+## Why is this important for disconnected / air-gapped clusters?
+
+Air-gapped OpenShift clusters have traditionally required a bit of experience to deploy. The [agent-based installer](https://www.redhat.com/en/blog/meet-the-new-agent-based-openshift-installer-1) has certainly stream-lined the deployment process, but you always needed a registry to host images, like the diagram below shows.
+
+<Zoom>
+![export1](/static/images/registryless-install/export1.png)
+</Zoom>
+
+Creating the registry requires you to mirror images to disk, using `oc mirror`, then move the tar-ball across the air-gap, populate your air-gapped registry, and only then can you start an installation.
+
+This is fine if you're deploying OpenShift to one air-gapped environment. But what if you have tens, or even hundreds of environments where you need OpenShift Virtualization? Do you create a registry in each environment (a lot of work)? Or, do you try and create a 'shared infrastructure' zone, potentially breaching disconnected environments?
+
+The new registry-less, ISO-based deployment method streamlines air-gapped cluster installation. You no longer need a registry - all the OpenShift installation images are packed inside the ISO. And, the new ISO also includes all of the additional Operator Lifecycle Manager (OLM) Operators needed to run virtual machines on the cluster, at the same time as the installation.
+
+This deployment method was actually originally introduced in OpenShift 4.19 as a developer preview, and that's what I'm going to use here.
+
+## Downloading the new ISO
+
+To get started, first navigate to the Red Hat Hybrid Cloud Console, and specifically the [OpenShift page](https://console.redhat.com/openshift).
+
+<Zoom>
+![console1](/static/images/registryless-install/console1.png)
+</Zoom>
+
+Select the cluster list, and then 'create cluster'. 
+
+<Zoom>
+![console2](/static/images/registryless-install/console2.png)
+</Zoom>
+
+Select the 'Datacenter' tab, and then under Assisted Installer, select 'Create cluster'.
+
+<Zoom>
+![console3](/static/images/registryless-install/console3.png)
+</Zoom>
+
+This is where things get really interesting. You can see that there is now a new option `I'm installing on a disconnected / air-gapped / secure environment`:
+
+<Zoom>
+![console4](/static/images/registryless-install/console4.png)
+</Zoom>
+
+Clicking this option and then 'next' shows you a new screen:
+
+<Zoom>
+![console5](/static/images/registryless-install/console5.png)
+</Zoom>
+
+If you review the list of available operators you can see that this very clearly targeted for OpenShift Virtualization Engine installation:
+
+- OpenShift Virtualization
+- Migration Toolkit for Virtualization
+- NMState
+- Node Healthcheck
+- Node Maintenance
+- Fence Agents Remediation
+- Kube Descheduler
+
+Click "download" to start the ISO download (38GB at the time of writing).
+
+## Creating a disconnected network
+
+I want to prove this deployment method works in an air-gapped / secure environment. Fortunately this is pretty simple using the Unifi kit I have running in the lab (sorry family - there's OpenShift clusters to install!):
+
+![unifi1](/static/images/registryless-install/unifi1.png)
+
+## Creating a Single-node OpenShift cluster
+
+Now that I have an ISO and a disconnected network created it's time to prepare the server. The registry-less install method is essentially a spin on the [agent-based installer](https://www.redhat.com/en/blog/meet-the-new-agent-based-openshift-installer-1), but without an external registry.
+
+My single server will also be the "rendesvous node". In an agent-based OpenShift install, the rendesvous node runs the assisted service early in the boot process and eventually becomes the bootstrap host, and is central to why the agent-based installer is so lightweight and edge-friendly. 
+
+You can think of the rendesvous node as a local "bootstrap-as-a-service" node - it provides the initial bootstrap control plane functions, services the Ignition content to other nodes, coordinates etcd quorum forming, and runs temporary services so the cluster can self-assemble.
+
+The rendesvous node also becomes a control plane node in the cluster, and this is why I can do everything from one server.
+
+Now that you have an ISO downloaded, you can start the OpenShift Virtualization Engine installation. I did try this using my trusty Dell R620 - but I couldn't get the assisted service to start. Instead I'm going to use a VM on Hyper-V. You'll need a basic VM with 16 cores and at least 32GB RAM, and note I've attached the `agent-ove.x86_64.iso` file here:
+
+<Zoom>
+![hyperv1](/static/images/registryless-install/hyperv1.png)
+</Zoom>
+
+<Zoom>
+![hyperv2](/static/images/registryless-install/hyperv2.png)
+</Zoom>
+
+<Zoom>
+![hyperv3](/static/images/registryless-install/hyperv3.png)
+</Zoom>
+
+If you now start the VM it will start the terminal user interface for the rendesvous node configuration. Simply select `this is the rendesvous node`, and select an IP when prompted:
+
+<Zoom>
+![boot1](/static/images/registryless-install/boot1.png)
+</Zoom>
+
+<Zoom>
+![boot2](/static/images/registryless-install/boot2.png)
+</Zoom>
+
+At this stage the assisted service will start, and you can access the web user interface for the assisted installer:
+
+<Zoom>
+![boot4](/static/images/registryless-install/boot4.png)
+</Zoom>
+
+Open a browser and navigate to the assisted installer, at `http://your-vm-ip:3001`. You'll need to provide some basic information about your cluster, including the name, and how it's configured. Note that although this is air-gapped, you will also need a valid OpenShift pull secret:
+
+<Zoom>
+![assist1](/static/images/registryless-install/assist1.png)
+</Zoom>
+
+<Zoom>
+![assist2](/static/images/registryless-install/assist2.png)
+</Zoom>
+
+If you click through the next page you'll be able to select the operator from the ISO for this install. Because I'm deploying on a single node I can't use the entire bundle:
+
+<Zoom>
+![assist3](/static/images/registryless-install/assist3.png)
+</Zoom>
+
+But, I can still select the NMState and OpenShift Virtualization operators, and continue the install:
+
+<Zoom>
+![assist4](/static/images/registryless-install/assist4.png)
+</Zoom>
+
+If you click on the next page you'll be shown the status of your hosts. I'm only using a single host, but it has an error. What gives?
+
+<Zoom>
+![assist5](/static/images/registryless-install/assist5.png)
+</Zoom>
+
+I am trying to run OpenShift Virtualization inside a VM, which requires nested virtualisation support. This isn't enabled by default with Hyper-V, but you can enable it for a VM like so:
+
+```powershell
+Set-VMProcessor -VMName sno1 -ExposeVirtualizationExtensions $true
+```
+
+Great - that looks a lot better!
+
+<Zoom>
+![assist6](/static/images/registryless-install/assist6.png)
+</Zoom>
+
+There's not much to do on the next few screens other than confirm details of the cluster. You can provide an SSH key here if you'd like (I prefer not to):
+
+<Zoom>
+![assist7](/static/images/registryless-install/assist7.png)
+</Zoom>
+
+<Zoom>
+![assist8](/static/images/registryless-install/assist8.png)
+</Zoom>
+
+Finally, grab your credentials, and start the install process. You'll notice that OpenShift has created the ImageDigestMirrorSet and ImageTagMirrorSet pointing to the local registry running on the node for you:
+
+<Zoom>
+![download](/static/images/registryless-install/download.png)
+</Zoom>
+
+<Zoom>
+![install1](/static/images/registryless-install/install1.png)
+</Zoom>
+
+<Zoom>
+![install2](/static/images/registryless-install/install2.png)
+</Zoom>
+
+<Zoom>
+![install3](/static/images/registryless-install/install3.png)
+</Zoom>
+
+## Accessing the cluster
+
+You'll need to create the standard `*.apps.your-cluster.your-domain` and `api.your-cluster.your-domain` to access the cluster, and once up we can test it out. Here's mine, all working:
+
+<Zoom>
+![cluster-up](/static/images/registryless-install/cluster-up.png)
+</Zoom>
+
+If you have a look at the available operators, you can see that there are only the seven available that were packed with the ISO:
+
+<Zoom>
+![operators](/static/images/registryless-install/operators.png)
+</Zoom>
+
+## Wrapping up
+
+This was a pretty short article, outlining the new registry-less, ISO-based deployment method for OpenShift Virtualization Engine. At the time of writing this isn't yet in the OpenShift docs, but you can see the [PR here](https://github.com/openshift/openshift-docs/pull/93592).
+
+Thanks for reading!
