@@ -14,11 +14,11 @@ OpenShift 4.20 was released 21 Oct 2025, and is a particularly exciting release.
 
 - [**Migrating a br-ex cluster to NMState**](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html-single/release_notes/index#ocp-4-20-migration-configure-ovs-nmstate_release-notes): This doesn't sound that exciting, but it makes my list because it fixes a well-known race condition with `br-ex` configured clusters. Essentially - if you have a cluster with multiple NICs, `br-ex` can sometimes get moved to the secondary NIC - which is not fun. Now you can 'pin' br-ex to an interface with NMState. Happy days!
 
-And of course, one of my favourite additions to OpenShift 4.20 is the registry-less ISO deployment method for OpenShift Virtualization. This is available in a technology preview, and allows you to deploy a fully-functioning OpenShift Virtualization Engine cluster simply using an ISO, even in air-gapped or disconnected environments.
+And of course, one of my favourite additions to OpenShift 4.20 is the registry-less ISO deployment method for OpenShift Virtualization. This will available in a [technology preview](https://access.redhat.com/solutions/21101) in a later release of OpenShift 4.20, and allows you to deploy a fully-functioning OpenShift Virtualization Engine cluster simply using an ISO, even in air-gapped or disconnected environments.
 
 Firstly, a few notes on OpenShift Virtualization Engine (OVE). OVE is an OpenShift edition focused specifically on running and managing virtual machines. It's based on OpenShift - including all the security benefits that come with running workloads on OpenShift - and KVM, the open source hypervisor that's also used in Red Hat Enterprise Linux (RHEL).
 
-Let's take a look!
+While we wait for the OpenShift 4.20 Technology Preview, the registry-less install is available in [Developer Preview](https://access.redhat.com/articles/6966848) with OpenShift 4.19. Let's take a look!
 
 ## Why is this important for disconnected / air-gapped clusters?
 
@@ -33,8 +33,6 @@ Creating the registry requires you to mirror images to disk, using `oc mirror`, 
 This is fine if you're deploying OpenShift to one air-gapped environment. But what if you have tens, or even hundreds of environments where you need OpenShift Virtualization? Do you create a registry in each environment (a lot of work)? Or, do you try and create a 'shared infrastructure' zone, potentially breaching disconnected environments?
 
 The new registry-less, ISO-based deployment method streamlines air-gapped cluster installation. You no longer need a registry - all the OpenShift installation images are packed inside the ISO. And, the new ISO also includes all of the additional Operator Lifecycle Manager (OLM) Operators needed to run virtual machines on the cluster, at the same time as the installation.
-
-This deployment method was actually originally introduced in OpenShift 4.19 as a developer preview, and that's what I'm going to use here.
 
 ## Downloading the new ISO
 
