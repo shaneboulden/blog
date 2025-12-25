@@ -1,0 +1,51 @@
+---
+title: Integrating Microsoft Entra directly with OpenShift
+date: '2025-12-28'
+tags: ['openshift', 'byo', 'oidc', 'authentication', 'authorisation','identity','entra']
+images: ['/static/images/linkedin-banners/openshift-byo-oidc.png']
+draft: false
+summary: 'Integrating external OpenID Connect providers directly with OpenShift can simplify authentication and authorization, particularly across large numbers of clusters.'
+---
+In the [last article](/blog/openshift-registrless-install) I covered one of the exciting new capabilities coming with OpenShift 4.20 - the [registry-less installer](). One of the other super exciting new capabilities in OpenShift 4.20 is the introduction of bring-your-own OpenID Connect providers (BYO OIDC). In this article I want to show a practical example of how you would do this, explain why this represents a step-change in managing OpenShift authentication and authorisation, and also outline some of the reasons you might *not* integrate OpenID Connect directly with OpenShift.
+
+Ok, let's back up a bit. What is OAuth and OpenID Connect?
+
+### Understanding OAuth and OpenID Connect
+OAuth 2.0 - or "OAuth" in this article - is an authorisation / delagation protocol. It answers the question: “Is this application allowed to act on a user’s behalf, and for what?” OAuth 2.0 is described in RFC
+
+Importantly, OAuth 2.0 is intentionally underspecified. It does not define token formats, how users authenticate, how clients are registered, how consent is shown, or even how tokens are validated. Instead, it provides a set of building blocks that can be assembled in different ways. 
+
+How does this relate to OpenID Connect? OpenID Connect (OIDC) builds on OAuth 2.0 and introduces a standard identity token with verifiable claims like username, email, and group membership. Effectively this means that OAuth says "this client may do these things", and OpenID Connect says "and this is the user". 
+
+Let's look at an example of this difference between OAuth and OpenID Connect, using authentication. OAuth never says how a user proves who they are; it just assumes authentication happened “somehow.” OIDC defines that “somehow”: it introduces the ID token, a signed JWT that cryptographically asserts who authenticated, when, how, and with which provider. Claims like `sub`, `iss`, `aud`, and `exp` give clients a portable, verifiable identity statement without having to call back to the identity provider for every request. This is the missing 'identity layer' that was deliberately left out of OAuth.
+
+One last piece of trivia: why do we say 'OAuth 2.0'? OAuth 1.0 (and 1.0a) was actually the original spec from the late 2000s. It tried to solve real problems, like API access without sharing passwords, but it did so using mandatory cryptographic request signing, nonces, timestamps, and signature base strings that made even seasoned engineers sigh deeply. It worked, but it was fragile, hard to implement correctly, and hostile to debugging. Every request had to be individually signed, and a single encoding mismatch could doom the whole exchange. So I'll say "OAuth" in this article, when I really mean "OAuth 2.0".
+
+### Understanding OpenShift OAuth
+Now that we know about OAuth and OpenID Connect, how do these relate to OpenShift? OpenShift actually includes its own OAuth server, which controls access to the API and other parts of the platform, like the web console.
+
+You can see this if you check out the `openshift-oauth` namespace. Here's the OAuth server pods:
+
+```yaml
+
+```
+
+And the logs show...
+
+One of the common questions I get is "where does OpenShift auditfailed user logins?" I think we can see now why OpenShift *doesn't* audit failed user logins - because it only contains a built-in OAuth server ("authorisation"), and delegates authentication and failed user logins to the identity provider (likely OpenID Connect).
+
+[Note: `htpasswd` identity providers are little different, as they are wholly provided by OpenShift. If you run the OpenShift OAuth server in `Debug` mode, it will actually show the failed user logins, as described in this article: https://access.redhat.com/solutions/5810281]
+
+
+### Integrating Microsoft Entra as an OpenID Connect provider via OpenShift OAuth
+Now that we know a little more about OpenShift and OAuth / OpenID Connect, let's see an example of integrating an OpenID Connect identity provider with the OpenShift OAuth server. Prior to OpenShift 4.20, this was the only way to integrate an OpenID Connect identity provider with a cluster. 
+
+In this example I'll use [Microsoft Entra](), which provides OpenID Connect endpoints for applications to integrate with.
+
+
+
+### Integrating Microsoft Entra as a direct OpenID Connect provider
+
+### Why use direct integration?
+All of this begs the question - if I can broker Microsoft Entra via the OpenShift OAuth server, why would I directly integrate an OpenID Connect provider with a cluster?
+
