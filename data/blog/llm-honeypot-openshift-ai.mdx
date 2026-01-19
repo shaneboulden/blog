@@ -14,7 +14,15 @@ Over the break I read a great article [here](https://ambient-code.ai/2026/01/05/
 <Quote quote="2. Mid-Career (The Deep Specialist): Ability to move mountains from your phone is assumed. To stand out, you must specialize deeply in specific domains where AI still hallucinates or lacks context: hardware integration, complex cryptography, or novel architecture and business logic."/> 
 <Quote quote="3. Principal / Late Career (The Value Picker): Your job doesn’t involve agents. It is to constrain the fire hose and leverage your wisdom to know how to build for cost, at competitive velocity."/>
 
-Generative AI has some novel applications for security, and I think one of the really fascinating applications is use in 'honeypots'. In this article I want to take a closer look at honeypots and their use in cybersecurity, and explore how generative AI helps us to make more capable and less expensive honeypots. I think this is fascinating because it's also focused on Generative AI and people; honeypots are designed to deceive people, and this article focuses on how we can create *even more deceptive* honeypots, enabled by AI.
+Generative AI has some novel applications for security, and I think one of the really fascinating applications is its use in 'honeypots'. I want to take a closer look at honeypots and their use in cybersecurity, and explore how generative AI helps us to make *more capable* and *less expensive* honeypots. I think this is fascinating because it's also focused on Generative AI and people; honeypots are designed to deceive people, and this article focuses on how we can create *even more deceptive* honeypots, enabled by AI.
+
+Data sovereignty is increasingly important for running AI models. I don't necessarily want endpoint lookups / data from threat actors ending up in a hosted AI model; I want to control that data - even the threat actor inputs. There's a great article from Vincent Caldeira on [why this concept of 'Sovereign AI' is becoming a strategic priority for Australia](https://www.govtechreview.com.au/content/gov-datacentre/article/why-sovereign-ai-is-becoming-a-strategic-priority-in-australia-81646916). For this article, I want to showcase how you can run inference entirely within an OpenShift cluster, supporting a honeypot deployment. This also supports a hybrid cloud deployment; I may want to run this service in a datacenter on-premises, and while I've used AWS for this article, you can take the same deployment strategy I've outlined anywhere - in a datacenter, at the edge, or a hyperscaler. 
+
+Here's a high-level diagram of what we're going to build in this article:
+
+<Zoom>
+![blog-honeypot](/static/images/galah-openshift/blog-honeypot.png)
+</Zoom>
 
 Let's dive in!
 
@@ -60,11 +68,6 @@ Here's a photo of a Galah I captured in the park near my house:
 <Zoom>
 ![galah](/static/images/galah-openshift/galah.jpg)
 </Zoom>
-
-### Notes on architecture
-For this article, I want to showcase how you can run inference entirely within an OpenShift cluster, supporting a honeypot deployment. The reason for this is that you may want to host this deployment model on cloud, or in your own datacenter, and I want to show how you can deploy the AI infrastructure for this application anywhere you need it. 
-
-This also supports a 'data sovereignty' model. I don't necessarily want the data provided by threat actors to my honeypot to be recorded on a cloud service - I want it recorded on infrastructure I control, where I can manage it, and have complete control over where the data is captured and stored. OpenShift AI enables me to manage the complete lifecycle of the application - from the hardware and GPU, to the container image hosting the model, through to the inference endpoints and how they're exposed.
 
 ### Setting up OpenShift AI
 The first thing I'm going to do to run Galah on OpenShift is to setup OpenShift AI. This will provide me with a [Red Hat AI Inference Server](https://www.redhat.com/en/products/ai/inference-server) runtime - based on [vLLM](https://docs.vllm.ai/en/latest/) - and associated infrastructure to deploy LLMs and expose endpoints for inference.
@@ -298,6 +301,8 @@ Initially I tried using the `granite-3.1-8b-lab-v1` model for this article. This
 </Zoom>
 
 Sadly, though, it's not 'lightweight' enough for the L4 GPU I have access to in this AWS region. Instead I'm going to use a Llama 3.2 language model with 3 billion parameters, using 8-bit floating-point precision for reduced memory usage, referenced in [Alicia Cao's excellent article](https://developers.redhat.com/articles/2025/09/10/how-deploy-language-models-red-hat-openshift-ai?source=sso#deploying_a_llama_model__step_by_step).
+
+[Shout out to [Bryon Baker](https://www.linkedin.com/in/bryonbakeraus/) for helping work through a couple of issues in this section]
 
 Navigate to your project in the OpenShift AI console and select `Deploy model`:
 
