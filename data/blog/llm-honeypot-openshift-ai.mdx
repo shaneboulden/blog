@@ -179,7 +179,7 @@ Next, we need to deploy the Node Feature Discovery and NVIDIA GPU operators to t
 
 I'm going to skip over the installation of the Node Feature Discovery (NFD) and NVIDIA GPU operators, as I covered it in a [previous article](/blog/openshift-gpus). If you need assistance deploying the operators, check out that last blog. 
 
-#### Deploying the OpenShift AI 3.0 operator
+#### Deploying the OpenShift AI 3 operator
 Now that I have the NFD and NVIDIA GPU Operators installed and configured correctly I can deploy [OpenShift AI](https://www.redhat.com/en/products/ai/openshift-ai). 
 
 I'm going to use OpenShift AI 3 for this article. It represents a significant change, and introduces a lot of new capabilities like the Llama Stack API, MCP support, intelligent GPU-as-a-service, enhanced observaiblity, and SLA-aware inferencing. I'm not going to list all the capabilities here - there's a [great article](https://www.redhat.com/en/blog/red-hat-ai-3-delivers-speed-accelerated-delivery-and-scale) on redhat.com with more info.
@@ -203,7 +203,7 @@ To get started, find the OpenShift AI operator from the Red Hat ecosystem catalo
 ![rhoai3](/static/images/galah-openshift/openshift-ai-3.png)
 </Zoom>
 
-Note that OpenShift AI 3.0 will automatically install the OpenShift Service Mesh 3 operator:
+Note that OpenShift AI 3 will automatically install the OpenShift Service Mesh 3 operator:
 
 <Zoom>
 ![operators1](/static/images/galah-openshift/operators1.png)
@@ -343,7 +343,7 @@ And when the model is deployed, you will be able to see the inference endpoints:
 
 Once your model is deployed, you can test it out!
 
-Gran your external inference endpoint and token, and using the `/v1/chat/completions` endpoint try out a `curl`:
+Grab your external inference endpoint and token, and using the `/v1/chat/completions` endpoint try out a `curl`:
 ```json
 curl -X POST http://your-external-inference-endpoint/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -361,7 +361,7 @@ You should get something back from the endpoint with the content from the model:
 ```json
 {"id":"chatcmpl-526f49696a11467bb95346b397edec7b","object":"chat.completion","created":1768547360,"model":"galah-vllm","choices":[{"index":0,"message":{"role":"assistant","content":"2 + 2 = 4","refusal":null,"annotations":null,"audio":null,"function_call":null,"tool_calls":[],"reasoning_content":null},"logprobs":null,"finish_reason":"stop","stop_reason":null,"token_ids":null}],"service_tier":null,"system_fingerprint":null,"usage":{"prompt_tokens":67,"total_tokens":75,"completion_tokens":8,"prompt_tokens_details":null},"prompt_logprobs":null,"prompt_token_ids":null,"kv_transfer_params":null}
 ```
-Great! We've deployed OpenShift AI, and a [Llama](https://www.llama.com/) model, and we're ready to deploy our application.
+Great! We've deployed OpenShift AI 3, and a [Llama](https://www.llama.com/) model, and we're ready to deploy our application.
 
 ## Running Galah with OpenShift AI
 At this point we have:
