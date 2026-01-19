@@ -7,9 +7,19 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Fri, 28 Nov 2025 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Sun, 25 Jan 2026 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
       
+  <item>
+    <guid>https://stb.id.au/blog/llm-honeypot-openshift-ai</guid>
+    <title>Running an LLM-backed honeypot with OpenShift AI</title>
+    <link>https://stb.id.au/blog/llm-honeypot-openshift-ai</link>
+    <description>An experiment in creating more efficient and deceptive honeypot instances with OpenShift AI, using a large language model to convincingly engage and study threat actors.</description>
+    <pubDate>Sun, 25 Jan 2026 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>ai</category><category>vllm</category><category>galah</category><category>honeypot</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/openshift-registryless-install</guid>
     <title>Trying out the OpenShift Virtualization Engine registry-less installer</title>

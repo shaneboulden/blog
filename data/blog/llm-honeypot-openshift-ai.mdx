@@ -1,28 +1,30 @@
 ---
 title: Running an LLM-backed honeypot with OpenShift AI
-date: '2026-01-25'
+date: '2026-01-20'
 tags: ['openshift', 'ai', 'vllm', 'galah', 'honeypot']
 images: ['/static/images/linkedin-banners/llm-backed-honeypot.png']
 draft: false
-summary: 'An experiment in creating more efficient and deceptive honeypot instances with OpenShift AI, using a large language model to convincingly engage and study threat actors.'
+summary: 'Running the Galah open source LLM-backed honeypot project on OpenShift AI, using a large language model to convincingly engage and study threat actors.'
 ---
 Welcome to 2026! Thanks to everyone who read my articles in 2025. It was great to hear first-hand feedback, and I've tried to improve these articles based on your suggestions and comments. 
 
 Over the break I read a great article [here](https://ambient-code.ai/2026/01/05/the-ceo-archetype-is-the-new-10x/) from Jeremy Eder, which highlights how generative AI is changing the software industry. I really like that Jeremy's article focuses on the 'people' aspect of generative AI, and not just the technology / coding practices. I thought that this was a really interesting breakdown on new career archetypes, and how generative AI is reframing career paths:
 
 <Quote quote="1. Entry Level (The Generalist Shepherd): You must learn “just enough” of everything. The entry-level role is now about systems dynamics. You orchestrate buildings-full of compute to move mountains from your phone."/>
-<Quote quote="2. Mid-Career (The Deep Specialist): Ability to move mountains from your phone is assumed. To stand out, you must specialize deeply in specific domains where AI still hallucinates or lacks context: hardware integration, complex cryptography, or novel architecture and business logic."/> 
+<Quote quote="2. Mid-Career (The Deep Specialist): Ability to move mountains from your phone is assumed. To stand  out, you must specialize deeply in specific domains where AI still hallucinates or lacks context: hardware integration, complex cryptography, or novel architecture and business logic."/> 
 <Quote quote="3. Principal / Late Career (The Value Picker): Your job doesn’t involve agents. It is to constrain the fire hose and leverage your wisdom to know how to build for cost, at competitive velocity."/>
 
-Generative AI has some novel applications for security, and I think one of the really fascinating applications is its use in 'honeypots'. I want to take a closer look at honeypots and their use in cybersecurity, and explore how generative AI helps us to make *more capable* and *less expensive* honeypots. I think this is fascinating because it's also focused on Generative AI and people; honeypots are designed to deceive people, and this article focuses on how we can create *even more deceptive* honeypots, enabled by AI.
+Generative AI is not only reframing career paths for developers, but has some novel applications for security, and one of these is its use in 'honeypots'. I think this is fascinating because it's also focused on Generative AI and people; honeypots are designed to deceive people, and this article focuses on how we can create *even more deceptive* honeypots, enabled by generative AI.
 
-Data sovereignty is increasingly important for running AI models. I don't necessarily want endpoint lookups / data from threat actors ending up in a hosted AI model; I want to control that data - even the threat actor inputs. There's a great article from Vincent Caldeira on [why this concept of 'Sovereign AI' is becoming a strategic priority for Australia](https://www.govtechreview.com.au/content/gov-datacentre/article/why-sovereign-ai-is-becoming-a-strategic-priority-in-australia-81646916). For this article, I want to showcase how you can run inference entirely within an OpenShift cluster, supporting a honeypot deployment. This also supports a hybrid cloud deployment; I may want to run this service in a datacenter on-premises, and while I've used AWS for this article, you can take the same deployment strategy I've outlined anywhere - in a datacenter, at the edge, or a hyperscaler. 
+Data sovereignty is increasingly important for running AI models. The honeypot we explore in this article is designed to accept input from threat actors, and I don't necessarily want endpoint lookups / data from threat actors ending up in a hosted AI model; I want to control that data - even the threat actor inputs. There's a great article from Vincent Caldeira on [why this concept of 'Sovereign AI' is becoming a strategic priority for Australia](https://www.govtechreview.com.au/content/gov-datacentre/article/why-sovereign-ai-is-becoming-a-strategic-priority-in-australia-81646916). For this article, I want to showcase how you can run inference entirely within an OpenShift cluster, supporting a honeypot deployment. This also supports a hybrid cloud deployment; I may want to run this service in a datacenter on-premises, and while I've used AWS for this article, you can take the same deployment strategy I've outlined anywhere - in a datacenter, at the edge, or a hyperscaler.
 
 Here's a high-level diagram of what we're going to build in this article:
 
 <Zoom>
 ![blog-honeypot](/static/images/galah-openshift/blog-honeypot.png)
 </Zoom>
+
+Another reason to use OpenShift AI in this scenario is to mitigate [Denial of Wallet attacks](https://www.sciencedirect.com/science/article/pii/S221421262100079X). If a threat actor is clued to realise that the honeypot is backed by a Generative AI service, they may try to exploit it to cause a huge cloud bill - lots or very large inference calls, causing the backend to scale, and draining funds. But, as you'll see further in the article, we only have a single GPU-enabled machineset configured for OpenShift, and there's no way to scale this and add more GPU resources unless we explicitly tell OpenShift to scale more replicas.
 
 Let's dive in!
 
@@ -36,7 +38,7 @@ One of the more modern uses of a honeypot is that of the KGB (Russia's foreign i
 Lonetree reportedly let [KGB agents into the embassy at night on numerous occasions](https://www.cia.gov/readingroom/docs/CIA-RDP90-00965R000605790006-2.pdf), and provided access to cryprographic equipment and secret documents. He was convicted of espionage and sentenced to 30 years in prison, but released in February 1996 after serving nine years due to his confession and cooperation in other cases.
 
 ## Honeypots and cybersecurity
-Honeypots have been associated with cybersecurity since the 1980s. One of the earliest and best-known examples of honeypots in cybersecurity involves Clifford Stoll, who was a system administrator at the Lawrence Berkeley National Laboratory in 1986.
+Honeypots have been associated with cybersecurity since the 1980s. One of the earliest and best-known examples of honeypots in cybersecurity involves [Clifford Stoll](https://spyscape.com/article/how-an-astronomer-unraveled-the-worlds-first-cyber-attack), who was a systems administrator at the [Lawrence Berkeley National Laboratory](https://www.lbl.gov/) in 1986.
 
 Stoll was tasked with identifying a threat actor inside the network, who was observed to search for files containing words like 'nuclear' or 'SDI' (short for the 'Strategic Defense Initiative' program). 
 
@@ -52,16 +54,16 @@ In the cybersecurity context honeypots usually have two functions:
 
 - Allow defenders to monitor and observe threat actors tactics, techniques and procedures (TTPs) in order to better defend organisations.
 
-You can see that the value a honeypot provides depends on how well it can masquerade as a high-value or easily compromised target. If a threat actor can easily determine that a server is a honeypot, then they'll quickly move on and focus attention on real targets. But, if the honeypot is well-designed, and accurately mimics API calls or login screens associated with real-world services, or returns versions of services known to be vulnerable, then threat actors will both reveal their TTPs and leave real services along.
+You can see that the value a honeypot provides depends on how well it can masquerade as a high-value or easily compromised target. If a threat actor can easily determine that a server is a honeypot, then they'll quickly move on and focus attention on real targets. But, if the honeypot is well-designed, and accurately mimics API calls or login screens associated with real-world services, or accurately returns versions of services known to be vulnerable, then threat actors will both reveal their TTPs and leave real services alone.
 
-Building a honeypot that accurately mimics real-world services can be expensive and time-consuming. One option is building a real service, but using mock data. This provides a highly-accurate fake target - the API calls are real, the login screens are real, but the data is mocked. It's expensive to build though - it likely requires system administrators and engineers well-versed in the software, who need to "down tools" on real systems management to build a decoy. It also likely requires ongoing maintenance and administration, and licenses - just like production software.
+Building a honeypot that accurately mimics real-world services can be expensive and time-consuming. One option is building a real service, but using mock data. This provides a highly-accurate deception - the API calls are real, the login screens are real, but the data is mocked. It's expensive to build though - it likely requires system administrators and engineers well-versed in the software, who need to "down tools" on real systems management to build a decoy. It also likely requires ongoing maintenance and administration, and licenses - just like production software.
 
 This is where Generative AI can really help. Generative AI provides a way to build accurate honeypots, without a lot of the associated cost. I can build a simple web app, and instruct the Gen AI prompt to be anything - an OpenShift API, or a vulnerable vCenter version, or anything in-between.
 
-## Galah - open source LLM-backed honeypot
-Enter [Galah](https://github.com/0x4D31/galah), an LLM-powered web honeypot. 
+## Galah - open source LLM-backed web honeypot
+Enter [Galah](https://github.com/0x4D31/galah), an LLM-powered web honeypot. Galah is an LLM-powered web honeypot designed to mimic various applications and dynamically respond to arbitrary HTTP requests.
 
-For my international readers, you may be asking 'What is a galah, and why is a generative AI project named 'Galah'? A galah is a small, pink and grey bird native to Australia. Galahs are intelligent birds and particularly well-versed in mimicry - a key concept for web honeypots.
+For my international readers, you may be asking 'What is a galah, and why is a generative AI and security project named 'Galah'? A galah is a small, pink and grey bird native to Australia. [Adel](https://x.com/0x4D31) is the creator of this project, and I hazard a guess he named it because galahs are intelligent birds and particularly well-versed in mimicry - a key concept for web honeypots.
 
 Here's a photo of a Galah I captured in the park near my house:
 
@@ -70,7 +72,7 @@ Here's a photo of a Galah I captured in the park near my house:
 </Zoom>
 
 ### Setting up OpenShift AI
-The first thing I'm going to do to run Galah on OpenShift is to setup OpenShift AI. This will provide me with a [Red Hat AI Inference Server](https://www.redhat.com/en/products/ai/inference-server) runtime - based on [vLLM](https://docs.vllm.ai/en/latest/) - and associated infrastructure to deploy LLMs and expose endpoints for inference.
+The first thing I'm going to do to run Galah on OpenShift is to setup OpenShift AI. This will provide me with a [Red Hat AI Inference Server](https://www.redhat.com/en/products/ai/inference-server) runtime - based on [vLLM](https://vllm.ai/) - and associated infrastructure to deploy LLMs and expose endpoints for inference.
 
 One of my goals for this project is to run the honeypot at minimal cost. vLLM provides easy, fast and cost effective LLM serving with [PagedAttention](https://blog.vllm.ai/2023/06/20/vllm.html). In addition, I'm going to use a Llama model for this deployment, and Meta, vLLM, Red Hat and UC Berkeley have [partnered to bring Llama 4 support to vLLM](https://developers.redhat.com/articles/2025/04/05/llama-4-herd-here-day-zero-inference-support-vllm).
 
@@ -158,7 +160,7 @@ spec:
           userDataSecret:
             name: worker-user-data
 ```
-Once it's up and running, you can see I have a new GPU-capable node running in the cluster:
+Once it's up and running, you can see that I have a new GPU-capable node running in the cluster:
 
 <Zoom>
 ![node1](/static/images/galah-openshift/node1.png)
@@ -177,16 +179,15 @@ Next, we need to deploy the Node Feature Discovery and NVIDIA GPU operators to t
 
 I'm going to skip over the installation of the Node Feature Discovery (NFD) and NVIDIA GPU operators, as I covered it in a [previous article](/blog/openshift-gpus). If you need assistance deploying the operators, check out that last blog. 
 
-#### Creating an identity provider
-OpenShift AI 3.0 requires an identity operator configured for the cluster, and won't permit login using the `kubeadmin` user. I've simply created a simple `htpasswd` identity provider with a single user. This user needs the `cluster-admin` role to login, so make sure you add this to your user:
-```
-oc adm add-cluster-role-to-user cluster-admin your-new-user
-```
-
 #### Deploying the OpenShift AI 3.0 operator
 Now that I have the NFD and NVIDIA GPU Operators installed and configured correctly I can deploy [OpenShift AI](https://www.redhat.com/en/products/ai/openshift-ai). 
 
-I'm actually going to use OpenShift AI 3 for this article. It represents a significant change, and introduces a lot of new capabilities like the Llama Stack API, MCP support, intelligent GPU-as-a-service, enhanced observaiblity, and SLA-aware inferencing. I'm not going to list all the capabilities here - there's a [great article](https://www.redhat.com/en/blog/red-hat-ai-3-delivers-speed-accelerated-delivery-and-scale) on redhat.com with more info.
+I'm going to use OpenShift AI 3 for this article. It represents a significant change, and introduces a lot of new capabilities like the Llama Stack API, MCP support, intelligent GPU-as-a-service, enhanced observaiblity, and SLA-aware inferencing. I'm not going to list all the capabilities here - there's a [great article](https://www.redhat.com/en/blog/red-hat-ai-3-delivers-speed-accelerated-delivery-and-scale) on redhat.com with more info.
+
+OpenShift AI 3 requires an identity operator configured for the cluster, and won't permit login using the `kubeadmin` user. I've simply created a simple `htpasswd` identity provider with a single user. This user needs the `cluster-admin` role to login, so make sure you add this to your user:
+```
+oc adm add-cluster-role-to-user cluster-admin your-new-user
+```
 
 To get started, find the OpenShift AI operator from the Red Hat ecosystem catalog embedded within OpenShift, and ensure that the `fast-3.x` channel is selected and the version is `3.0.0`.
 
@@ -261,7 +262,7 @@ Once you create this `DataScienceCluster` instance should start seeing pods appe
 </Zoom>
 
 #### Creating a hardware profile
-Before I deploy a generative AI model I need to create a hardware profile that selects node with GPUs to deploy my model to. You can see that I have a `default-profile` available now:
+Before I deploy a generative AI model I need to create a hardware profile that selects nodes with GPUs to deploy my model to. You can see that I have a `default-profile` available now:
 
 <Zoom>
 ![profile1](/static/images/galah-openshift/profile1.png)
@@ -360,7 +361,7 @@ You should get something back from the endpoint with the content from the model:
 ```json
 {"id":"chatcmpl-526f49696a11467bb95346b397edec7b","object":"chat.completion","created":1768547360,"model":"galah-vllm","choices":[{"index":0,"message":{"role":"assistant","content":"2 + 2 = 4","refusal":null,"annotations":null,"audio":null,"function_call":null,"tool_calls":[],"reasoning_content":null},"logprobs":null,"finish_reason":"stop","stop_reason":null,"token_ids":null}],"service_tier":null,"system_fingerprint":null,"usage":{"prompt_tokens":67,"total_tokens":75,"completion_tokens":8,"prompt_tokens_details":null},"prompt_logprobs":null,"prompt_token_ids":null,"kv_transfer_params":null}
 ```
-Great! We've deployed OpenShift AI, and a Llama model, and we're ready to deploy our application.
+Great! We've deployed OpenShift AI, and a [Llama](https://www.llama.com/) model, and we're ready to deploy our application.
 
 ## Running Galah with OpenShift AI
 At this point we have:
@@ -371,13 +372,13 @@ At this point we have:
 
 - OpenShift AI deployed and configured;
 
-- A Granite model deployed via vLLM, and
+- A Llama 3 model deployed via vLLM, and
 
-- OpenAI endpoints created exposing the mode.
+- OpenAI endpoints created exposing the model.
 
 It's time to deploy Galah! Fortunately Galah is pretty simple to get running on OpenShift AI. You can take a look at the [fork I've created here](https://github.com/shaneboulden/galah-on-openshift), which makes a few changes to the base Galah config:
 
-- Uses a 'builder' pattern for the container image, ensuring that there are no build artifacts (like `go`) left in the runtime image. I want to strictly control what the threat actor can access inside the 'honeypot'.
+- Uses a 'builder' pattern for the container image, ensuring that there are no build artifacts (like `go`) left in the runtime image.
 
 - Uses a Red Hat Universal Base Image (UBI) micro-variant for the application image used at runtime.
 
@@ -464,6 +465,6 @@ There's a few things I didn't look, which I'd like to pick up in another article
 - Customising the endpoint
 - Logging network traffic for the endpoint
 - Monitoring threat actor behaviours
-- Responding / capturing any files dropped onto the host
+- Integrating the Galah app with Suricata rule matching
 
 Thanks for reading!
