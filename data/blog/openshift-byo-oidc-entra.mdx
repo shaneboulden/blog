@@ -32,19 +32,24 @@ You can see this if you check out the `openshift-oauth` namespace. Here's the OA
 
 And the logs show...
 
-One of the common questions I get is "where does OpenShift auditfailed user logins?" I think we can see now why OpenShift *doesn't* audit failed user logins - because it only contains a built-in OAuth server ("authorisation"), and delegates authentication and failed user logins to the identity provider (likely OpenID Connect).
+One of the common questions I get is "where does OpenShift auditfailed user logins?" I think we can see now why OpenShift *doesn't* audit failed user logins - because it only contains a built-in OAuth server ("authorisation"), and delegates authentication and failed user logins to the identity provider (like OpenID Connect).
 
 [Note: `htpasswd` identity providers are little different, as they are wholly provided by OpenShift. If you run the OpenShift OAuth server in `Debug` mode, it will actually show the failed user logins, as described in this article: https://access.redhat.com/solutions/5810281]
-
 
 ### Integrating Microsoft Entra as an OpenID Connect provider via OpenShift OAuth
 Now that we know a little more about OpenShift and OAuth / OpenID Connect, let's see an example of integrating an OpenID Connect identity provider with the OpenShift OAuth server. Prior to OpenShift 4.20, this was the only way to integrate an OpenID Connect identity provider with a cluster. 
 
 In this example I'll use [Microsoft Entra](), which provides OpenID Connect endpoints for applications to integrate with.
 
+Firstly we need a Microsoft Entra ID app registration. To create one, login to the Azure portal, and navigate to the App registrations blade , then click on “New registration” to create a new application.
+
+
 
 
 ### Integrating Microsoft Entra as a direct OpenID Connect provider
+I mentioned earlier in this article that one of the great new features in OpenShift 4.20 is direct OpenID Connect integration with OpenShift. 
+
+
 
 ### Why use direct integration?
 All of this begs the question - if I can broker Microsoft Entra via the OpenShift OAuth server, why would I directly integrate an OpenID Connect provider with a cluster?
