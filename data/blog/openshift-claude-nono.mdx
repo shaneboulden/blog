@@ -1,0 +1,535 @@
+---
+title: From 'oh no' to nono
+date: '2026-02-26'
+tags: ['llm','claude','code','nono','openshift','oc']
+images: ['/static/images/openshift-bg-1.png']
+draft: false
+summary: 'Building apps on OpenShift with Claude Code and nono'
+---
+Like many of us, [Claude Code](https://code.claude.com/docs/en/overview) has rapidly changed how I develop and run applications. I can use agentic workflows to build, deploy, and test container applications, and together with [Red Hat OpenShift Container Platform](https://www.redhat.com/en/technologies/cloud-computing/openshift/container-platform), rapidly prototype new applications and features.
+
+One of the chief concerns with this development model is the permissions that I need to grant to the agent. While agentic workflows are powerful, I shouldn't have to provide complete trust to the agent across my entire operating system to build and deploy apps.
+
+This is where [nono](https://nono.sh) helps. `nono` provides kernel-level isolation, immutable auditing and atomic rollbacks for AI agents, enabling me to build and deploy applications using agentic workflows with confidence.
+
+`nono` is an open source project created by [Luke Hinds](https://github.com/lukehinds). I've previously covered some of Luke's awesome work in open source communities building Sigstore:
+
+- [Sigstore - Signature sorcery](/blog/sigstore-sorcery)
+- [Sigstore and StackRox](/blog/sigstore-and-stackrox)
+
+In [Luke's own words](https://www.alwaysfurther.ai/blog/how-to-sandbox-claudecode-with-nono):
+
+```
+nono takes a different approach. It uses Landlock (Linux) and Seatbelt (macOS) to enforce restrictions at the kernel level. Once applied, these restrictions are irreversible for the process. There is no API to widen them. There is no escape hatch. Not even nono itself can remove the restrictions after they're set.
+
+This is what we mean by "structurally impossible." The kernel denies unauthorised operations directly. There's no interception layer, no policy filter, no mechanism to bypass. If the agent tries to read your SSH keys or delete files outside its granted path, the operation fails at the syscall level.
+```
+
+You can see Luke demo `nono` himself here:
+
+<YoutubeEmbed embedId="d6Y8S-tzJ0U" />
+
+### Getting started with nono
+`nono` releases are available directly from the [Github page](https://github.com/always-further/nono/releases). I've simply dropped this into `/usr/local/bin/` on Fedora:
+```
+$ tar xsf nono-v0.6.0-alpha.3-x86_64-unknown-linux-gnu.tar.gz
+$ sudo mv nono-v0.6.0-alpha.3-x86_64-unknown-linux-gnu/nono /usr/local/bin/
+$ which nono
+/usr/local/sbin/nono
+```
+Firstly, you might notice here that I copied the file into `/usr/local/bin`, but `which` reports `/usr/local/sbin/nono`. This is part of Fedora's efforts to [unify `/usr/bin` and `/usr/sbin`](https://fedoraproject.org/wiki/Changes/Unify_bin_and_sbin)
+
+Begore we run a few commands, let's do a `nono setup`:
+```
+$ nono setup
+
+ ▄▀▄      nono v0.6.0-alpha.3
+▀▄█▄▀    - Security first, sandbox always!
+
+[1/4] Checking installation...
+  * nono binary found at /usr/local/bin/nono
+  * Version: 0.6.0-alpha.3
+  * Platform: Linux (Landlock sandbox)
+
+[2/4] Testing sandbox support...
+  * Kernel version: 6.18.12-100.fc42.x86_64
+  * Landlock enabled in LSM list
+  * Landlock ABI: V5
+  * Available features:
+      - Basic filesystem access control
+      - File rename across directories
+      - File truncation
+      - TCP network filtering
+      - Advanced socket and signal scoping
+  * Ruleset creation verified
+
+[3/4] Default protections...
+  * 42 sensitive paths blocked by default:
+      SSH keys, AWS/GCP/Azure credentials, Kubernetes config,
+      Docker config, GPG keys, password managers, shell configs
+  * 42 dangerous commands blocked by default:
+      apt, apt-get, chattr, chgrp, chmod, chown, cp, dd, ...
+  * Network access: allowed by default (use --net-block to disable)
+
+[4/4] Built-in profiles...
+  * claude-code - Anthropic Claude Code CLI agent (network allowed)
+  * openclaw - OpenClaw messaging gateway (network allowed)
+  * opencode - OpenCode AI coding assistant (network allowed)
+
+  Use with: nono run --profile <name> -- <command>
+
+-----------------------------------------------------------
+
+Setup complete!
+```
+
+Great! No issues during setup. We can see from this output that `nono` contains built-in profiles for `claude-code`, `opencode` and `openclaw`. Let's start it with a `claude-code` profile:
+```
+nono run --profile claude-code -- claude
+```
+
+`nono` gives some simple information about my environment when it starts up:
+```yaml
+  ▄█▄   nono v0.6.0-alpha.3
+ ▀▄^▄▀  - keep calm and nono on
+
+  Installing claude-code hook to ~/.claude/hooks/nono-hook.sh
+2026-02-24T23:25:36.787978Z  WARN Profile file '$HOME/Library/Keychains/login.keychain-db' does not exist, skipping: /home/user/Library/Keychains/login.keychain-db
+2026-02-24T23:25:36.788129Z  WARN Profile file '$HOME/.gitignore_global' does not exist, skipping: /home/user/.gitignore_global
+Current directory '/home/user/Code/openshift-flask-demo' will be shared with read+write access.
+tip: use --allow-cwd to skip this prompt
+  Proceed? [y/N]: y
+Capabilities:
+  Filesystem:
+    /home/user/.claude [read+write] (dir)
+    /home/user/.claude.json [read+write] (file)
+    /home/user/.gitconfig [read] (file)
+    /home/user/.config/git/ignore [read] (file)
+    /home/user/Code/openshift-flask-demo [read+write] (dir)
+    + 23 system/group paths (use -v to show)
+  Network:
+    outbound: allowed
+
+Applying Kernel sandbox protections.
+Sandbox active. Restrictions are now in effect.
+```
+
+### Troubleshooting nono on Linux
+All things going well your `nono` instance is happily running `claude` or other commands. But, `nono` is still in alpha, and there's a few issues that you might encounter.
+
+One of these is a `Permission denied`:
+```
+2026-02-24T23:26:27.357098Z ERROR Command execution failed: Permission denied (os error 13)
+nono: Command execution failed: Permission denied (os error 13)
+```
+This is because `claude` on my system lives in my local `~/.local/bin/`, and this isn't covered by the default `nono` security policy. You can verify this by taking a look at [https://raw.githubusercontent.com/always-further/nono/main/crates/nono-cli/data/policy.json](https://raw.githubusercontent.com/always-further/nono/main/crates/nono-cli/data/policy.json):
+```json
+{
+  "meta": {
+    "version": 3,
+    "schema_version": "3.0"
+  },
+  "never_grant": [
+    "/etc/shadow",
+    "/etc/sudoers",
+    "/etc/passwd",
+    ...
+  ]
+...
+...
+"system_read_linux": {
+      "description": "Linux system paths required for executables to function",
+      "platform": "linux",
+      "allow": {
+        "read": [
+          "/bin",
+          "/sbin",
+          "/usr/bin",
+          "/usr/sbin",
+          "/usr/local/bin",
+        ]
+      }
+    }
+}
+```
+There you go - no `~/.local/bin`. You can quickly correctly this by explicitly allowing it with `nono`:
+```
+nono run --profile claude-code \
+    --read /home/user/.local/share/claude \
+    --allow-cwd --exec \s
+    -- claude
+```
+
+But this gives a segfault - oh no!
+
+```yaml
+Applying Kernel sandbox protections.
+Sandbox active. Restrictions are now in effect.
+
+============================================================
+Bun v1.3.10 (d885ce7f) Linux x64 (baseline)
+Linux Kernel v6.18.12 | glibc v2.41
+CPU: sse42 popcnt avx avx2
+Args: "/home/user/.local/bin/claude"
+Features: jsc
+Elapsed: 110ms | User: 3ms | Sys: 128ms
+RSS: 1.24GB | Peak: 131.21MB | Commit: 1.24GB | Faults: 18
+
+panic(main thread): Segmentation fault at address 0xBBADBEEF
+oh no: Bun has crashed. This indicates a bug in Bun, not your code.
+```
+What happened here?
+
+The issue is that `nono` uses the Linux kernel's [Landlock LSM](https://docs.kernel.org/security/landlock.html) to enforce filesystem access control at the kernel level. When you run `nono run --profile claude-code -- claude`, it creates a Landlock ruleset that whitelists specific directories (the working directory, `~/.claude`, system paths like `/usr/lib`, etc) and then calls `restrict_self()` — an irreversible operation that prevents the process from accessing anything outside the ruleset.
+
+Claude Code is a [Bun](https://bun.com/) standalone executable. Bun embeds JavaScriptCore (JSC), a JIT-compiling JavaScript engine. At startup, Bun/JSC needs to open three device files: `/dev/urandom` (for CSPRNG initialization), `/dev/null` (for fd redirection), and `/dev/tty` (for terminal access). The built-in `claude-code` profile for `nono` didn't include Landlock rules for these device files. When Landlock blocked the `openat()` calls to these devices, JSC failed to initialize its runtime and deliberately crashed at the sentinel address 0xBBADBEEF — a JSC panic that manifests as a segfault.
+
+Let's add a few additional `--allow-file` switches to allow Bun access to the pseudodevice files it needs:
+```yaml
+nono run --profile claude-code \
+    --read /home/user/.local/share/claude \
+    --allow-cwd --exec \
+    --allow-file /dev/tty \
+    --allow-file /dev/null \
+    --read-file /dev/urandom \
+    -- claude
+
+  ▄█▄   nono v0.6.0-alpha.3
+ ▀▄^▄▀  - keep calm and nono on
+
+2026-02-25T04:20:37.883860Z  WARN Profile file '$HOME/Library/Keychains/login.keychain-db' does not exist, skipping: /home/user/Library/Keychains/login.keychain-db
+2026-02-25T04:20:37.883916Z  WARN Profile file '$HOME/.gitignore_global' does not exist, skipping: /home/user/.gitignore_global
+Capabilities:
+  Filesystem:
+    /home/user/.claude [read+write] (dir)
+    /home/user/.claude.json [read+write] (file)
+    /home/user/.gitconfig [read] (file)
+    /home/user/.config/git/ignore [read] (file)
+    /home/user/.local/share/claude [read] (dir)
+    /dev/tty [read+write] (file)
+    /dev/null [read+write] (file)
+    /dev/urandom [read] (file)
+    /home/user/Code/openshift-flask-demo [read+write] (dir)
+    + 23 system/group paths (use -v to show)
+  Network:
+    outbound: allowed
+
+Applying Kernel sandbox protections.
+Sandbox active. Restrictions are now in effect.
+
+
+ ▐▛███▜▌   Claude Code v2.1.55
+▝▜█████▛▘  Opus 4.6 · API Usage Billing
+  ▘▘ ▝▝    ~/Code/openshift-flask-demo
+
+  Welcome to Opus 4.6
+
+```
+Great! Claude now runs correctly inside the `nono` sandbox.
+
+### Trying out the sandbox
+
+Let's take a step back - what happens if I run `claude` without `nono`, and ask it to run a `pkexec` command?
+
+```yaml
+$ claude
+
+❯ run the command pkexec ls /root
+● Bash(pkexec ls /root)
+  ⎿  a1c2afa8-6f90-48a5-ac76-b643cd945055-escrow
+     anaconda-ks.cfg
+     ks-live-post.log
+     … +4 lines (ctrl+o to expand)
+  ⎿  (timeout 10s)
+● Here are the contents of /root:
+  - a1c2afa8-6f90-48a5-ac76-b643cd945055-escrow
+  - anaconda-ks.cfg
+  - ks-live-post.log
+  - ks-nochroot-post.log
+  - ks-post.log
+  - ks-resolv-post-liveimg.log
+  - original-ks.cfg
+  These appear to be Anaconda installer kickstart configuration and log files from your Fedora installation.
+```
+Well, that's a bit concerning. `claude` did ask me if I wanted to run the command, but then prompted me for authentication and ran the command anyway.
+
+Now what about when `claude` is running with `nono`?
+```yaml
+Applying Kernel sandbox protections.
+Sandbox active. Restrictions are now in effect.
+
+
+ ▐▛███▜▌   Claude Code v2.1.55
+▝▜█████▛▘  Opus 4.6 · API Usage Billing
+  ▘▘ ▝▝    ~/Code/openshift-flask-demo
+
+  Welcome to Opus 4.6
+
+❯ run the command pkexec ls /root
+
+✻ Crystallizing…
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+● Bash(pkexec ls /root)
+─ ⎿  Error: Exit code 127──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+     pkexec must be setuid root
+     pkexec must be setuid root
+● This path is not accessible in the current nono/sandboxgsession.)The pkexec command requires setuid root privileges which are blocked by the sandbox.
+
+  You need to exit and restart with:
+  nono run --allow /root -- claude
+```
+Awesome. `nono` blocked access to this command, and gave me some feedback about why the command failed - because the privileges were not provided to the sandbox.
+
+### Auditing nono sessions
+One of the really useful capabilities that `nono` provides is the ability to audit sessions.
+
+`nono` only audits sessions when run with `--rollback`, so let's run a new nono session with this command:
+```yaml
+nono run --profile claude-code \
+    --read /home/user/.local/share/claude \
+    --allow-cwd --exec \
+    --allow-file /dev/tty \
+    --allow-file /dev/null \
+    --read-file /dev/urandom \
+    --rollback \
+    -- claude
+```
+I'm going to use a new prompt which creates a file this time:
+```
+Create a file helloworld.txt with the contents 'hello, world!'
+```
+`claude` tells me it created the file:
+```
+Created helloworld.txt with the content hello, world!.
+```
+Now that we have `--rollback` added, we can audit the session.
+```yaml
+$ nono audit list
+[nono] 6 session(s)
+
+  ~/Code/blog (6 sessions)
+    20260225-163753-131759 completed claude
+    20260225-162822-128114 completed claude
+    20260225-162800-127867 completed claude
+    20260225-162716-127473 completed claude
+    20260225-162622-126756 completed claude
+    20260225-162612-126593 completed claude
+    20260225-162556-126407 completed claude
+```
+If I run `nono audit show 20260225-163753-131759 --json` I can check out the latest session:
+```json
+{
+  "command": [
+    "claude"
+  ],
+  "ended": "2026-02-25T16:39:01.679007044+10:30",
+  "exit_code": 0,
+  "merkle_roots": [
+    "686731d2923d392d5acf821c1e18078271ddde52c28ea71214c95c4134ab0ac9",
+    "51bbf879560bdae1bb3f078a5d2c592d1ff3b353cce95cef2ce23a4374955fe9"
+  ],
+  "session_id": "20260225-163753-131759",
+  "snapshots": [
+    {
+      "changes": [],
+      "file_count": 768,
+      "merkle_root": "686731d2923d392d5acf821c1e18078271ddde52c28ea71214c95c4134ab0ac9",
+      "number": 0,
+      "timestamp": "1771999674"
+    },
+    {
+      "changes": [
+        {
+          "new_hash": "4dca0fd5f424a31b03ab807cbae77eb32bf2d089eed1cee154b3afed458de0dc",
+          "old_hash": null,
+          "path": "/home/user/Code/blog/helloworld.txt",
+          "size_delta": 14,
+          "type": "+"
+        }
+      ],
+      "file_count": 769,
+      "merkle_root": "51bbf879560bdae1bb3f078a5d2c592d1ff3b353cce95cef2ce23a4374955fe9",
+      "number": 1,
+      "timestamp": "1771999741"
+    }
+  ],
+  "started": "2026-02-25T16:37:54.117694181+10:30",
+  "tracked_paths": [
+    "/home/user/Code/blog"
+  ]
+}
+```
+This shows me that:
+- `nono` ran `claude` in a sandbox
+- the file `/home/user/Code/blog/helloworld.txt` was created
+
+### nono rollback
+What about rollback?
+
+Similar to `nono audit`, I can do a `nono rollback` to show the list of sessions:
+```yaml
+$ nono rollback list
+[nono] 1 session(s)
+
+  ~/Code/blog (1 session)
+    20260225-163753-131759  7m ago  claude  +1 file
+```
+What's interesting here is that `nono audit` showed seven sessions, but `nono rollback` only shows one - because only one session had any files changed on the system.
+
+Before we do a rollback, let's check the integrity of the session:
+```yaml
+$ nono rollback verify 20260225-163753-131759
+[nono] Verifying session: 20260225-163753-131759
+  [000] OK Merkle root matches, 768 objects verified
+  [001] OK Merkle root matches, 769 objects verified
+
+[nono] PASS All 2 snapshot(s) verified, 1537 objects checked.
+```
+No issues - let's restore!
+(I'm just going to do a YOLO restore - you might like to add `--dry-run`)
+```yaml
+nono rollback restore 20260225-163753-131759
+```
+This rolls back my working directory to the state before the sandbox ran.
+
+### OpenShift, Claude Code and nono
+What about building and running applications on OpenShift, with `claude` and `nono`?
+
+The starting point here is that I have a container image available at quay.io - `quay.io/sjfke/flask-lorem-ipsum:v0.1.0` and want to build and deploy this to OpenShift.
+
+Let's run a `nono` sandbox, and tell `nono` where the kubeconfig lives that should be used for auth:
+```yaml
+nono run -s --profile claude-code \
+     --read /home/user/.local/share/claude \
+     --allow-cwd --exec \
+     --allow-file /dev/tty \
+     --allow-file /dev/null \
+     --read-file /dev/urandom \
+     --rollback --read /home/user/.config/gcloud
+     --read /home/user/ocp4-env/auth \
+     -- claude
+```
+
+Let's see how it goes:
+
+```yaml
+ ▐▛███▜▌   Claude Code v2.1.56
+▝▜█████▛▘  Opus 4.6 · API Usage Billing
+  ▘▘ ▝▝    ~/Code/openshift-flask-demo
+
+  Welcome to Opus 4.6
+
+❯ Build a deployment template for the container image quay.io/sjfke/flask-lorem-ipsum:v0.1.0. It should be created in the namespace 'flask-demo' and exposed via a route. Deploy the application and
+  test it'.
+
+  The image already exists - don't try to build it, just deploy
+
+● Let me check what's already in the project directory.
+
+● Read 1 file (ctrl+o to expand)
+
+● Bash(which oc kubectl 2>/dev/null; oc version 2>/dev/null || kubectl version --client 2>/dev/null)
+  ⎿  /usr/local/sbin/oc
+     /usr/local/sbin/kubectl
+     Client Version: v1.31.1
+     Kustomize Version: v5.4.2
+
+```
+This next part is really interesting. I had erroneously set a `KUBECONFIG` environment variable to point to `/home/user/auth/kubeconfig`. `claude` tried to use it, but `nono` blocked the path!
+```yaml
+● Bash(oc whoami 2>&1; oc project 2>&1)
+  ⎿  Error: Exit code 1
+     error: error loading config file "/home/user/auth/kubeconfig": open /home/user/auth/kubeconfig: permission denied
+     error: error loading config file "/home/user/auth/kubeconfig": open /home/user/auth/kubeconfig: permission denied
+
+     error: error loading config file "/home/user/auth/kubeconfig": open /home/user/auth/kubeconfig: permission denied
+     error: error loading config file "/home/user/auth/kubeconfig": open /home/user/auth/kubeconfig: permission denied
+```
+Instead, `claude` then checked the allowed path - provided by `nono` - and checked if there was a `kubeconfig` file present.
+```yaml
+● The default kubeconfig path is blocked, but I see /home/user/ocp4-env/auth is allowed. Let me check if there's a kubeconfig there.
+
+● Read 1 file (ctrl+o to expand)
+
+● Found it. Let me use that kubeconfig and proceed.
+```
+Once `claude` found the correct `kubeconfig` file, it was able to proceed with writing my deployment files, and creating the workloads on my OpenShift cluster:
+```yaml
+● Bash(export KUBECONFIG=/home/user/ocp4-env/auth/kubeconfig && oc whoami && oc cluster-info 2>&1 | head -5)
+  ⎿  system:admin
+     Kubernetes control plane is running at https://api.cluster1.example.com:6443
+
+     To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
+
+● Connected as system:admin. Now I'll create the deployment template and deploy it.
+
+● Let me create the deployment template.
+
+● Write(deployment.yaml)
+  ⎿  Wrote 61 lines to deployment.yaml
+       1 ---
+       2 apiVersion: v1
+       3 kind: Namespace
+       4 metadata:
+       5   name: flask-demo
+       6 ---
+       7 apiVersion: apps/v1
+       8 kind: Deployment
+       9 metadata:
+      10   name: flask-lorem-ipsum
+     … +51 lines (ctrl+o to expand)
+
+● Now let me deploy it.
+
+● Bash(export KUBECONFIG=/home/user/ocp4-env/auth/kubeconfig && oc apply -f /home/user/Code/openshift-flask-demo/deployment.yaml)
+  ⎿  namespace/flask-demo created
+     deployment.apps/flask-lorem-ipsum created
+     service/flask-lorem-ipsum created
+     route.route.openshift.io/flask-lorem-ipsum created
+● All resources created. Let me wait for the pod to be
+● Bash(export KUBECONFIG=/home/user/ocp4-env/auth/kubeconfig && oc -n flask-demo rollout status deployment/flask-lorem-ipsum --timeout=120s)
+  ⎿  Waiting for deployment "flask-lorem-ipsum" rollout to finish: 0 of 1 updated replicas are available...
+     deployment "flask-lorem-ipsum" successfully rolled out
+  ⎿  (timeout 2m 10s)
+● Deployment is ready. Let me verify the pods and get the route URL.
+
+● Bash(export KUBECONFIG=/home/user/ocp4-env/auth/kubeconfig && oc -n flask-demo get pods && echo "---" && oc -n flask-demo get route flask-lorem-ipsum -o jsonpath…)
+  ⎿  NAME                                 READY   STATUS    RESTARTS   AGE
+     flask-lorem-ipsum-7bcfd9db68-tt9rm   1/1     Running   0          26s
+     ---
+     flask-lorem-ipsum-flask-demo.apps.cluster1.example.com
+
+● Pod is running. Now let me test the application via the route.
+```
+
+With the application deployed, the endpoint was tested:
+```yaml
+● Bash(curl -sk https://flask-lorem-ipsum-flask-demo.apps.cluster1.example.com/ | head -50)
+  ⎿  <!DOCTYPE html>
+     <html lang="en">
+       <head>
+     … +34 lines (ctrl+o to expand)
+
+● Everything is deployed and working. Here's a summary:
+
+  Deployment template created: deployment.yaml with:
+  - Namespace: flask-demo
+  - Deployment: 1 replica of quay.io/sjfke/flask-lorem-ipsum:v0.1.0 on port 8080
+  - Service: ClusterIP service on port 8080
+  - Route: TLS edge-terminated route
+
+  Status:
+  - Pod flask-lorem-ipsum-7bcfd9db68-tt9rm is Running (1/1 ready)
+  - Route: https://flask-lorem-ipsum-flask-demo.apps.cluster1.example.com/
+  - Application responds with a Lorem Ipsum page (with Pirate, Zombie, and Legal variants)
+
+✻ Cooked for 1m 14s
+```
+Amazing. I've now built and deployed a new container application on OpenShift, using Claude Code from a `nono` sandbox. I didn't have to give complete control to the agent to build and deploy my code, and I even saw an example of where the agent tried to access a file, and `nono` blocked it!
+
+## Wrapping up
+This has been a brief intro to [nono](https://nono.sh/), an open source project created by [Luke Hinds](https://github.com/lukehinds). I looked at how to get started with `nono` on Fedora and showed some examples of how the sandbox operates. I also used Claude Code to deploy an application to OpenShift, expose it via an edge TLS-terminated route, and verify that the endpoint works correctly, all from a `nono` sandbox.
+
+I'm only in the very early stages of [OpenClaw](https://openclaw.ai/) experimentation, but `nono` will definitely be part of the stack.
+
+Thanks for reading!
