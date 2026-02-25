@@ -19,11 +19,9 @@ This is where [nono](https://nono.sh) helps. `nono` provides kernel-level isolat
 
 In [Luke's own words](https://www.alwaysfurther.ai/blog/how-to-sandbox-claudecode-with-nono):
 
-```
-nono takes a different approach. It uses Landlock (Linux) and Seatbelt (macOS) to enforce restrictions at the kernel level. Once applied, these restrictions are irreversible for the process. There is no API to widen them. There is no escape hatch. Not even nono itself can remove the restrictions after they're set.
+"nono takes a different approach. It uses Landlock (Linux) and Seatbelt (macOS) to enforce restrictions at the kernel level. Once applied, these restrictions are irreversible for the process. There is no API to widen them. There is no escape hatch. Not even nono itself can remove the restrictions after they're set.
 
-This is what we mean by "structurally impossible." The kernel denies unauthorised operations directly. There's no interception layer, no policy filter, no mechanism to bypass. If the agent tries to read your SSH keys or delete files outside its granted path, the operation fails at the syscall level.
-```
+This is what we mean by "structurally impossible." The kernel denies unauthorised operations directly. There's no interception layer, no policy filter, no mechanism to bypass. If the agent tries to read your SSH keys or delete files outside its granted path, the operation fails at the syscall level."
 
 You can see Luke demo `nono` himself here:
 
@@ -89,16 +87,20 @@ nono run --profile claude-code -- claude
 ```
 
 `nono` gives some simple information about my environment when it starts up:
-```yaml
+```
   ▄█▄   nono v0.6.0-alpha.3
  ▀▄^▄▀  - keep calm and nono on
 
   Installing claude-code hook to ~/.claude/hooks/nono-hook.sh
+
 2026-02-24T23:25:36.787978Z  WARN Profile file '$HOME/Library/Keychains/login.keychain-db' does not exist, skipping: /home/user/Library/Keychains/login.keychain-db
+
 2026-02-24T23:25:36.788129Z  WARN Profile file '$HOME/.gitignore_global' does not exist, skipping: /home/user/.gitignore_global
+
 Current directory '/home/user/Code/openshift-flask-demo' will be shared with read+write access.
 tip: use --allow-cwd to skip this prompt
   Proceed? [y/N]: y
+
 Capabilities:
   Filesystem:
     /home/user/.claude [read+write] (dir)
@@ -161,8 +163,7 @@ nono run --profile claude-code \
 ```
 
 But this gives a segfault - oh no!
-
-```yaml
+```
 Applying Kernel sandbox protections.
 Sandbox active. Restrictions are now in effect.
 
@@ -182,10 +183,10 @@ What happened here?
 
 The issue is that `nono` uses the Linux kernel's [Landlock LSM](https://docs.kernel.org/security/landlock.html) to enforce filesystem access control at the kernel level. When you run `nono run --profile claude-code -- claude`, it creates a Landlock ruleset that whitelists specific directories (the working directory, `~/.claude`, system paths like `/usr/lib`, etc) and then calls `restrict_self()` — an irreversible operation that prevents the process from accessing anything outside the ruleset.
 
-Claude Code is a [Bun](https://bun.com/) standalone executable. Bun embeds JavaScriptCore (JSC), a JIT-compiling JavaScript engine. At startup, Bun/JSC needs to open three device files: `/dev/urandom` (for CSPRNG initialization), `/dev/null` (for fd redirection), and `/dev/tty` (for terminal access). The built-in `claude-code` profile for `nono` didn't include Landlock rules for these device files. When Landlock blocked the `openat()` calls to these devices, JSC failed to initialize its runtime and deliberately crashed at the sentinel address 0xBBADBEEF — a JSC panic that manifests as a segfault.
+Claude Code is a [Bun](https://bun.com/) standalone executable. Bun embeds JavaScriptCore (JSC), a JIT-compiling JavaScript engine. At startup, Bun/JSC needs to open three device files: `/dev/urandom` (for CSPRNG initialisation), `/dev/null` (for fd redirection), and `/dev/tty` (for terminal access). The built-in `claude-code` profile for `nono` didn't include Landlock rules for these device files. When Landlock blocked the `openat()` calls to these devices, JSC failed to initialise its runtime and crashed — a JSC panic that manifests as a segfault.
 
 Let's add a few additional `--allow-file` switches to allow Bun access to the pseudodevice files it needs:
-```yaml
+```
 nono run --profile claude-code \
     --read /home/user/.local/share/claude \
     --allow-cwd --exec \
@@ -198,7 +199,9 @@ nono run --profile claude-code \
  ▀▄^▄▀  - keep calm and nono on
 
 2026-02-25T04:20:37.883860Z  WARN Profile file '$HOME/Library/Keychains/login.keychain-db' does not exist, skipping: /home/user/Library/Keychains/login.keychain-db
+
 2026-02-25T04:20:37.883916Z  WARN Profile file '$HOME/.gitignore_global' does not exist, skipping: /home/user/.gitignore_global
+
 Capabilities:
   Filesystem:
     /home/user/.claude [read+write] (dir)
@@ -231,16 +234,18 @@ Great! Claude now runs correctly inside the `nono` sandbox.
 
 Let's take a step back - what happens if I run `claude` without `nono`, and ask it to run a `pkexec` command?
 
-```yaml
+```
 $ claude
 
 ❯ run the command pkexec ls /root
+
 ● Bash(pkexec ls /root)
   ⎿  a1c2afa8-6f90-48a5-ac76-b643cd945055-escrow
      anaconda-ks.cfg
      ks-live-post.log
      … +4 lines (ctrl+o to expand)
   ⎿  (timeout 10s)
+
 ● Here are the contents of /root:
   - a1c2afa8-6f90-48a5-ac76-b643cd945055-escrow
   - anaconda-ks.cfg
@@ -249,12 +254,13 @@ $ claude
   - ks-post.log
   - ks-resolv-post-liveimg.log
   - original-ks.cfg
+
   These appear to be Anaconda installer kickstart configuration and log files from your Fedora installation.
 ```
 Well, that's a bit concerning. `claude` did ask me if I wanted to run the command, but then prompted me for authentication and ran the command anyway.
 
 Now what about when `claude` is running with `nono`?
-```yaml
+```
 Applying Kernel sandbox protections.
 Sandbox active. Restrictions are now in effect.
 
@@ -268,12 +274,13 @@ Sandbox active. Restrictions are now in effect.
 ❯ run the command pkexec ls /root
 
 ✻ Crystallizing…
-───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
 ● Bash(pkexec ls /root)
-─ ⎿  Error: Exit code 127──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+─ ⎿  Error: Exit code 127─────────────────────────────────────────
      pkexec must be setuid root
      pkexec must be setuid root
-● This path is not accessible in the current nono/sandboxgsession.)The pkexec command requires setuid root privileges which are blocked by the sandbox.
+
+● This path is not accessible in the current nono/sandbox session.)The pkexec command requires setuid root privileges which are blocked by the sandbox.
 
   You need to exit and restart with:
   nono run --allow /root -- claude
@@ -303,7 +310,7 @@ Create a file helloworld.txt with the contents 'hello, world!'
 Created helloworld.txt with the content hello, world!.
 ```
 Now that we have `--rollback` added, we can audit the session.
-```yaml
+```
 $ nono audit list
 [nono] 6 session(s)
 
@@ -367,7 +374,7 @@ This shows me that:
 What about rollback?
 
 Similar to `nono audit`, I can do a `nono rollback` to show the list of sessions:
-```yaml
+```
 $ nono rollback list
 [nono] 1 session(s)
 
@@ -377,7 +384,7 @@ $ nono rollback list
 What's interesting here is that `nono audit` showed seven sessions, but `nono rollback` only shows one - because only one session had any files changed on the system.
 
 Before we do a rollback, let's check the integrity of the session:
-```yaml
+```
 $ nono rollback verify 20260225-163753-131759
 [nono] Verifying session: 20260225-163753-131759
   [000] OK Merkle root matches, 768 objects verified
@@ -387,7 +394,7 @@ $ nono rollback verify 20260225-163753-131759
 ```
 No issues - let's restore!
 (I'm just going to do a YOLO restore - you might like to add `--dry-run`)
-```yaml
+```
 nono rollback restore 20260225-163753-131759
 ```
 This rolls back my working directory to the state before the sandbox ran.
@@ -398,7 +405,7 @@ What about building and running applications on OpenShift, with `claude` and `no
 The starting point here is that I have a container image available at quay.io - `quay.io/sjfke/flask-lorem-ipsum:v0.1.0` and want to build and deploy this to OpenShift.
 
 Let's run a `nono` sandbox, and tell `nono` where the kubeconfig lives that should be used for auth:
-```yaml
+```
 nono run -s --profile claude-code \
      --read /home/user/.local/share/claude \
      --allow-cwd --exec \
@@ -412,7 +419,7 @@ nono run -s --profile claude-code \
 
 Let's see how it goes:
 
-```yaml
+```
  ▐▛███▜▌   Claude Code v2.1.56
 ▝▜█████▛▘  Opus 4.6 · API Usage Billing
   ▘▘ ▝▝    ~/Code/openshift-flask-demo
@@ -446,7 +453,7 @@ This next part is really interesting. I had erroneously set a `KUBECONFIG` envir
      error: error loading config file "/home/user/auth/kubeconfig": open /home/user/auth/kubeconfig: permission denied
 ```
 Instead, `claude` then checked the allowed path - provided by `nono` - and checked if there was a `kubeconfig` file present.
-```yaml
+```
 ● The default kubeconfig path is blocked, but I see /home/user/ocp4-env/auth is allowed. Let me check if there's a kubeconfig there.
 
 ● Read 1 file (ctrl+o to expand)
@@ -456,12 +463,9 @@ Instead, `claude` then checked the allowed path - provided by `nono` - and check
 Once `claude` found the correct `kubeconfig` file, it was able to proceed with writing my deployment files, and creating the workloads on my OpenShift cluster:
 ```yaml
 ● Bash(export KUBECONFIG=/home/user/ocp4-env/auth/kubeconfig && oc whoami && oc cluster-info 2>&1 | head -5)
-  ⎿  system:admin
-     Kubernetes control plane is running at https://api.cluster1.example.com:6443
+  ⎿  Kubernetes control plane is running at https://api.cluster1.example.com:6443
 
      To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
-
-● Connected as system:admin. Now I'll create the deployment template and deploy it.
 
 ● Let me create the deployment template.
 
@@ -503,7 +507,7 @@ Once `claude` found the correct `kubeconfig` file, it was able to proceed with w
 ```
 
 With the application deployed, the endpoint was tested:
-```yaml
+```
 ● Bash(curl -sk https://flask-lorem-ipsum-flask-demo.apps.cluster1.example.com/ | head -50)
   ⎿  <!DOCTYPE html>
      <html lang="en">
