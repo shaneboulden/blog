@@ -263,7 +263,7 @@ $ claude
 ```
 Well, that's a bit concerning. `claude` did ask me if I wanted to run the command, but then prompted me for authentication and ran the command anyway.
 
-Now what about when `claude` is running with `nono`?
+Now what about when `claude` is running within a `nono` sandbox?
 ```
 Applying Kernel sandbox protections.
 Sandbox active. Restrictions are now in effect.
@@ -284,7 +284,7 @@ Sandbox active. Restrictions are now in effect.
      pkexec must be setuid root
      pkexec must be setuid root
 
-● This path is not accessible in the current nono/sandbox session.)The pkexec command requires setuid root privileges which are blocked by the sandbox.
+● This path is not accessible in the current nono/sandbox session. The pkexec command requires setuid root privileges which are blocked by the sandbox.
 
   You need to exit and restart with:
   nono run --allow /root -- claude
