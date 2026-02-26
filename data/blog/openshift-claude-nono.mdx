@@ -1,5 +1,5 @@
 ---
-title: From 'oh no' to nono - Building apps on OpenShift with nono and Claude Code
+title: From 'oh no' to nono - building apps on OpenShift with nono and Claude Code
 date: '2026-02-26'
 tags: ['llm','claude','code','nono','openshift','oc']
 images: ['/static/images/linkedin-banners/nono.png']
@@ -35,9 +35,13 @@ $ sudo mv nono-v0.6.0-alpha.3-x86_64-unknown-linux-gnu/nono /usr/local/bin/
 $ which nono
 /usr/local/sbin/nono
 ```
-Firstly, you might notice here that I copied the file into `/usr/local/bin`, but `which` reports `/usr/local/sbin/nono`. This is part of Fedora's efforts to [unify `/usr/bin` and `/usr/sbin`](https://fedoraproject.org/wiki/Changes/Unify_bin_and_sbin)
+Firstly, you might notice here that I copied the file into `/usr/local/bin`, but `which` reports `/usr/local/sbin/nono`.
 
-Begore we run a few commands, let's do a `nono setup`:
+What's going on here?
+
+Well, this is just part of Fedora's efforts to [unify `/usr/bin` and `/usr/sbin`](https://fedoraproject.org/wiki/Changes/Unify_bin_and_sbin)
+
+Before we run a few commands, let's do a `nono setup`:
 ```
 $ nono setup
 
@@ -119,7 +123,7 @@ Sandbox active. Restrictions are now in effect.
 ### Troubleshooting nono on Linux
 All things going well your `nono` instance is happily running `claude` or other commands. But, `nono` is still in alpha, and there's a few issues that you might encounter.
 
-One of these is a `Permission denied`:
+One of these with `claude` specifically is a `Permission denied` error:
 ```
 2026-02-24T23:26:27.357098Z ERROR Command execution failed: Permission denied (os error 13)
 nono: Command execution failed: Permission denied (os error 13)
@@ -158,7 +162,7 @@ There you go - no `~/.local/bin`. You can quickly correctly this by explicitly a
 ```
 nono run --profile claude-code \
     --read /home/user/.local/share/claude \
-    --allow-cwd --exec \s
+    --allow-cwd --exec \
     -- claude
 ```
 
@@ -181,9 +185,9 @@ oh no: Bun has crashed. This indicates a bug in Bun, not your code.
 ```
 What happened here?
 
-The issue is that `nono` uses the Linux kernel's [Landlock LSM](https://docs.kernel.org/security/landlock.html) to enforce filesystem access control at the kernel level. When you run `nono run --profile claude-code -- claude`, it creates a Landlock ruleset that whitelists specific directories (the working directory, `~/.claude`, system paths like `/usr/lib`, etc) and then calls `restrict_self()` — an irreversible operation that prevents the process from accessing anything outside the ruleset.
+The issue is that `nono` uses the Linux kernel's [Landlock LSM](https://docs.kernel.org/security/landlock.html) capability to enforce filesystem access control at the kernel level. When you run `nono run --profile claude-code -- claude`, it creates a Landlock ruleset that whitelists specific directories (the working directory, `~/.claude`, system paths like `/usr/lib`, etc) and then calls `restrict_self()` — an irreversible operation that prevents the process from accessing anything outside the ruleset.
 
-Claude Code is a [Bun](https://bun.com/) standalone executable. Bun embeds JavaScriptCore (JSC), a JIT-compiling JavaScript engine. At startup, Bun/JSC needs to open three device files: `/dev/urandom` (for CSPRNG initialisation), `/dev/null` (for fd redirection), and `/dev/tty` (for terminal access). The built-in `claude-code` profile for `nono` didn't include Landlock rules for these device files. When Landlock blocked the `openat()` calls to these devices, JSC failed to initialise its runtime and crashed — a JSC panic that manifests as a segfault.
+Claude Code is a [Bun](https://bun.com/) standalone executable. Bun embeds [JavaScriptCore (JSC)](https://docs.webkit.org/Deep%20Dive/JSC/JavaScriptCore.html), a JIT-compiling JavaScript engine. At startup, Bun/JSC needs to open three device files: `/dev/urandom` (for CSPRNG initialisation), `/dev/null` (for fd redirection), and `/dev/tty` (for terminal access). The built-in `claude-code` profile for `nono` didn't include Landlock rules for these device files. When Landlock blocked the `openat()` calls to these devices, JSC failed to initialise its runtime and crashed — a JSC panic that manifests as a segfault.
 
 Let's add a few additional `--allow-file` switches to allow Bun access to the pseudodevice files it needs:
 ```
