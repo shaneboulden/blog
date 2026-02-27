@@ -1,12 +1,12 @@
 ---
 title: From 'oh no' to nono - building apps on OpenShift with nono and Claude Code
-date: '2026-02-26'
-tags: ['llm','claude','code','nono','openshift','oc']
+date: '2026-02-27'
+tags: ['llm','claude','code','nono','openshift','agentic']
 images: ['/static/images/linkedin-banners/nono.png']
 draft: false
 summary: 'Nono is a fantastic new open source project providing kernel-level isolation, immutable auditing and atomic rollbacks for AI agents. In this article I look at how you can use nono with Claude Code to build and deploy container applications on Red Hat OpenShift Container Platform.'
 ---
-Like many of us, [Claude Code](https://code.claude.com/docs/en/overview) has rapidly changed how I develop and run applications. I can use agentic workflows to build, deploy, and test container applications, and together with [Red Hat OpenShift Container Platform](https://www.redhat.com/en/technologies/cloud-computing/openshift/container-platform), rapidly prototype new applications and features.
+Like many of us, [Agentic AI](https://www.redhat.com/en/topics/ai/what-is-agentic-ai) has rapidly changed how I develop and run applications. I can use agentic workflows to build, deploy, and test container applications, and together with [Red Hat OpenShift Container Platform](https://www.redhat.com/en/technologies/cloud-computing/openshift/container-platform), rapidly prototype new applications and features.
 
 One of the chief concerns with this development model is the permissions that I need to grant to the agent. While agentic workflows are powerful, I shouldn't have to provide complete trust to the agent across my entire operating system to build and deploy apps.
 
@@ -26,6 +26,8 @@ This is what we mean by "structurally impossible." The kernel denies unauthorise
 You can see Luke demo `nono` himself here:
 
 <YoutubeEmbed embedId="d6Y8S-tzJ0U" />
+
+In this article I'm going to look at how we can run [Claude Code](https://code.claude.com/docs/en/overview) in a `nono` sandbox to build applications on Red Hat OpenShift Container Platform. Let's get started!
 
 ### Getting started with nono
 `nono` releases are available directly from the [Github page](https://github.com/always-further/nono/releases). I've simply dropped this into `/usr/local/bin/` on Fedora:
