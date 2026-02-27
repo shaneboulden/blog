@@ -7,9 +7,19 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Sun, 25 Jan 2026 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Sat, 28 Feb 2026 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
-      
+
+  <item>
+    <guid>https://stb.id.au/blog/openshift-claude-nono</guid>
+    <title>From 'oh no' to nono - building apps on OpenShift with nono and Claude Code</title>
+    <link>https://stb.id.au/blog/openshift-claude-nono</link>
+    <description>Nono is a fantastic new open source project providing kernel-level isolation, immutable auditing and atomic rollbacks for AI agents. In this article I look at how you can use nono with Claude Code to build and deploy container applications on Red Hat OpenShift Container Platform.</description>
+    <pubDate>Fri, 27 Feb 2026 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>llm</category><category>claude</category><category>code</category><category>nono</category><category>openshift</category><category>agentic</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/llm-honeypot-openshift-ai</guid>
     <title>Running an LLM-backed honeypot with OpenShift AI</title>
@@ -58,26 +68,6 @@
     <pubDate>Sat, 28 Jun 2025 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>red</category><category>hat</category><category>summit</category><category>2025</category><category>ai</category><category>llm-d</category><category>boston</category><category>trailblazer</category><category>fenway</category><category>departed</category>
-  </item>
-
-  <item>
-    <guid>https://stb.id.au/blog/en/nist-800-190-openshift</guid>
-    <title>NIST SP 800-190 and OpenShift</title>
-    <link>https://stb.id.au/blog/en/nist-800-190-openshift</link>
-    <description>NIST Special Publication 800-190 represents a great baseline for container platform security. In this article I take a look at how to adopt NIST SP 800-190 with OpenShift and Red Hat Advanced Cluster Security for Kubernetes (RHACS).</description>
-    <pubDate>Wed, 28 May 2025 00:00:00 GMT</pubDate>
-    <author>dev@stb.id.au (Shane Boulden)</author>
-    <category>nist</category><category>rhacs</category><category>openshift</category><category>governance</category><category>security</category>
-  </item>
-
-  <item>
-    <guid>https://stb.id.au/blog/jp/nist-800-190-openshift</guid>
-    <title>NIST SP 800-190 および OpenShift</title>
-    <link>https://stb.id.au/blog/jp/nist-800-190-openshift</link>
-    <description>NIST特別刊行物800-190は、コンテナプラットフォームのセキュリティにおける優れた基準となります。この記事では、OpenShiftとRed Hat Advanced Cluster Security for Kubernetes（RHACS）を使用して、NIST SP 800-190をどのように採用するかを見ていきます。</description>
-    <pubDate>Wed, 28 May 2025 00:00:00 GMT</pubDate>
-    <author>dev@stb.id.au (Shane Boulden)</author>
-    <category>nist</category><category>rhacs</category><category>openshift</category><category>governance</category><category>security</category>
   </item>
 
   <item>
