@@ -1,14 +1,16 @@
 ---
 name: Shane Boulden
 avatar: /static/images/shane-avatar.png
-occupation: Security Strategist at Red Hat
-company: Georgia Institute of Technology
+occupation: Solution Architect at Red Hat
+company: Red Hat
 email: dev@stb.id.au
 twitter: https://twitter.com/shaneboulden
 github: https://github.com/shaneboulden
 linkedin: https://www.linkedin.com/in/shaneboulden
 ---
 
-I'm a Security Strategist at Red Hat, and spend my time codifying security policies and supporting organisations to better manage their risk posture, building more secure digital services on OpenShift, and security automation with Ansible.
+I'm a Solution Architect at Red Hat, and leverage my skills and expertise in Red Hat OpenShift, platfom engineering, DevSecOps adoption and cloud-native application development to support more secure and scalable solutions for Red Hat's customers.
 
-When I'm not doing any of this, I'm probably BBQ-ing :)
+When I'm not doing any of this, I'm probably in the garden or looking after the chickens.
+
+![chickens](/static/images/chickens.jpg)
