@@ -1,0 +1,163 @@
+---
+title: OpenShift Easter Eggs - trolling dwalsh
+date: '2026-04-06'
+tags: ['openshift','easter','eggs','selinux','dan', 'walsh']
+images: ['/static/images/linkedin-banners/openshift-easter-eggs.png']
+draft: false
+summary: "It's Easter in Australia, and what better time to look at Easter Eggs in OpenShift."
+---
+This weekend is Easter in Australia, and it's always been one of my favourite holidays. The four-day weekend is a welcome break after the start of a new year; the weather is starting to cool down, and we can start building a fire; and kids are always super-excited at the prospect of chocolate!
+
+One of the less well-known Easter traditions in Adelaide is the [International Kite Festival](https://www.kite.org/event/adelaide-international-kite-festival-2026/2026-04-05/), which takes place at Semaphore over the Easter long weekend. It's always a great event - whales and dragons, sea creatures and superheroes, and two- and four-string kites weaving colour through the skies.
+
+<Zoom>
+![kite-fest](/static/images/easter-eggs/kite-fest.png)
+</Zoom>
+
+One of my favourite things to do on Easter Sunday is an Easter Egg hunt. I hide those eggs *everywhere* - pot plants, BBQs, gas bottles, trees, no where is safe. I don't always remember where I put them though, and it's pretty common that I find a stray egg 12 months later somewhere in the backyard (still tastes great!).
+
+I've written about OpenShift in a lot of articles to-date, including:
+
+- [Application control for Everyone](/blog/aoo-control-for-everyone): Covers approaches to application control across different platforms, including OpenShift
+
+- [OpenShift on an R620](/blog/openshift-on-an-r620): Covers installing Single-node OpenShift to my trusty Dell R620.
+
+- [OpenShift Virtualization Lab Build](/blog/openshift-virt-lab): Getting started with OpenShift Virtualization on my trusty Dell R620
+
+- [Getting to grips with GPUs and OpenShift](/blog/openshift-gpus): Looks at how to integrate containers and virtual machines on OpenShift with NVIDIA GPUs
+
+- [Phishing-resistant MFA for OpenShift](/blog/openshift-mfa): How to configure phishing-resistant multi-factor authentication in OpenShift
+
+- [Trying out the OpenShift Virtualization Engine registry-less installer](/blog/openshift-registryless-install): Installing OpenShift in air-gapped environments without a container image registry
+
+- [Hacking OpenShift Productivity with QMK](/blog/qmk-openshift): Baking OpenShift commands directly into my keyboard with QMK
+
+- [Demystifying the OpenShift release image](/blog/demystifying-ocp-release-image): A technical tear-down of the OpenShift release, and how its signature is validated and verified.
+
+But, one thing I've never covered are the 'Easter Eggs' in OpenShift. So what better time to take a look!
+
+### Easter Eggs and software
+"Easter eggs" have existed in software for decades now. An 'easter egg' in software can be a few different things - it could be a secret function, a message in the code, or just a humourous little joke.
+
+One of the most famous Easter Eggs I think is Google's famous "do a barrell roll". I remember trying this out in high school - you could go to Google, type "do a barrell roll", and the browser would do a complete 360-degree spin.
+
+## Add YT - barrell roll
+
+One of my favourite examples of an 'easter egg' in software is from the Apollo-11 guidance computer. The entire [Apollo 11 source code is available on GitHub](https://github.com/chrislgarry/Apollo-11/), and the master ignition routine is named `BURN_BABY_BURN--MASTER_IGNITION_ROUTINE.agc`.
+
+The source code now also contains the back-story to this legendary Easter Egg:
+
+```python
+## At the get-together of the AGC developers celebrating the 40th anniversary
+## of the first moonwalk, Don Eyles (one of the authors of this routine along
+## with Peter Adler) has related to us a little interesting history behind the
+## naming of the routine.
+##
+## It traces back to 1965 and the Los Angeles riots, and was inspired
+## by disc jockey extraordinaire and radio station owner Magnificent Montague.
+## Magnificent Montague used the phrase "Burn, baby! BURN!" when spinning the
+## hottest new records. Magnificent Montague was the charismatic voice of
+## soul music in Chicago, New York, and Los Angeles from the mid-1950s to
+## the mid-1960s.
+# BURN, BABY, BURN -- MASTER IGNITION ROUTINE
+```
+
+### The Linux kernel `reboot` easter eggs
+
+Even the legendary Linux kernel has easter eggs!
+
+Restarting or halting a system is a destructive action, and the Linux kernel developers wanted to make absolutely sure that a random pointer error or a rogue process couldn't accidentally trigger a reboot.
+
+To prevent this, the `sys_reboot` function in the kernel requires you to pass it two specific magic numbers as arguments. If the numbers don't match exactly, the kernel rejects the request and throws an `EINVAL` (Invalid argument) error.
+
+The first argument must be `LINUX_REBOOT_MAGIC1`, shown [here](https://github.com/torvalds/linux/blob/d8a9a4b11a137909e306e50346148fc5c3b63f9d/include/uapi/linux/reboot.h#L9):
+
+```c
+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+#ifndef _UAPI_LINUX_REBOOT_H
+#define _UAPI_LINUX_REBOOT_H
+
+/*
+ * Magic values required to use _reboot() system call.
+ */
+
+#define	LINUX_REBOOT_MAGIC1	0xfee1dead
+```
+Looks a lot like "feel dead"!
+
+The second argument must be `LINUX_REBOOT_MAGIC2`, and the kernel will accept any of the four numeric values here to authorise the reboot, shown [here](https://github.com/torvalds/linux/blob/d8a9a4b11a137909e306e50346148fc5c3b63f9d/include/uapi/linux/reboot.h#L10):
+
+```c
+#define	LINUX_REBOOT_MAGIC2	672274793
+#define	LINUX_REBOOT_MAGIC2A 85072278
+#define	LINUX_REBOOT_MAGIC2B 369367448
+#define	LINUX_REBOOT_MAGIC2C 537993216
+```
+This one is a bit tricker. If you convert these decimal numbers to hex values, they reveal a set of dates formatted as DDMMYYYY (the only correct date format):
+
+- `672274793 (0x28121969)`: December 28, 1969 — Linus Torvalds's birthday.
+
+- `85072278 (0x05121996)`: December 5, 1996 — The birthday of his first daughter, Patricia.
+
+- `369367448 (0x16041998)`: April 16, 1998 — The birthday of his second daughter, Daniela.
+
+- `537993216 (0x20112000)`: November 20, 2000 — The birthday of his third daughter, Celeste.
+
+### Finding the compliance operator easter egg
+
+From the Apollo 11 guidance computer to the Linux kernel, easter eggs are everywhere - including Openshift!
+
+I'm going to show you one example today. To get to this Easter egg you need to first install the OpenShift compliance operator from the 'Ecosystem' tab.
+
+<Zoom>
+![compliance-operator1](/static/images/easter-eggs/compliance-operator1.png)
+</Zoom>
+
+Once installed, head to the 'openshift-compliance' namespace, and find the installed compliance operator.
+
+<Zoom>
+![compliance-operator2](/static/images/easter-eggs/compliance-operator2.png)
+</Zoom>
+
+Here you can see all of the APIs provided by the operator. We want to create a new 'Tailored Profile':
+
+<Zoom>
+![compliance-operator3](/static/images/easter-eggs/compliance-operator3.png)
+</Zoom>
+
+<Zoom>
+![compliance-operator4](/static/images/easter-eggs/compliance-operator4.png)
+</Zoom>
+
+What's this?
+```yaml
+setValues:
+  - name: ocp4-var-selinux-state
+    rationale: trolling dwalsh
+    value: permissive
+```
+
+### Trolling dwalsh
+What does 'trolling dwalsh' mean, and why is this an easter egg?
+
+`dwalsh` is [Dan Walsh](https://www.redhat.com/en/authors/dan-walsh), aka "Mr SELinux". Dan worked at Red Hat from 2001-2025, leading the SELinux project, the container runtime engineering team, and is the author of [Podman in Action](https://www.simonandschuster.com.au/books/Podman-in-Action/Daniel-Walsh/9781638351832). Famously Dan is the author of the [SELinux colouring book](https://people.redhat.com/duffy/selinux/selinux-coloring-book_A4-Stapled.pdf):
+
+<Zoom>
+![selinux-book](/static/images/easter-eggs/selinux-book.png)
+</Zoom>
+
+In the "easter egg" above, the variable `ocp4-var-selinux-state` is set to `permissive` - effectively disabling SELinux. And, as [Major Hayden](https://major.io/), says at his great website [stopdisablingselinux.com](https://stopdisablingselinux.com/):
+
+
+<Zoom>
+![stop-disabling-selinux](/static/images/easter-eggs/stop-disabling-selinux.png)
+</Zoom>
+
+I've also heard that if you say `setenforce 0` three times in the mirror Dan Walsh appears and forcibly sets `setenforce 1` on your terminal...
+
+This message is a 'nod' from the OpenShift developers to Dan Walsh, and his passion for good security practices, and ensuring that you stop disabling SELinux!
+
+### Wrapping up
+This was a super short article, because it's the Easter weekend, and I have Easter eggs to hide in my backyard and forget about for 12 months.
+
+I covered one of the "easter eggs" in OpenShift - can you find any others? Let me know in the comments!
