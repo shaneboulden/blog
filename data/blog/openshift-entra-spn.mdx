@@ -1,0 +1,565 @@
+---
+title: Microsoft Entra SPN auth with OpenShift
+date: '2025-05-05'
+tags: ['openshift','entra','authentication','authorisation','spn','service','principal']
+images: ['/static/images/microsoft-entra-spn.png']
+draft: false
+summary: 'OpenShift 4.20 introduced support for direct OpenID Connect authentication, allowing you to configure the OpenShift API / console to authenticate directly with OpenID Connect providers. In this article I take a closer look at one of the use cases this enables - Microsoft Entra Service Principal Name (SPN) direct authentication to OpenShift.'
+---
+I think historically one of the least well-understood parts of OpenShift is identity. And specifically, the OAuth server that lives inside OpenShift.
+
+Every OpenShift cluster ships with a built-in OAuth server. If you've ever logged in to the OpenShift console or run `oc login`, you've interacted with it. The OpenShift OAuth server runs as a set of pods inside the `openshift-authentication` namespace, managed by the `authentication` cluster operator. But why does OpenShift include its own OAuth server in the first place?
+
+Kubernetes itself doesn't provide a built-in identity system. The upstream Kubernetes API server supports mechanisms like X.509 client certificates, bearer tokens, and external OpenID Connect (OIDC) providers, but it doesn't include any built-in user management or login flow. There's no "create user" API, no login page, no token issuance — you're expected to bring your own identity provider and wire it up yourself.
+
+OpenShift takes a different approach. The built-in OAuth server provides a complete authentication layer out of the box: a login page for the console, token issuance for CLI access via `oc login`, and a framework for integrating external identity providers like LDAP, GitHub, GitLab, Google, or OpenID Connect providers. This means that from the moment you install OpenShift, users can log in and receive tokens without having to configure external infrastructure first.
+
+### How the OpenShift OAuth server works
+
+ When a user logs in — whether through the web console or the CLI — the OAuth server authenticates them against one or more configured identity providers and issues an OAuth access token. This token is stored as an `OAuthAccessToken` object inside the cluster's etcd, and is used for subsequent API requests.
+
+The flow looks something like this:
+
+1. A user accesses the OpenShift console or runs `oc login`
+2. The OAuth server presents a login page (or redirects to an external identity provider)
+3. The user authenticates
+4. The OAuth server issues an OAuth access token, stored in etcd
+5. The token is used for API requests to the OpenShift API server
+
+OpenShift also includes the [oauth-proxy](https://github.com/openshift/oauth-proxy), a reverse proxy that can sit in front of any application deployed to the cluster and delegate authentication to the built-in OAuth server. This allows you to add authentication to applications that don't natively support it — you deploy the oauth-proxy as a sidecar container, and it handles the OAuth flow on behalf of your application.
+
+### What you can do with the OpenShift OAuth proxy
+
+One of the more useful features of the OAuth proxy is its integration with OpenShift routes. You can annotate a route to automatically inject OAuth authentication in front of your application. By configuring a service account as an OAuth client and deploying the oauth-proxy sidecar alongside your application, any user accessing the route is redirected to the OpenShift login page before they can reach your application. The proxy validates the token and passes the authenticated user's identity to your application via HTTP headers.
+
+This is particularly useful for internal tools, dashboards, and services that don't have their own authentication — you get SSO across all your OpenShift-hosted applications for free, tied to whatever identity provider you've configured for the cluster.
+
+Some examples of this include:
+
+- OpenShift GitOps (ArgoCD)
+- Red Hat Advanced Cluster Security for Kubernetes (RHACS)
+- OpenShift AI
+... and many more.
+
+### Limitations of OpenShift OAuth
+
+The OAuth server works well for a single cluster. But things start to break down at scale. The core issue here is that tokens are stored in etcd, inside the cluster. Every OAuth access token, every service account token used by the oauth-proxy — they all live in a single cluster's etcd. This creates several challenges:
+
+- **Tokens are cluster-scoped.** An OAuth token issued by one cluster's OAuth server is meaningless to another cluster. There's no federation, no shared token store, no way for a user to authenticate once and access applications across multiple clusters.
+
+- **Identity provider configuration is per-cluster.** Each cluster needs its own OAuth configuration pointing to your identity provider. If you're managing 10 clusters, that's 10 sets of OAuth configurations to maintain. If you're managing 2,000+ clusters — as many large enterprises do — this becomes a significant operational burden.
+
+- **Service account OAuth clients don't scale.** Each application using the oauth-proxy needs a service account configured as an OAuth client, with the appropriate redirect URIs and annotations. This configuration exists only within the cluster where it's deployed. Replicating this across hundreds or thousands of clusters requires automation and introduces drift risk.
+
+- **No centralised session management.** Because tokens live in etcd, there's no centralised view of active sessions. You can't revoke a user's access across all clusters from a single pane of glass — you'd need to delete their tokens from every cluster individually.
+
+For organisations operating at scale, this model creates real friction. Platform teams end up building custom tooling to synchronise identity provider configurations, manage service account tokens, and handle cross-cluster authentication flows. It works, but it's brittle and operationally expensive.
+
+This is the background for what changed in OpenShift 4.20. OpenShift 4.20 provides "Generally Available" support for direct authentication to the OpenShift API using an OpenID Connect provider - the OAuth server / proxy is not used at all!
+
+If you want to read more, you can see [this section](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html/release_notes/ocp-4-20-release-notes) in the OpenShift 4.20 release notes.
+
+Configuring external / direct authentication with OpenShift is now available as a detailed reference architecture, which you can find [here](https://www.redhat.com/architect/portfolio/detail/134-openshift-external-auth/).
+
+I want to expand on the reference architecture in this article, and specifically look at Microsoft Entra, and service principal auth to OpenShift.
+
+## What is a Service Principal Name (SPN)?
+
+In Microsoft Entra, a Service Principal Name (SPN) is an identity used by applications, services, or automation tooling to authenticate — rather than a human user. When you create an App Registration in Entra, a corresponding service principal is automatically created in your tenant. This service principal is what actually gets assigned permissions and roles, and what your code authenticates as.
+
+You can think of it this way: the App Registration is the global definition of your application, while the service principal is the local identity instance within your tenant that can be granted access to resources.
+
+SPNs authenticate using credentials — either a client secret or a certificate — rather than an interactive browser-based login flow. This makes them ideal for non-interactive, machine-to-machine scenarios.
+
+So why would you want SPN authentication to OpenShift? There are a few use cases:
+
+- **Automation across multiple clusters.** With direct OIDC authentication, a single Entra SPN can authenticate to any OpenShift cluster configured with the same Entra tenant as its identity provider. This means your CI/CD pipelines, GitOps tooling, or custom automation can use one set of Entra credentials to interact with the Kubernetes API across your entire fleet — no more managing per-cluster service account tokens or kubeconfig files.
+
+- **Centralised credential lifecycle management.** SPN credentials (secrets and certificates) are managed in Entra, not inside each cluster. You can rotate credentials, set expiry policies, and revoke access from a single control plane. When a credential is revoked in Entra, the SPN immediately loses access to every cluster — no need to clean up tokens in each cluster's etcd.
+
+- **Audit and compliance.** Every authentication event for an SPN is logged in Entra's sign-in logs, giving you a centralised audit trail of which service authenticated to which cluster and when. This is significantly easier to monitor and report on than tracking service account token usage across hundreds of clusters.
+
+- **Conditional access policies.** Because SPNs authenticate through Entra, you can apply Entra Conditional Access policies to them — restricting authentication to specific IP ranges, requiring specific compliance conditions, or blocking access entirely during an incident. This gives you policy controls over machine identities that simply don't exist with cluster-local service accounts.
+
+## Installing an OpenShift cluster
+
+I'm going to install OpenShift to AWS and configure identity via Microsoft Entra. This is a great use case for multi / hybrid cloud, and means I can simply specify my OpenShift cluster as an `install-config.yaml` and have the `openshift-install` binary build the cluster in AWS:
+
+```
+additionalTrustBundlePolicy: Proxyonly
+apiVersion: v1
+baseDomain: sandbox.example.com
+compute:
+- architecture: amd64
+  hyperthreading: Enabled
+  name: worker
+  platform:
+    aws:
+      type: m6i.2xlarge
+  replicas: 3
+controlPlane:
+  architecture: amd64
+  hyperthreading: Enabled
+  name: master
+  platform: {}
+  replicas: 3
+metadata:
+  creationTimestamp: null
+  name: cluster1
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  machineNetwork:
+  - cidr: 10.0.0.0/16
+  networkType: OVNKubernetes
+  serviceNetwork:
+  - 172.30.0.0/16
+platform:
+  aws:
+    region: ap-southeast-2
+publish: External
+pullSecret: <snip>
+```
+
+## Configuring Entra auth to OpenShift
+Before we configure SPN auth, we first need to configure direct authentication via Microsoft Entra.
+
+To do that, we first need to create an Entra App Registration. This will represent OpenShift as an application in your Entra tenant, and provide the client ID and issuer URL that OpenShift needs to validate tokens from Entra. The App Registration acts as the trust anchor between Entra and the OpenShift API server — when a user authenticates via Entra, the resulting ID token is signed by Entra and validated by OpenShift using the OIDC discovery metadata published by your tenant.
+
+Navigate to Entra and select 'App Registrations'.
+
+<Zoom>
+![entra1](/static/images/entra-spn/entra1.png)
+</Zoom>
+
+<Zoom>
+![entra2](/static/images/entra-spn/entra2.png)
+</Zoom>
+
+Select 'New App Registration' and enter the following details:
+
+- Name: name for your App Registration
+- Support account type: `Single tenant only`
+- Redirect URI: Select `Web`, and add the link for your OpenShift console's auth callback, e.g. https://console-openshift-console.<apps_subdomain>/auth/callback
+
+<Zoom>
+![entra3](/static/images/entra-spn/entra3.png)
+</Zoom>
+
+Great! Now we have an OpenShift application within the Entra tenant. The next step is to add some credentials. On the right-hand side, next to `Client credentials`, select `Add a certificate or secret`:
+
+<Zoom>
+![entra4](/static/images/entra-spn/entra4.png)
+</Zoom>
+
+Select `New client secret`:
+
+<Zoom>
+![entra5](/static/images/entra-spn/entra5.png)
+</Zoom>
+
+Enter a name for the client credential and a validity period, and select `Add`.
+
+<Zoom>
+![entra6](/static/images/entra-spn/entra6.png)
+</Zoom>
+
+Now we have credentials for the app available:
+
+<Zoom>
+![entra7](/static/images/entra-spn/entra7.png)
+</Zoom>
+
+We want to use the user's email to log in, so let's ensure that this is added as a claim to the token. Access the `Token configuration` menu:
+
+<Zoom>
+![entra8](/static/images/entra-spn/entra8.png)
+</Zoom>
+
+Select `Add optional claim` and ensure that `email` and `preferred_username` are checked:
+
+<Zoom>
+![entra9](/static/images/entra-spn/entra9.png)
+</Zoom>
+
+The next step is configuring OpenShift for direct authentication. Firstly, we need to create a secret holding the Entra App Registration client credentials in the `openshift-console` namespace — this is where the console operator looks for it:
+```
+oc create secret generic -n openshift-console console-client-secret --from-literal=clientSecret='<your-app-reg-secret>'
+```
+
+OpenShift 4.20 introduces an `Authentication` custom resource definition (CRD) that you can use to configure cluster-wide direct auth. Here's an example:
+
+```yaml
+apiVersion: config.openshift.io/v1
+kind: Authentication
+metadata:
+  namespace: openshift-authentication
+  name: cluster
+spec:
+  type: OIDC
+  webhookTokenAuthenticator: null
+  oidcProviders:
+  - claimMappings:
+      username:
+        claim: email
+        prefixPolicy: "NoPrefix"
+    issuer:
+      audiences:
+      # add app reg IDs
+      - <your-app-reg-client-id>
+      issuerCertificateAuthority:
+        name: ""
+      issuerURL: https://sts.windows.net/<your-tenant-id>/
+    name: 'entra-oidc'
+    oidcClients:
+    - clientID:  <your-app-reg-client-id>
+      clientSecret:
+        name: console-client-secret
+      componentName: console
+      componentNamespace: openshift-console
+```
+
+Apply this config via `oc apply`, and see that the `kube-apiserver` is updated:
+```
+oc get co
+
+NAME                                       VERSION   AVAILABLE   PROGRESSING   DEGRADED   SINCE   MESSAGE
+authentication                             4.20.8    True        False         False      139m
+baremetal                                  4.20.8    True        False         False      160m
+cloud-controller-manager                   4.20.8    True        False         False      165m
+cloud-credential                           4.20.8    True        False         False      168m
+cluster-autoscaler                         4.20.8    True        False         False      161m
+config-operator                            4.20.8    True        False         False      162m
+console                                    4.20.8    True        False         False      147m
+control-plane-machine-set                  4.20.8    True        False         False      159m
+csi-snapshot-controller                    4.20.8    True        False         False      160m
+dns                                        4.20.8    True        False         False      160m
+etcd                                       4.20.8    True        False         False      160m
+image-registry                             4.20.8    True        False         False      150m
+ingress                                    4.20.8    True        False         False      151m
+insights                                   4.20.8    True        False         False      160m
+kube-apiserver                             4.20.8    True        True          False      156m    NodeInstallerProgressing: 3 nodes are at revision 6; 0 nodes have achieved new revision 8
+kube-controller-manager                    4.20.8    True        False         False      157m
+kube-scheduler                             4.20.8    True        False         False      159m
+kube-storage-version-migrator              4.20.8    True        False         False      161m
+machine-api                                4.20.8    True        False         False      155m
+machine-approver                           4.20.8    True        False         False      160m
+machine-config                             4.20.8    True        False         False      158m
+marketplace                                4.20.8    True        False         False      160m
+monitoring                                 4.20.8    True        False         False      148m
+network                                    4.20.8    True        False         False      164m
+node-tuning                                4.20.8    True        False         False      155m
+olm                                        4.20.8    True        False         False      160m
+openshift-apiserver                        4.20.8    True        False         False      153m
+openshift-controller-manager               4.20.8    True        False         False      151m
+openshift-samples                          4.20.8    True        False         False      151m
+operator-lifecycle-manager                 4.20.8    True        False         False      160m
+operator-lifecycle-manager-catalog         4.20.8    True        False         False      160m
+operator-lifecycle-manager-packageserver   4.20.8    True        False         False      151m
+service-ca                                 4.20.8    True        False         False      161m
+storage                                    4.20.8    True        False         False      159m
+```
+
+There's one more critical step — RBAC. Authenticating via OIDC establishes *who* the user is, but OpenShift still needs to know *what they're allowed to do*. Without a ClusterRoleBinding, the user will authenticate successfully but get `Unauthorized` errors on every API call, resulting in the console endlessly looping through login redirects.
+
+Create a ClusterRoleBinding for your Entra user (using the email address that maps to the `email` claim in the token):
+```
+oc adm policy add-cluster-role-to-user cluster-admin user@example.com
+```
+
+Once the API changes are updated and the RBAC binding is in place, you can now try to log in to the console again. In my case I'm prompted for my internal username, as this is configured for use with Entra:
+
+<Zoom>
+![entra10](/static/images/entra-spn/entra10.png)
+</Zoom>
+
+Once logged in, there's a few things to notice. Firstly, my user has the correct RBAC role, because we mapped the user email to the `cluster-admin` role using a ClusterRoleBinding.
+
+Secondly, the `User` and `Group` APIs are removed:
+```
+$ oc get users
+error: the server doesn't have a resource type "users"
+
+$ oc get groups
+error: the server doesn't have a resource type "groups"
+```
+This is because users and groups are now provided by the upstream identity platform (Entra), and not managed within the cluster.
+
+Now that we've verified User Principal authentication, let's move on to Service Principals.
+
+
+## Configuring SPN auth to OpenShift
+
+Let's configure SPN auth to this OpenShift cluster. Firstly, we need to create a service principal in Entra. Like I mentioned above, this is created when we create an App Registration, so let's do that:
+
+<Zoom>
+![entra11](/static/images/entra-spn/entra11.png)
+</Zoom>
+
+Note in this case I haven't provided a redirect URI, because we're not going to use this for interactive login.
+
+Let's create one the same as before — selecting `New client secret` for the Entra App Registration.
+
+<Zoom>
+![entra12](/static/images/entra-spn/entra12.png)
+</Zoom>
+
+<Zoom>
+![entra13](/static/images/entra-spn/entra13.png)
+</Zoom>
+
+### ID tokens vs access tokens
+
+There is one funky thing that we need to do next. Service Principals (SPNs) don't use Entra ID tokens — they use access tokens.
+
+What's the difference?
+
+An **ID token** is intended for the client application itself. It answers the question "who is this user?" — it contains identity claims like the user's name, email, and group memberships. When a human user authenticates to OpenShift via Entra, the OpenShift API server validates the ID token and extracts claims from it to determine who the user is and what roles they should have. ID tokens are issued as part of the OpenID Connect flow and are meant to be consumed by the application that requested authentication.
+
+An **access token**, on the other hand, is intended for a resource server — it answers the question "what is this caller allowed to do?" Access tokens are used to call APIs on behalf of the authenticated identity. They contain scopes and permissions rather than identity claims, and are validated by the API being called, not by the client.
+
+When an SPN authenticates to Entra using the client credentials flow, there's no interactive user involved — so Entra doesn't issue an ID token. There's no "user" to identify. Instead, the SPN receives an access token that represents the application's own identity and permissions. This means OpenShift needs to be configured to accept and validate access tokens from Entra, not just ID tokens.
+
+Let's take a look at a user's ID token, which contains the claims they receive from Entra:
+
+```
+TENANT_ID="your-tenant-id"
+CLIENT_ID="your-client-id"
+CLIENT_SECRET="your-client-secret"
+
+# Open this URL in your browser to authenticate:
+echo "https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/authorize?\
+client_id=${CLIENT_ID}&\
+response_type=code&\
+redirect_uri=http%3A%2F%2Flocalhost%3A8080&\
+scope=openid%20profile%20email&\
+response_mode=query"
+```
+
+After signing in, Entra redirects your browser to `http://localhost:8080/?code=AUTH_CODE...`. Copy the `code` parameter from the URL, and exchange it for tokens:
+
+```
+AUTH_CODE="the-code-from-redirect"
+
+curl -s -X POST \
+  "https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token" \
+  --data-urlencode "grant_type=authorization_code" \
+  --data-urlencode "client_id=${CLIENT_ID}" \
+  --data-urlencode "client_secret=${CLIENT_SECRET}" \
+  --data-urlencode "code=${AUTH_CODE}" \
+  --data-urlencode "redirect_uri=http://localhost:8080" \
+  --data-urlencode "scope=openid profile email"
+```
+
+The response includes an `id_token` field — a JWT containing the user's identity claims. Decode it by extracting and base64-decoding the payload (the second dot-separated segment):
+
+```
+echo "$ID_TOKEN" | cut -d'.' -f2 | base64 -d 2>/dev/null | jq .
+```
+Here we can see our claims:
+
+```
+{
+  "aud": "<snip>",
+  "iss": "https://login.microsoftonline.com/<snip>/v2.0",
+  "iat": <snip>,
+  "nbf": <snip>,
+  "exp": <snip>,
+  "email": "sboulden@redhat.com",
+  "groups": [
+    "<snip>",
+  ],
+  "name": "Shane Boulden",
+  "oid": "<snip>",
+  "preferred_username": "sboulden@redhat.com",
+  "rh": "<snip>",
+  "sid": "<snip>",
+  "sub": "<snip>",
+  "tid": "<snip>>",
+  "uti": "<snip>",
+  "ver": "2.0"
+}
+```
+OK — our ID token for users has an email and preferred_username. But — what about the SPN? It doesn't have an ID token, only an access token. What claims does an access token have?
+
+Let's retrieve an access token for the SPN using the client credentials flow:
+```
+TENANT_ID="your-tenant-id"
+SPN_CLIENT_ID="your-spn-client-id"
+SPN_CLIENT_SECRET="your-spn-client-secret"
+
+curl -s -X POST \
+  "https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token" \
+  --data-urlencode "grant_type=client_credentials" \
+  --data-urlencode "client_id=${SPN_CLIENT_ID}" \
+  --data-urlencode "client_secret=${SPN_CLIENT_SECRET}" \
+  --data-urlencode "scope=${SPN_CLIENT_ID}/.default"
+```
+
+Decode the access token claims the same way:
+```
+echo "$ACCESS_TOKEN" | cut -d'.' -f2 | base64 -d 2>/dev/null | jq .
+```
+```json
+{
+  "aud": "<snip>",
+  "iss": "https://sts.windows.net/<snip>/",
+  "iat": <snip>,
+  "nbf": <snip>,
+  "exp": <snip>,
+  "aio": "<snip>",
+  "appid": "<snip>",
+  "appidacr": "1",
+  "idp": "https://sts.windows.net/<snip>/",
+  "oid": "c8b164c9-8d03-468e-a1be-532c9de6512a",
+  "rh": "<snip>",
+  "sub": "<snip>",
+  "tid": "<snip>",
+  "uti": "<snip>",
+  "ver": "1.0",
+  "xms_ftd": "<snip>"
+}
+```
+
+
+This is interesting. User Principals have an email / preferred_username, as well as `sub` and `oid`, but SPNs only have `sub` and `oid` — no email or preferred_username. This makes sense — SPNs don't have email or preferred_username claims because those are user-specific attributes. An SPN is an application identity, not a person.
+
+This means that we need to update our `Authentication` CR to use a claim that is supported by both SPNs and users.
+
+I'm going to use the `oid` for a couple of reasons:
+
+* Audit log correlation: `oid` is the same object ID that appears in Entra's own sign-in logs. If you see a request in OpenShift audit logs, you can search that same ID directly in Entra to find the identity. With sub, you can't — for users it's a pairwise identifier specific to the app registration, so it won't match anything in Entra's logs.
+
+* Consistency: `oid` is present in both user ID tokens and SPN access tokens, and in both cases it's the tenant-wide object ID. For SPNs, sub and oid happen to be the same value, but for users they're different.
+
+## Updating OpenShift Authentication to support SPNs
+
+Let's update the `Authentication` CR. We're going to modify the username claim to `oid`, and add the SPN's app ID to the list of `audiences`, to allow it to authenticate:
+
+```
+apiVersion: config.openshift.io/v1
+kind: Authentication
+metadata:
+  namespace: openshift-authentication
+  name: cluster
+spec:
+  type: OIDC
+  webhookTokenAuthenticator: null
+  oidcProviders:
+  - claimMappings:
+      username:
+        claim: oid
+        prefixPolicy: "NoPrefix"
+    issuer:
+      audiences:
+      # add app reg IDs
+      - <app-reg-id-for-openshift-console-app>
+      - <app-reg-id-for-spn>
+      issuerCertificateAuthority:
+        name: ""
+      issuerURL: https://sts.windows.net/<your-tenant-uuid>/
+    name: 'entra-oidc'
+    oidcClients:
+    - clientID:  <app-reg-id-for-openshift-console-app>
+      clientSecret:
+        name: console-client-secret
+      componentName: console
+      componentNamespace: openshift-console
+```
+You'll wait again for OpenShift to roll out the changes to the Kubernetes API server:
+```
+$ oc get co
+NAME                                       VERSION   AVAILABLE   PROGRESSING   DEGRADED   SINCE   MESSAGE
+...
+kube-apiserver                             4.20.8    True        True          False      5h17m   NodeInstallerProgressing: 3 nodes are at revision 10; 0 nodes have achieved new revision 11
+...
+```
+Once done, we should be able to log in using the SPN. There is a catch though — the upstream [kubelogin](https://github.com/int128/kubelogin) plugin only supports ID tokens, not access tokens. Fortunately, there is an alternative version of the [kubelogin plugin from Microsoft](https://github.com/Azure/kubelogin), which does understand SPNs and access tokens, and we can use it to log in to the cluster.
+
+I've installed this using the Azure CLI:
+```
+az aks install-cli
+```
+If you run `which kubelogin`, you can see that it is now installed, and if you take a look at the `help`, it shows that this variant specifically supports "Azure Active Directory" (which is Entra).
+```
+$ which kubelogin
+/usr/local/bin/kubelogin
+
+$ kubelogin --help
+login to azure active directory and populate kubeconfig with AAD tokens
+```
+Awesome. Now that our changes have been rolled out to the Kubernetes API server, let's use the Azure `kubelogin` plugin to authenticate to the cluster. To do this, I'm going to create a separate kubeconfig file. Note the references to `spn`:
+
+```
+$ cat kubeconfig
+
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: https://api.your-openshift-cluster.example.com:6443
+    insecure-skip-tls-verify: true
+  name: sandbox-cluster
+contexts:
+- context:
+    cluster: sandbox-cluster
+    user: oidc-spn-user
+  name: context-oc-helper
+current-context: context-oc-helper
+users:
+- name: oidc-spn-user
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1beta1
+      command: kubelogin
+      args:
+      - get-token
+      - --login
+      - spn
+      - --tenant-id
+      - <your-tenant-id>
+      - --client-id
+      - <your-spn-client-id>
+      - --client-secret
+      - <your-spn-client-secret>
+      - --server-id
+      - <your-openshift-app-id>
+
+$ oc whoami
+c8b164c9-8d03-468e-a1be-532c9de6512a
+-> This is the oid for the SPN!
+```
+Because we used `oid` for the user, we can use the `az` CLI to show more information about this service principal:
+```
+az ad sp show --id c8b164c9-8d03-468e-a1be-532c9de6512a
+```
+```json
+{
+  "appDisplayName": "automation-openshift-spn",
+  "displayName": "automation-openshift-spn",
+  "id": "c8b164c9-8d03-468e-a1be-532c9de6512a",
+  "servicePrincipalType": "Application",
+  "signInAudience": "AzureADMyOrg",
+  ...
+}
+```
+Amazing! Now our security and platform teams can track SPN actions seamlessly from OpenShift / Kubernetes audit logs to Microsoft Azure audit logs.
+
+## Wrapping up
+
+In this article I covered direct authentication to OpenShift clusters with an external OIDC identity provider. Support for this was introduced with [OpenShift 4.20](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html/release_notes/ocp-4-20-release-notes), and in this article I've specifically focused on Microsoft Entra. I started with the OpenShift built-in OAuth server — how it works, what it enables with the oauth-proxy, and why it starts to break down at scale. We then looked at what changed in OpenShift 4.20 with direct OIDC authentication, and walked through configuring Microsoft Entra as an external identity provider for OpenShift.
+
+From there, we dug into Service Principal Names — what they are, why they only receive access tokens (not ID tokens), and how the claims differ from a human user's. We configured the `Authentication` CR to use `oid` as the username claim (supporting both users and SPNs), added the SPN's app ID as an audience, and used Microsoft's `kubelogin` plugin to authenticate to the cluster as an SPN.
+
+### Next steps
+
+There's plenty more to explore from here:
+
+- **Authenticating without kubelogin.** The Azure `kubelogin` plugin handles the client credentials flow and token exchange for you, but it's not the only way. Could you use `curl` to hit the Entra token endpoint directly, retrieve an access token, and pass it as a bearer token to the OpenShift API? This is worth exploring for environments where you can't install kubectl plugins — think lightweight containers, or older workstations.
+
+- **RBAC for SPNs.** We authenticated as an SPN, but we didn't grant it any permissions. In OpenShift, the SPN's identity is its `oid` — that's what appears as the username. You can create `ClusterRoleBinding` or `RoleBinding` resources that reference this `oid` directly, just as you would for a human user. You could also create Entra groups for your SPNs, add the group ID as a claim, and bind roles to those groups — giving you centralised, Entra-managed RBAC for your machine identities.
+
+- **Certificate-based authentication.** We used a client secret for the SPN in this article, but Entra also supports certificate credentials. Certificates avoid the risk of secret leakage and can be managed with hardware security modules (HSMs) or Azure Key Vault. How would the `kubelogin` configuration change if you switched from a client secret to a certificate?
+
+- **Conditional Access policies.** I mentioned earlier that Entra Conditional Access can apply to SPNs. What would it look like to restrict your automation SPN to only authenticate from specific IP ranges? This is a powerful layer of policy that sits entirely outside the cluster.
