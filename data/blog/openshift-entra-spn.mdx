@@ -85,7 +85,7 @@ So why would you want SPN authentication to OpenShift? There are a few use cases
 
 I'm going to install OpenShift to AWS and configure identity via Microsoft Entra. This is a great use case for multi / hybrid cloud, and means I can simply specify my OpenShift cluster as an `install-config.yaml` and have the `openshift-install` binary build the cluster in AWS:
 
-```
+```yaml:'install-config.yaml' showLineNumbers
 additionalTrustBundlePolicy: Proxyonly
 apiVersion: v1
 baseDomain: sandbox.example.com
@@ -190,7 +190,7 @@ oc create secret generic -n openshift-console console-client-secret --from-liter
 
 OpenShift 4.20 introduces an `Authentication` custom resource definition (CRD) that you can use to configure cluster-wide direct auth. Here's an example:
 
-```yaml
+```yaml showLineNumbers
 apiVersion: config.openshift.io/v1
 kind: Authentication
 metadata:
@@ -221,7 +221,7 @@ spec:
 ```
 
 Apply this config via `oc apply`, and see that the `kube-apiserver` is updated:
-```
+```python
 oc get co
 
 NAME                                       VERSION   AVAILABLE   PROGRESSING   DEGRADED   SINCE   MESSAGE
@@ -323,7 +323,7 @@ When an SPN authenticates to Entra using the client credentials flow, there's no
 
 Let's take a look at a user's ID token, which contains the claims they receive from Entra:
 
-```
+```python
 TENANT_ID="your-tenant-id"
 CLIENT_ID="your-client-id"
 CLIENT_SECRET="your-client-secret"
@@ -339,7 +339,7 @@ response_mode=query"
 
 After signing in, Entra redirects your browser to `http://localhost:8080/?code=AUTH_CODE...`. Copy the `code` parameter from the URL, and exchange it for tokens:
 
-```
+```python
 AUTH_CODE="the-code-from-redirect"
 
 curl -s -X POST \
@@ -359,7 +359,7 @@ echo "$ID_TOKEN" | cut -d'.' -f2 | base64 -d 2>/dev/null | jq .
 ```
 Here we can see our claims:
 
-```
+```json showLineNumbers
 {
   "aud": "<snip>",
   "iss": "https://login.microsoftonline.com/<snip>/v2.0",
@@ -384,7 +384,7 @@ Here we can see our claims:
 OK — our ID token for users has an email and preferred_username. But — what about the SPN? It doesn't have an ID token, only an access token. What claims does an access token have?
 
 Let's retrieve an access token for the SPN using the client credentials flow:
-```
+```python
 TENANT_ID="your-tenant-id"
 SPN_CLIENT_ID="your-spn-client-id"
 SPN_CLIENT_SECRET="your-spn-client-secret"
@@ -401,7 +401,7 @@ Decode the access token claims the same way:
 ```
 echo "$ACCESS_TOKEN" | cut -d'.' -f2 | base64 -d 2>/dev/null | jq .
 ```
-```json
+```json showLineNumbers
 {
   "aud": "<snip>",
   "iss": "https://sts.windows.net/<snip>/",
@@ -436,7 +436,7 @@ I'm going to use the `oid` for a couple of reasons:
 
 Let's update the `Authentication` CR. We're going to modify the username claim to `oid`, and add the SPN's app ID to the list of `audiences`, to allow it to authenticate:
 
-```
+```yaml {12,18} showLineNumbers
 apiVersion: config.openshift.io/v1
 kind: Authentication
 metadata:
@@ -477,7 +477,7 @@ kube-apiserver                             4.20.8    True        True          F
 Once done, we should be able to log in using the SPN. There is a catch though — the upstream [kubelogin](https://github.com/int128/kubelogin) plugin only supports ID tokens, not access tokens. Fortunately, there is an alternative version of the [kubelogin plugin from Microsoft](https://github.com/Azure/kubelogin), which does understand SPNs and access tokens, and we can use it to log in to the cluster.
 
 I've installed this using the Azure CLI:
-```
+```bash
 az aks install-cli
 ```
 If you run `which kubelogin`, you can see that it is now installed, and if you take a look at the `help`, it shows that this variant specifically supports "Azure Active Directory" (which is Entra).
@@ -490,7 +490,7 @@ login to azure active directory and populate kubeconfig with AAD tokens
 ```
 Awesome. Now that our changes have been rolled out to the Kubernetes API server, let's use the Azure `kubelogin` plugin to authenticate to the cluster. To do this, I'm going to create a separate kubeconfig file. Note the references to `spn`:
 
-```
+```yaml {25} showLineNumbers
 $ cat kubeconfig
 
 apiVersion: v1
@@ -530,7 +530,7 @@ c8b164c9-8d03-468e-a1be-532c9de6512a
 -> This is the oid for the SPN!
 ```
 Because we used `oid` for the user, we can use the `az` CLI to show more information about this service principal:
-```
+```bash
 az ad sp show --id c8b164c9-8d03-468e-a1be-532c9de6512a
 ```
 ```json
