@@ -141,7 +141,7 @@ Select 'New App Registration' and enter the following details:
 
 - Name: name for your App Registration
 - Support account type: `Single tenant only`
-- Redirect URI: Select `Web`, and add the link for your OpenShift console's auth callback, e.g. https://console-openshift-console.<apps_subdomain>/auth/callback
+- Redirect URI: Select `Web`, and add the link for your OpenShift console's auth callback, e.g. `https://console-openshift-console.<apps_subdomain>/auth/callback`
 
 <Zoom>
 ![entra3](/static/images/entra-spn/entra3.png)
@@ -421,7 +421,6 @@ echo "$ACCESS_TOKEN" | cut -d'.' -f2 | base64 -d 2>/dev/null | jq .
   "xms_ftd": "<snip>"
 }
 ```
-
 
 This is interesting. User Principals have an email / preferred_username, as well as `sub` and `oid`, but SPNs only have `sub` and `oid` — no email or preferred_username. This makes sense — SPNs don't have email or preferred_username claims because those are user-specific attributes. An SPN is an application identity, not a person.
 
