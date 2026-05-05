@@ -9,7 +9,17 @@
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
       <lastBuildDate>Mon, 06 Apr 2026 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
-      
+
+  <item>
+    <guid>https://stb.id.au/blog/openshift-entra-spn</guid>
+    <title>Microsoft Entra SPN auth with OpenShift</title>
+    <link>https://stb.id.au/blog/openshift-entra-spn</link>
+    <description>OpenShift 4.20 introduced support for direct OpenID Connect authentication, allowing you to configure the OpenShift API / console to authenticate directly with OpenID Connect providers. In this article I take a closer look at one of the use cases this enables - Microsoft Entra Service Principal Name (SPN) direct authentication to OpenShift.</description>
+    <pubDate>Tue, 05 May 2026 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>entra</category><category>authentication</category><category>authorisation</category><category>spn</category><category>service</category><category>principal</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/openshift-easter-eggs</guid>
     <title>OpenShift Easter Eggs - trolling dwalsh</title>
