@@ -7,9 +7,19 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Tue, 05 May 2026 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Mon, 29 Jun 2026 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
-      
+
+  <item>
+    <guid>https://stb.id.au/blog/openshift-consolidate-control-plane</guid>
+    <title>To consolidate, or not to consolidate?</title>
+    <link>https://stb.id.au/blog/openshift-consolidate-control-plane</link>
+    <description>That is the question. Whether &#39;tis nobler to run a dedicated control plane, or to consolidate control plane and worker nodes. In this article I look at when to consolidate OpenShift control plane and worker nodes on bare metal, and when to keep them separate.</description>
+    <pubDate>Mon, 29 Jun 2026 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>kubernetes</category><category>control</category><category>bare</category><category>metal</category><category>consolidate</category><category>architecture</category>
+  </item>
+
   <item>
     <guid>https://stb.id.au/blog/openshift-entra-spn</guid>
     <title>Microsoft Entra SPN auth with OpenShift</title>
