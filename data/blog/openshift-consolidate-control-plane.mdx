@@ -1,0 +1,297 @@
+---
+title: To consolidate, or not to consolidate?
+date: '2026-06-29'
+tags: ['openshift','kubernetes','control','bare','metal','consolidate','architecture']
+images: ['/static/images/linkedin-banners/hamlet.png']
+draft: false
+summary: "That is the question. Whether 'tis nobler to run a dedicated control plane, or to consolidate control plane and worker nodes. In this article I look at when to consolidate OpenShift control plane and worker nodes on bare metal, and when to keep them separate."
+---
+*"To be, or not to be, that is the question."*
+
+*"Whether 'tis nobler in the mind to suffer the slings and arrows of outrageous fortune, or to take arms against a sea of troubles, and by opposing end them."*
+
+While Shakespeare was grappling with existential dread when he wrote this soliloquy in Hamlet, I think there's a similar existential question that OpenShift architects face when planning bare metal deployments:
+
+<Zoom>
+![hamlet](/static/images/hamlet-openshift/hamlet.png)
+</Zoom>
+
+Or in other words: **Should I consolidate my OpenShift control plane and worker nodes, or keep them separate?**
+
+It's a question I get asked a lot. And like most good architecture questions, the answer is "it depends." But unlike Hamlet, we don't need to agonise over it, and there are some clear signals that point you in the right direction.
+
+In this article I want to walk through the key considerations and help understand when consolidation makes sense, and when a dedicated control plane is the better fit. Let's dive in!
+
+## What do we mean by "consolidation"?
+
+When I talk about consolidating control plane and worker nodes I'm referring to Red Hat OpenShift's support for running workloads directly on control plane nodes, sometimes called "[compact clusters](https://www.opensourcerers.org/2024/10/07/openshift-compact-clusters-efficient-deployments/)" or "three-node clusters."
+
+In this topology, your three control plane nodes also act as workers, and there are no dedicated worker nodes at all. This is a fully supported configuration. OpenShift allows you to remove the `NoSchedule` taint from control plane nodes, allowing application workloads to be scheduled alongside the API server, etcd, the controller manager, and the scheduler.
+
+The alternative - a "segregated" or "dedicated" control plane - is the more traditional model. You have three control plane nodes that run only the control plane components, and a separate pool of worker nodes for your application workloads.
+
+Both approaches have their place. The question is: which one fits your environment, risk tolerance and workload profile?
+
+## To consolidate
+
+There are some scenarios where consolidation is a natural fit, and running a dedicated control plane would be overkill:
+
+- **Edge and remote sites.** If you're deploying OpenShift to a remote site - for example, a mine site, a retail store, or a telecommunications tower - you're probably constrained on physical space, power, and cooling. Running six or more servers in a remote location that might only have a single rack isn't practical. A compact three-node cluster or even a single-node OpenShift cluster gives you a fully functional OpenShift deployment, in a fraction of the physical footprint.
+
+- **Cost-constrained deployments.** Fewer servers means lower capital expenditure and lower ongoing operational costs. If your workloads are lightweight and predictable, dedicating three entire nodes solely to the control plane (nodes that might sit at 10% utilisation) is hard to justify. Consolidation lets you make the most of the hardware you have.
+
+- **Small workload footprints.** If you're running a handful of containerised services that don't compete heavily for CPU or memory, there's little risk of those workloads interfering with control plane operations. In these environments, consolidation avoids the waste of idle control plane resources.
+
+- **Lab and development environments.** For non-production environments where availability requirements are lower and you want to minimise infrastructure costs, compact clusters are an excellent choice. You get a fully functional OpenShift cluster with a fraction of the hardware.
+
+- **Single-site simplicity.** Fewer nodes means simpler networking, fewer failure domains to reason about, and faster initial deployment. For teams without deep infrastructure expertise at remote sites, a compact cluster is significantly easier to deploy, manage, and troubleshoot.
+
+## Or not to consolidate
+
+There are also clear signals that tell you a dedicated control plane is the right call. And this is where things get interesting, because the failure modes of a consolidated cluster can be subtle and hard to diagnose.
+
+### The etcd problem
+
+This is probably the single most important consideration. `etcd` is the backing store for the entire Kubernetes API — every object, every secret, every pod spec lives in `etcd`. And `etcd` is *extremely* latency-sensitive.
+
+The [etcd documentation](https://etcd.io/docs/v3.5/op-guide/hardware/) recommends that the 99th percentile of fsync durations remain below 10 milliseconds. When `etcd` fsync latency exceeds this threshold, you start to see leader elections, slow API responses, and in severe cases, data consistency issues.
+
+Here's the problem: if you're running application workloads on the same nodes as `etcd`, and those workloads generate heavy disk I/O, you can push etcd past its performance tolerances. This might manifest as the API server becoming sluggish, `oc` commands timing out, or in the worst case, an `etcd` leader election that temporarily makes the cluster unavailable.
+
+The insidious thing is that this can be intermittent. Your cluster might run fine for weeks, and then a batch job kicks off on a Tuesday afternoon, generates a burst of disk writes, and suddenly your API server stops responding. These kinds of failures are incredibly frustrating to diagnose because the root cause (disk contention from a workload) and the symptom (API server instability) feel completely unrelated.
+
+### Workload isolation and stability
+
+Control plane components need predictable access to CPU and memory. If a workload on a consolidated node hits an out-of-memory condition, the kernel's OOM killer might terminate an application pod — or it might terminate a control plane component. The OOM killer doesn't care about your architecture; it cares about which process is consuming the most memory.
+
+With a dedicated control plane, you create a hard boundary. Application workloads can spike, crash, and recover without any risk to the control plane. The blast radius of a misbehaving application is contained to the worker nodes.
+
+### Security and compliance
+
+Many regulated environments require separation between management and data planes. This is also highlighted in risk-based cybersecurity frameworks like the [Australian Information Security Manual](https://www.cyber.gov.au/business-government/asds-cyber-security-frameworks/ism) and [CIS benchmarks](https://www.cisecurity.org/benchmark/kubernetes).
+
+Tainting control plane nodes as `NoSchedule` and maintaining dedicated worker pools provides a clearly defined boundary between infrastructure management and application workloads. When an auditor or a security assessor asks "can application code affect your OpenShfit control plane?", you want the answer to be a straightforward "no."
+
+Let's investigate this issue with a practical example. I've created a compact cluster on AWS using this `install-config.yaml`:
+```yaml
+additionalTrustBundlePolicy: Proxyonly
+apiVersion: v1
+baseDomain: clusters.example.com
+compute:
+- architecture: amd64
+  hyperthreading: Enabled
+  name: worker
+  platform:
+    aws:
+      type: m8i.2xlarge
+  replicas: 0
+controlPlane:
+  architecture: amd64
+  hyperthreading: Enabled
+  name: master
+  platform: {}
+  replicas: 3
+metadata:
+  creationTimestamp: null
+  name: cluster1
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  machineNetwork:
+  - cidr: 10.0.0.0/16
+  networkType: OVNKubernetes
+  serviceNetwork:
+  - 172.30.0.0/16
+platform:
+  aws:
+    region: ap-southeast-2
+publish: External
+pullSecret: '%snip%'
+```
+Note the `replicas: 0` setting here. This means that the OpenShift cluster is deployed without any worker nodes, and means that the `NoSchedule` taint is automatically removed from control plane nodes. We can verify this using a few `oc` commands:
+
+`NoSchedule` taints are not present on control plane nodes:
+```json
+$ oc get nodes -o json | jq '.items[] | {name: .metadata.name, taints: .spec.taints}'
+{
+  "name": "ip-10-0-20-69.ap-southeast-2.compute.internal",
+  "taints": null
+}
+{
+  "name": "ip-10-0-33-183.ap-southeast-2.compute.internal",
+  "taints": null
+}
+{
+  "name": "ip-10-0-71-250.ap-southeast-2.compute.internal",
+  "taints": null
+}
+```
+There are no dedicated worker nodes; every `control-plane` node is also a `worker`:
+```
+$ oc get nodes -l node-role.kubernetes.io/worker --no-headers
+ip-10-0-20-69.ap-southeast-2.compute.internal    Ready   control-plane,master,worker   77m   v1.34.7
+ip-10-0-33-183.ap-southeast-2.compute.internal   Ready   control-plane,master,worker   77m   v1.34.7
+ip-10-0-71-250.ap-southeast-2.compute.internal   Ready   control-plane,master,worker   77m   v1.34.7
+```
+
+There is a bit of misconfiguration required to really highlight the impacts of a rogue workload with node-level access. I'm going to:
+
+- disable SELinux across the control plane nodes
+- create a workload that runs as root (requires modifying the SCC for the workload)
+- mount the host CRI-O socket
+- deploy a container with access to the host `crictl` binaries (which would usually be blocked by SELinux)
+
+First, I'll disable SELinux on all control plane nodes. Since this is a compact cluster, every node is a control plane node:
+
+```bash
+for node in $(oc get nodes -o jsonpath='{.items[*].metadata.name}'); do
+  echo "Disabling SELinux on $node..."
+  oc debug node/$node -- chroot /host setenforce 0
+done
+```
+
+Next, I'll create a namespace and a service account, and grant it the `privileged` SCC. This allows the workload to run as root with host-level access:
+
+```bash
+oc new-project control-plane-demo
+oc create serviceaccount crio-access -n control-plane-demo
+oc adm policy add-scc-to-user privileged -z crio-access -n control-plane-demo
+```
+
+Now comes the interesting part. I'm going to deploy a pod that mounts the host's CRI-O socket, along with the host's `/usr/bin` directory (which contains `crictl`). This gives the pod direct access to the container runtime on the node:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: crio-access
+  namespace: control-plane-demo
+spec:
+  serviceAccountName: crio-access
+  hostPID: true
+  containers:
+  - name: crio-access
+    image: registry.access.redhat.com/ubi9/ubi:latest
+    command: ["sleep", "infinity"]
+    securityContext:
+      privileged: true
+      runAsUser: 0
+    volumeMounts:
+    - name: crio-sock
+      mountPath: /var/run/crio/crio.sock
+    - name: host-usr-bin
+      mountPath: /host/usr/bin
+      readOnly: true
+    - name: host-run
+      mountPath: /host/run
+  volumes:
+  - name: crio-sock
+    hostPath:
+      path: /var/run/crio/crio.sock
+      type: Socket
+  - name: host-usr-bin
+    hostPath:
+      path: /usr/bin
+      type: Directory
+  - name: host-run
+    hostPath:
+      path: /run
+      type: Directory
+```
+Note that usually the OpenShift `restricted-v2` [security context constraint](https://connect.redhat.com/en/blog/important-openshift-changes-pod-security-standards) would block this workload mounting host CRI-O socket, and even if it deployed, SELinux would block access to the socket from a container workload. I've disabled both here.
+
+This is a compact cluster, so there are no dedicated worker nodes and the pod is scheduled directly onto a control plane node. Let's check which node it landed on:
+
+```bash
+$ oc get pod crio-access -n control-plane-demo -o wide
+NAME          READY   STATUS    NODE
+crio-access   1/1     Running   ip-10-0-20-69.ap-southeast-2.compute.internal
+```
+
+As expected, this is a control plane node. Now, from inside this workload pod, I can use `crictl` to list every container running on the node, including all of the control plane components:
+
+```bash
+$ oc exec crio-access -- /host/usr/bin/crictl \
+    --runtime-endpoint unix:///var/run/crio/crio.sock ps
+```
+```
+CONTAINER       STATE     NAME                                          NAMESPACE
+ea83d02405516   Running   crio-access                                   control-plane-demo
+acf7be916a20b   Running   openshift-apiserver-check-endpoints           openshift-apiserver
+18032299d3631   Running   openshift-apiserver                           openshift-apiserver
+e80a6e4bc9c1d   Running   kube-controller-manager-cert-syncer           openshift-kube-controller-manager
+9183be2200817   Running   kube-controller-manager                       openshift-kube-controller-manager
+c14666b6506ba   Running   etcd                                          openshift-etcd
+6c0ce8513bbfc   Running   etcdctl                                       openshift-etcd
+1dce3b8e4ef88   Running   kube-apiserver                                openshift-kube-apiserver
+eb7ef06bff06f   Running   kube-scheduler                                openshift-kube-scheduler
+```
+
+That's the entire control plane, visible and accessible from a workload pod. But it gets worse; I can *inspect* these containers and extract sensitive configuration, like `etcd`'s TLS certificate paths, peer addresses, and data directory:
+
+```bash
+$ oc exec crio-access -- /host/usr/bin/crictl \
+    --runtime-endpoint unix:///var/run/crio/crio.sock \
+    inspect c14666b6506ba
+```
+```
+=== etcd container mounts ===
+  /etc/kubernetes/static-pod-resources/etcd-certs -> /etc/kubernetes/static-pod-certs
+  /var/lib/etcd -> /var/lib/etcd/
+
+=== etcd container environment (selected) ===
+  ETCDCTL_CACERT=/etc/kubernetes/static-pod-certs/configmaps/etcd-all-bundles/server-ca-bundle.crt
+  ETCDCTL_CERT=/etc/kubernetes/static-pod-certs/secrets/etcd-all-certs/etcd-peer-ip-10-0-20-69...crt
+  ETCDCTL_KEY=/etc/kubernetes/static-pod-certs/secrets/etcd-all-certs/etcd-peer-ip-10-0-20-69...key
+  ALL_ETCD_ENDPOINTS=https://10.0.20.69:2379,https://10.0.33.183:2379,https://10.0.71.250:2379
+  ETCD_DATA_DIR=/var/lib/etcd
+```
+
+And the real issue — I can *stop* a control plane container from a workload pod:
+
+```bash
+$ oc exec crio-access -- /host/usr/bin/crictl \
+    --runtime-endpoint unix:///var/run/crio/crio.sock \
+    stop c14666b6506ba
+c14666b6506ba
+```
+
+CRI-O restarts the `etcd` container automatically, but the damage is done; the `etcd` member on this node was temporarily unavailable, and any in-flight writes could have been disrupted. Notice the `ATTEMPT` counter has incremented from `0` to `1`:
+
+```bash
+$ oc exec crio-access -- /host/usr/bin/crictl \
+    --runtime-endpoint unix:///var/run/crio/crio.sock ps --name "^etcd$"
+```
+```
+CONTAINER       CREATED          STATE     NAME   ATTEMPT
+fc263d1854fcd   6 seconds ago    Running   etcd   1
+```
+
+This is the risk. A workload with the right (or wrong) privileges on a consolidated cluster doesn't just share resources with the control plane — it can directly interact with, inspect, and disrupt control plane components at the container runtime level. In a dedicated control plane topology, this scenario is impossible because workload pods are never scheduled onto control plane nodes.
+
+This scenario required several layers of misconfiguration - SELinux disabled, a privileged SCC, and host path mounts. Red Hat OpenShift enables all of these controls by default, and in a well-configured cluster, these controls would be in-place. But the point is that on a consolidated cluster, the *blast radius* of a misconfiguration is the entire control plane. On a segregated cluster, the same misconfiguration only affects worker nodes.
+
+### Large or unpredictable workloads
+
+GPU workloads, machine learning training, Java applications with large heap requirements, or services with bursty traffic patterns all argue strongly for keeping the control plane isolated. These workloads are resource-hungry and often unpredictable, which is exactly the kind of profile that causes problems when sharing nodes with `etcd` and the OpenShift API server.
+
+### Multi-tenancy
+
+When multiple teams share a cluster, the blast radius of a misbehaving tenant workload reaching the control plane is significant. A single team's misconfigured deployment could affect every other team on the cluster — and the platform team's ability to manage it. A dedicated control plane ensures that tenant workloads can't impact cluster operations, no matter how badly they behave.
+
+### Red Hat recommendations
+
+I should add one other item to this list, which is Red Hat recommendations. Currently, Red Hat **does not recommend** configuring the control plane as schedulable in clusters with dedicated worker nodes. This means that consolidating control plane and worker nodes is only recommended for compact / three-node clusters.
+
+That's not to say "you can't", and after evaluating your workload profiles, security requirements, and risk tolerance, you may decide that you are comfortable with the risk. But, I think that this recommendation must be noted. You can read more [here](https://access.redhat.com/solutions/4685721).
+
+## Wrapping up
+
+Like most architecture decisions, there's no universally right answer here. Consolidation isn't wrong; it's a tradeoff between resource efficiency and operational resilience.
+
+If you're deploying to the edge, running lightweight workloads, and working within tight hardware constraints, compact clusters are a great fit. They give you a fully functional OpenShift deployment with high availability in a minimal footprint (and you can go even smaller with Single-node OpenShift!).
+
+If you're running production workloads in a datacentre, serving multiple teams, dealing with security and compliance requirements, or running anything that generates significant I/O, a dedicated control plane will save you from subtle, hard-to-diagnose failures down the road.
+
+Or, to put it in terms The Bard might appreciate: *"The answer, dear Brutus, lies not in the stars, but in your risk tolerance."*
