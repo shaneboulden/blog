@@ -7,8 +7,18 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Mon, 29 Jun 2026 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Tue, 28 Jul 2026 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
+
+  <item>
+    <guid>https://stb.id.au/blog/stackrox-mcp</guid>
+    <title>Up and running with the StackRox MCP server</title>
+    <link>https://stb.id.au/blog/stackrox-mcp</link>
+    <description>The StackRox MCP server brings AI assistants into a Kubernetes security architecture. In this article I look at what an MCP server is, why it matters in the context of AI harness engineering, and how to get started.</description>
+    <pubDate>Tue, 28 Jul 2026 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>stackrox</category><category>mcp</category><category>ai</category><category>agentic</category><category>rhacs</category><category>kubernetes</category><category>security</category>
+  </item>
 
   <item>
     <guid>https://stb.id.au/blog/openshift-consolidate-control-plane</guid>
