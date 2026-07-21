@@ -127,7 +127,7 @@ Now let's simply run the server:
 
 Great! The MCP server is running. Let's check it's working correctly before integrating with Claude.
 
-The MCP server uses Server Sent Events (SSE), so you will need to maintain a session across commands (Claude will do this for you):
+The MCP server uses Server-sent Events (SSE), so you will need to maintain a session across commands:
 
 ```json
 SESSION=$(curl -si --max-time 2 http://localhost:8080/mcp \
