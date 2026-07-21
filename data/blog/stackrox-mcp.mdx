@@ -1,0 +1,328 @@
+---
+title: Up and running with the StackRox MCP server
+date: '2026-07-21'
+tags: ['stackrox', 'mcp', 'ai', 'agentic', 'rhacs', 'kubernetes', 'security']
+images: ['/static/images/linkedin-banners/stackrox-mcp.png']
+draft: false
+summary: "The StackRox MCP server brings AI assistants into a Kubernetes security architecture. In this article I look at what an MCP server is, why it matters in the context of AI harness engineering, and how to get started."
+---
+One of the questions I get asked frequently is - "How do I actually integrate AI into my security workflows?" Not in the abstract, 'hand-wavy' sense, but *practically* - how do you connect an AI assistant to the tools and platforms you're already using?
+
+This is the problem that the [StackRox MCP server](https://github.com/stackrox/stackrox-mcp) solves. It's a Model Context Protocol (MCP) server that connects AI assistants directly to [StackRox](https://github.com/stackrox/stackrox), the upstream project for Red Hat Advanced Cluster Security for Kubernetes (RHACS). Instead of copy-pasting CVE lists or manually querying the RHACS API, you can ask an AI assistant to do it for you - in natural language.
+
+I think AI model harnesses are worth a closer look before we dive into the internals of the StackRox MCP server.
+
+## AI model harnesses
+
+The Australian Signals Directorate (ASD) recently published a great article on [frontier AI models and their impact on cyber security](https://www.cyber.gov.au/about-us/view-all-content/news/frontier-ai-models-and-their-impact-on-cyber-security-an-update-on-ai-model-harnesses). One of the key concepts introduced is the idea of an **AI model harness** - the orchestration layer built around one or more AI models that includes planning, tool use, output verification, and multi-agent coordination.
+
+ASD uses the term "harness" rather than "agent framework" deliberately. It emphasises that it's the *engineered system*, not the model alone, that delivers capability. I think this is an important distinction.
+
+The really interesting finding from ASD's research is this: **a well-engineered harness can be as important a determinant of capability as the underlying AI model itself.** A capable harness orchestrating mid-tier AI models can achieve results comparable to those of top-tier frontier models. You don't need the biggest, most expensive model to get meaningful outcomes - you need good engineering around whatever model you're using.
+
+The ASD article also highlights several examples of AI harnesses applied to cyber security:
+
+- **Microsoft's MDASH**: A multi-model harness orchestrating over 100 specialised AI agents. Microsoft credits MDASH with helping identify vulnerabilities across Windows networking and authentication components, contributing to their June 2026 Patch Tuesday release of 206 vulnerability patches - their largest on record.
+- **Anthropic's Defending Code Reference Harness**: An open-source reference implementation for autonomous vulnerability discovery and remediation.
+- **OpenHack**: An MIT-licensed open-source project from security firm Hadrian that packages automated vulnerability research workflows.
+
+What all of these have in common is that they connect AI models to *tools*. The model reasons about the problem, while the harness gives it the ability to take action - querying APIs, running scans, analysing results, and feeding those results back into the next step.
+
+This is where the Model Context Protocol (MCP) comes in.
+
+## What is an MCP server?
+
+MCP is an open protocol that standardises how AI assistants connect to external tools and data sources. Think of it as a universal adapter between AI models and the systems they need to interact with.
+
+An MCP server exposes a set of tools that an AI assistant can discover and use. Each tool has a name, a description, and a schema that defines its inputs and outputs. The AI assistant reads these descriptions, figures out which tool to use for a given task, and calls it with the right parameters.
+
+This is exactly the "tool use" component that ASD describes in the AI harness model. An MCP server provides the structured, standardised interface that allows an AI model to move beyond just generating text and into actually querying systems, retrieving data, and taking action.
+
+The beauty of the MCP approach is that it's model-agnostic. The same MCP server works whether you're using Claude, GPT, or any other model that supports the protocol. The harness engineering - the tools, the data access, the domain knowledge - lives in the server, not in the model.
+
+## The StackRox MCP server
+
+The [StackRox MCP server](https://github.com/stackrox/stackrox-mcp) connects AI assistants to StackRox Central, giving them the ability to query your Kubernetes security posture in natural language. It's currently in Developer Preview, and supports two main toolsets:
+
+- **Vulnerability management**: Query for CVEs, GitHub Security Advisories (GHSAs), and Red Hat Security Advisories (RHSAs) across clusters, namespaces, deployments, and nodes.
+- **Configuration management**: Query and manage StackRox Central configuration.
+
+The server supports two transport modes - streamable HTTP (for running as a service) and stdio (for direct CLI integration). It can be deployed as a local binary, a container image, or via a Helm chart into Kubernetes or OpenShift.
+
+By default, the server runs in read-only mode, which is a sensible starting point. You can query your security posture without worrying about accidentally modifying anything.
+
+## Getting started
+
+Let's take a closer look at the StackRox MCP server, and integrate it with my Red Hat Advanced Cluster Security for Kubernetes (RHACS) and OpenShift deployment.
+
+I've deployed RHACS using the [OpenShift Platform Plus policy set](https://github.com/open-cluster-management-io/policy-collection/tree/main/policygenerator/policy-sets/stable/openshift-plus) for Red Hat Advanced Cluster Management for Kubernetes (RHACM). If you want to see how to do this, take a look at my article [Who Watches the Watchers](/blog/who-watches-the-watchers)
+
+I'm using Red Hat Advanced Cluster Security for Kubernetes (RHACS) 4.11 in my environment, deployed and managed via the RHACM policies:
+
+<Zoom>
+![rhacs-1](/static/images/stackrox-mcp/rhacs-1.png)
+</Zoom>
+
+<Zoom>
+![rhacs-2](/static/images/stackrox-mcp/rhacs-2.png)
+</Zoom>
+
+<Zoom>
+![rhacs-2](/static/images/stackrox-mcp/rhacs-3.png)
+</Zoom>
+
+Let's first clone the MCP server code:
+```
+git clone https://github.com/stackrox/stackrox-mcp.git
+```
+The build process expects golang to be installed, which I have on my fedora machine:
+```
+$ rpm -qa | grep golang
+golang-src-1.25.11-2.fc43.noarch
+golang-1.25.11-2.fc43.x86_64
+golang-bin-1.25.11-2.fc43.x86_64
+```
+Once you've installed `make` you can build the MCP server:
+```
+$ make build
+go build -ldflags " -X 'github.com/stackrox/stackrox-mcp/internal/config.version=v0.1.0-66-g48edc39' -X 'github.com/stackrox/stackrox-mcp/internal/config.serverName=stackrox-mcp' -X 'github.com/stackrox/stackrox-mcp/internal/config.productDisplayName=StackRox'" -o stackrox-mcp ./cmd/stackrox-mcp
+go: downloading github.com/spf13/viper v1.21.0
+go: downloading github.com/pkg/errors v0.9.1
+go: downloading github.com/modelcontextprotocol/go-sdk v1.6.1
+```
+Assuming your build completed successfully you have a working StackRox MCP server now created.
+```
+$ file ./stackrox-mcp
+./stackrox-mcp: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=8c48b36ebd4beaa9e949d300f17f727996d0359c, with debug_info, not stripped
+```
+Great - let's try it out!
+
+I've copied the example config to a new file:
+```
+cp examples/config-read-only.yaml config-rhacs.yaml
+```
+There's a few changes I want to make:
+```yaml
+central:
+  url: < add-your-acs-url >:443
+  auth_type: static
+  api_token: < add-your-api-token >
+  insecure_skip_tls_verify: true
+
+tools:
+  vulnerability:
+    enabled: true
+  config_manager:
+    enabled: true
+```
+Now let's simply run the server:
+```json
+./stackrox-mcp --config config-rhacs.yaml
+{"time":"2026-07-21T09:24:50.815072138+09:30","level":"INFO","msg":"Configuration loaded successfully","config":{"Central":{"URL":"central-stackrox.apps.cluster1.example.com:443","AuthType":"static","APIToken":"***REDACTED***","InsecureSkipTLSVerify":true,"ForceHTTP1":false,"CACertPath":"","RequestTimeout":30000000000,"MaxRetries":3,"InitialBackoff":1000000000,"MaxBackoff":10000000000},"Global":{"ReadOnlyTools":true},"Server":{"Type":"streamable-http","Address":"0.0.0.0","Port":8080,"TLSEnabled":false,"TLSCertPath":"/certs/tls.crt","TLSKeyPath":"/certs/tls.key"},"Tools":{"Vulnerability":{"Enabled":true},"ConfigManager":{"Enabled":true},"Violations":{"Enabled":true}}}}
+{"time":"2026-07-21T09:24:50.816254851+09:30","level":"INFO","msg":"Starting StackRox MCP server"}
+{"time":"2026-07-21T09:24:50.816299316+09:30","level":"INFO","msg":"Registering MCP tools"}
+```
+
+## Testing out the StackRox MCP server
+
+Great! The MCP server is running. Let's check it's working correctly before integrating with Claude.
+
+The MCP server uses Server Sent Events (SSE), so you will need to maintain a session across commands (Claude will do this for you):
+
+```json
+SESSION=$(curl -si --max-time 2 http://localhost:8080/mcp \
+    -H "Content-Type: application/json" \
+    -d '{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-03-26","clientInfo":{"name":"curl","version":"1.0"},"capabilities":{}}}' \
+    2>/dev/null | grep -i 'mcp-session-id' | tr -d '\r' | awk '{print $2}')
+```
+
+This command will list the available tools:
+```json
+curl -s http://localhost:8080/mcp \
+    -H "Content-Type: application/json" \
+    -H "Mcp-Session-Id: $SESSION" \
+    -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+
+event: message
+data: {"jsonrpc":"2.0","id":1,"result":{"tools":[{"description":"Get list of clusters secured by StackRox where a specified vulnerability is detected in Kubernetes orchestrator components (kube-apiserver, kubelet, etcd, etc.). Supports CVE, RHSA, RHEA, RHBA identifiers. USAGE PATTERNS: 1) When user asks 'Is CVE-X detected in my clusters?' (plural, general question): Call ALL THREE CVE tools (get_clusters_with_orchestrator_cve, get_deployments_for_cve, get_nodes_for_cve) for comprehensive coverage. 2) When user asks specifically about 'orchestrator', 'Kubernetes components', or 'control plane': Use ONLY this tool.","inputSchema":{"type":"object","properties":...
+```
+
+Ok, we have a number of tools available. Let's try calling the tool `get_deployments_for_cve`:
+
+```json
+curl -s --max-time 5 http://localhost:8080/mcp \
+    -H "Content-Type: application/json" \
+    -H "Mcp-Session-Id: $SESSION" \
+    -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_deployments_for_cve","arguments":{"cveName":"CVE-2021-46848"}}}'
+
+event: message
+data: {"jsonrpc":"2.0","id":2,"result":{"content":[{"type":"text","text":"{\"deployments\":[{\"clusterId\":\"8d9da6b6-c2f3-4614-b91c-eb0f4f0e7e14\",\"clusterName\":\"local-cluster\",\"name\":\"leaderboard\",\"namespace\":\"tailspin\"},{\"clusterId\":\"8d9da6b6-c2f3-4614-b91c-eb0f4f0e7e14\",\"clusterName\":\"local-cluster\",\"name\":\"web\",\"namespace\":\"tailspin\"}],\"nextCursor\":\"\"}"}],"structuredContent":{"deployments":[{"clusterId":"8d9da6b6-c2f3-4614-b91c-eb0f4f0e7e14","clusterName":"local-cluster","name":"leaderboard","namespace":"tailspin"},{"clusterId":"8d9da6b6-c2f3-4614-b91c-eb0f4f0e7e14","clusterName":"local-cluster","name":"web","namespace":"tailspin"}],"nextCursor":""}}}
+```
+We can see in the output that there are two deployments - `web` and `leaderboard` - in the `tailspin` namespace, within the cluster `local-cluster`, that are vulnerable to this CVE.
+
+Looks like the MCP server is responding correctly to tool calls. Let's move on to Claude integration.
+
+## Claude integration
+Integrating the StackRox MCP server with Claude is straight-forward. I'm going to use `claude mcp` to add the MCP server (note that for testing I am simply using static authentication again):
+```json
+claude mcp add --transport http stackrox-mcp http://localhost:8080/mcp \
+  --header "Authorization: Bearer <YOUR_STACKROX_API_TOKEN>"
+
+Added HTTP MCP server stackrox-mcp with URL: http://localhost:8080/mcp to local config
+Headers: {
+  "Authorization": "[REDACTED]"
+}
+```
+Now I can check that the MCP server is available:
+```
+$ claude mcp list
+stackrox-mcp: http://localhost:8080/mcp (HTTP) - ✔ Connected
+```
+And finally, try out a query:
+```
+$ claude
+ ▐▛███▜▌   Claude Code v2.1.216
+▝▜█████▛▘  Opus 4.6 with medium effort · Google Vertex AI
+  ▘▘ ▝▝    ~/Code/stackrox-mcp
+
+
+❯ Show me the RHACS-protected deployments vulnerable to CVE-2021-46848
+
+  Called stackrox-mcp (ctrl+o to expand)
+
+● Two deployments in your RHACS-protected clusters are affected by CVE-2021-46848:
+
+  ┌─────────────┬───────────┬───────────────┐
+  │ Deployment  │ Namespace │    Cluster    │
+  ├─────────────┼───────────┼───────────────┤
+  │ leaderboard │ tailspin  │ local-cluster │
+  ├─────────────┼───────────┼───────────────┤
+  │ web         │ tailspin  │ local-cluster │
+  └─────────────┴───────────┴───────────────┘
+
+  Both are in the tailspin namespace on local-cluster. CVE-2021-46848 is a vulnerability in GNU Libtasn1 (versions before 4.19.0) that can cause an
+  out-of-bounds read via crafted ASN.1 data, potentially leading to a denial of service. You'd want to update the base images in those deployments to pick up a
+  patched version of libtasn1.
+```
+
+## Violations and alerts
+
+One of the capabilities I've been working on is support for querying policy violations (alerts) from StackRox. I recently submitted a [pull request](https://github.com/stackrox/stackrox-mcp/pull/153) that adds a `list_violations` tool to the MCP server, allowing AI assistants to retrieve policy violation alerts with filtering by cluster, namespace, policy, severity, and state.
+
+This means you can ask an AI assistant questions like "show me all critical severity violations in the production namespace" or "what policy violations have been triggered in the last 24 hours", and it will query StackRox directly and return the results.
+
+<Zoom>
+![mcp-1](/static/images/stackrox-mcp/mcp-1.png)
+</Zoom>
+
+### Trying out the new alerts support
+As at the time of writing the PR I created is currently in-review, but here's a look at how it can be used.
+
+Firstly, grab my PR and map it to a local branch:
+```
+$ gh pr checkout 153 --repo stackrox/stackrox-mcp --branch your-local-branch-name
+```
+Rebuild your binary:
+```
+$ make build
+```
+Update your configuration to enable the new `violations` tool:
+```yaml
+# Configuration of MCP tools
+# Each tool has an enable/disable flag. At least one tool has to be enabled.
+tools:
+  # Vulnerability management tools
+  vulnerability:
+    # Enable vulnerability management tools (optional, default: false)
+    enabled: true
+
+  # Configuration management tools
+  config_manager:
+    # Enable configuration management tools (optional, default: false)
+    enabled: true
+
+  # Violations management tools
+  violations:
+    enabled: true
+```
+And finally test out the new `violations` tool using Claude:
+```
+$ claude
+ ▐▛███▜▌   Claude Code v2.1.216
+▝▜█████▛▘  Opus 4.6 with medium effort · Google Vertex AI
+  ▘▘ ▝▝    ~/Code/stackrox-mcp
+
+
+❯ Show me the latest violations for workloads in the tailspin namespace in my RHACS-secured clusters
+
+  Thought for 4s, called stackrox-mcp (ctrl+o to expand)
+
+● Here are the active violations in the tailspin namespace on local-cluster. There are 16 violations across two deployments:
+
+  leaderboard deployment (9 violations)
+
+  ┌──────────┬─────────────────────────────────────────────────┬─────────────────────────────────────────────────────────────────┐
+  │ Severity │                     Policy                      │                           Description                           │
+  ├──────────┼─────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ HIGH     │ Fixable Severity at least Important             │ Fixable vulnerabilities with severity rating at least Important │
+  ├──────────┼─────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ MEDIUM   │ Container with privilege escalation allowed     │ allowPrivilegeEscalation is set to true                         │
+  ├──────────┼─────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ MEDIUM   │ Pod Service Account Token Automatically Mounted │ Default SA token mounted unnecessarily                          │
+  ├──────────┼─────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ MEDIUM   │ No CPU request or memory limit specified        │ Missing resource constraints                                    │
+  ├──────────┼─────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ LOW      │ Docker CIS 4.1 — Non-root user                  │ Container not configured to run as non-root                     │
+  ├──────────┼─────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ LOW      │ 90-Day Image Age                                │ Image hasn't been updated in 90+ days                           │
+  ├──────────┼─────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ LOW      │ Latest tag                                      │ Image using the latest tag                                      │
+  ├──────────┼─────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ LOW      │ Red Hat Package Manager in Image                │ RPM tooling present in image                                    │
+  ├──────────┼─────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ LOW      │ Ubuntu Package Manager in Image                 │ dpkg/apt tooling present in image                               │
+  └──────────┴─────────────────────────────────────────────────┴─────────────────────────────────────────────────────────────────┘
+
+  web deployment (7 violations)
+
+  ┌──────────┬─────────────────────────────────────────────────┬─────────────────────────────────────────────────────────────────┐
+  │ Severity │                     Policy                      │                           Description                           │
+  ├──────────┼─────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ HIGH     │ Fixable Severity at least Important             │ Fixable vulnerabilities with severity rating at least Important │
+  ├──────────┼─────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ MEDIUM   │ Container with privilege escalation allowed     │ allowPrivilegeEscalation is set to true                         │
+  ├──────────┼─────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ MEDIUM   │ Pod Service Account Token Automatically Mounted │ Default SA token mounted unnecessarily                          │
+  ├──────────┼─────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ MEDIUM   │ No CPU request or memory limit specified        │ Missing resource constraints                                    │
+  ├──────────┼─────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ LOW      │ Docker CIS 4.1 — Non-root user                  │ Container not configured to run as non-root                     │
+  ├──────────┼─────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ LOW      │ 90-Day Image Age                                │ Image hasn't been updated in 90+ days                           │
+  ├──────────┼─────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ LOW      │ Ubuntu Package Manager in Image                 │ dpkg/apt tooling present in image                               │
+  └──────────┴─────────────────────────────────────────────────┴─────────────────────────────────────────────────────────────────┘
+
+  The most pressing issues are the HIGH severity fixable vulnerabilities on both deployments. Both deployments also share common hardening gaps — privilege
+  escalation allowed, no resource limits, and auto-mounted service account tokens.
+```
+Great! We've seen how the MCP server can be extended, and the new ability to pull relevant `violations` data out of Red Hat Advanced Cluster Security for Kubernetes (RHACS) / StackRox.
+
+### Why this matters
+
+Coming back to the ASD harness model - the StackRox MCP server is exactly the kind of tooling that makes AI harnesses practical for Kubernetes security. It provides the structured interface that allows an AI assistant to:
+
+1. **Discover** what security tools are available (MCP tool discovery)
+2. **Query** the current security posture (vulnerability and violation data)
+3. **Reason** about the results (the AI model's job)
+4. **Act** on the findings (with appropriate safeguards like read-only mode)
+
+This is the loop that ASD describes. The model provides the reasoning; the harness provides the tools and the guardrails. And MCP provides the standard interface that connects the two.
+
+## Wrapping up
+
+The StackRox MCP server is a great example of what ASD calls 'AI harness engineering' applied to Kubernetes security. It takes the security data that StackRox already collects - vulnerabilities, policy violations, cluster configurations - and makes it accessible to AI assistants through a standardised protocol.
+
+The key insight from ASD's research is worth repeating: you don't need the most powerful AI model to get meaningful security outcomes. You need good engineering around the model - the tools, the data access, the guardrails. The StackRox MCP server provides exactly that for Kubernetes security.
+
+If you're interested in contributing, the project is open source and available on [GitHub](https://github.com/stackrox/stackrox-mcp). And if you want to see the violations support in action, keep an eye on [PR #153](https://github.com/stackrox/stackrox-mcp/pull/153).
