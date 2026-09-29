@@ -7,15 +7,25 @@
       <language>en-us</language>
       <managingEditor>dev@stb.id.au (Shane Boulden)</managingEditor>
       <webMaster>dev@stb.id.au (Shane Boulden)</webMaster>
-      <lastBuildDate>Tue, 28 Jul 2026 00:00:00 GMT</lastBuildDate>
+      <lastBuildDate>Tue, 29 Sep 2026 00:00:00 GMT</lastBuildDate>
       <atom:link href="https://stb.id.au/feed.xml" rel="self" type="application/rss+xml"/>
+      
+  <item>
+    <guid>https://stb.id.au/blog/whose-cve-is-it-anyway</guid>
+    <title>Whose CVE is it anyway?</title>
+    <link>https://stb.id.au/blog/whose-cve-is-it-anyway</link>
+    <description>Exploring separation of duties across the application lifecycle. Whose responsibility is it to manage CVEs in base images, vs the application? And how do you provide tools to manage this security boundary?</description>
+    <pubDate>Tue, 29 Sep 2026 00:00:00 GMT</pubDate>
+    <author>dev@stb.id.au (Shane Boulden)</author>
+    <category>openshift</category><category>kubernetes</category><category>rhacs</category><category>security</category><category>base</category><category>application</category><category>vulnerability</category>
+  </item>
 
   <item>
     <guid>https://stb.id.au/blog/stackrox-mcp</guid>
     <title>Up and running with the StackRox MCP server</title>
     <link>https://stb.id.au/blog/stackrox-mcp</link>
     <description>The StackRox MCP server brings AI assistants into a Kubernetes security architecture. In this article I look at what an MCP server is, why it matters in the context of AI harness engineering, and how to get started.</description>
-    <pubDate>Tue, 28 Jul 2026 00:00:00 GMT</pubDate>
+    <pubDate>Tue, 21 Jul 2026 00:00:00 GMT</pubDate>
     <author>dev@stb.id.au (Shane Boulden)</author>
     <category>stackrox</category><category>mcp</category><category>ai</category><category>agentic</category><category>rhacs</category><category>kubernetes</category><category>security</category>
   </item>
